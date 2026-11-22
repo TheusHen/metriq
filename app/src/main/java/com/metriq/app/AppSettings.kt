@@ -19,6 +19,7 @@ object AppSettings {
     const val AI_STORAGE_BUDGET_MB = "ai_storage_budget_mb"
     const val AI_MODEL_ID = "ai_model_id"
     const val AI_MODEL_URL = "ai_model_url"
+    const val ONBOARDING_COMPLETE = "onboarding_complete"
 
     val defaults = mapOf(
         UNIT_SYSTEM to "kg",
@@ -35,6 +36,7 @@ object AppSettings {
         AI_STORAGE_BUDGET_MB to "0",
         AI_MODEL_ID to "",
         AI_MODEL_URL to "",
+        ONBOARDING_COMPLETE to "false",
     )
 
     fun get(key: String): String = AppGraph.store.settings.get(key) ?: defaults[key].orEmpty()

@@ -82,7 +82,11 @@ jobs:
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity || true
-            sleep 12
+            sleep 6
+            adb exec-out screencap -p > screen-onboarding.png
+            adb shell am force-stop com.metriq.app || true
+            adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
+            sleep 8
             adb exec-out screencap -p > screen-home.png
             adb shell am start -a com.metriq.LOG -n com.metriq.app/.MainActivity || true
             sleep 4

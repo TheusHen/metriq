@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,7 +54,11 @@ import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.label
 import com.metriq.data.FoodHit
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 /** Single canonical category key per food, consumed by FoodRow's monochrome glyph. */
 private fun foodCategoryKey(name: String, category: String?): String {
@@ -88,8 +93,11 @@ fun FoodSearchScreen(
     onScan: () -> Unit,
     onScanLabel: () -> Unit,
     onPhoto: () -> Unit,
-    onAdd: (FoodHit, Double) -> Unit,
+    onAdd: (com.metriq.data.FoodHit, Double) -> Unit,
     onVoice: () -> Unit = {},
+    budgetConsumed: Int = 0,
+    budgetTarget: Int = 0,
+    mealLabel: String? = null,
 ) {
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(1) }
@@ -102,6 +110,24 @@ fun FoodSearchScreen(
     val favorites = remember { AppGraph.store.food.favorites(6) }
     val picks = remember(results) { results.take(3) }
     val selectedKcal = selected.sumOf { it.calories.toInt() }
+
+    // Meal scope is either supplied by the caller or the device's current time.
+    var now by remember { mutableStateOf(LocalTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            now = LocalTime.now()
+        }
+    }
+    val timeFormatter = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
+    val mealScope = mealLabel?.takeIf { it.isNotBlank() } ?: now.format(timeFormatter)
+
+    val consumedText = formatCount(budgetConsumed)
+    val budgetText = if (budgetTarget <= 0) {
+        "$consumedText / – kcal"
+    } else {
+        "$consumedText / ${formatCount(budgetTarget)} kcal"
+    }
 
     fun toggle(food: FoodHit) {
         val existing = selected.firstOrNull { it.id == food.id }
@@ -119,7 +145,7 @@ fun FoodSearchScreen(
             IconButton(onClick = onClose) {
                 Icon(Icons.Default.Close, contentDescription = "Close", tint = MetriqColors.ink2)
             }
-            Text("10 AM", style = MaterialTheme.typography.body, color = MetriqColors.ink2)
+            Text(mealScope, style = MaterialTheme.typography.body, color = MetriqColors.ink2)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = onPhoto) {
                 Icon(Icons.Default.PhotoCamera, contentDescription = "AI photo", tint = MetriqColors.ink2)
@@ -213,7 +239,7 @@ fun FoodSearchScreen(
             }
 
             if (picks.isNotEmpty()) {
-                SectionHeader(title = "Picks for 10 AM")
+                SectionHeader(title = "Picks for $mealScope")
                 Spacer(Modifier.height(8.dp))
                 ResultRows(picks, selected, ::toggle)
                 Spacer(Modifier.height(12.dp))
@@ -243,7 +269,7 @@ fun FoodSearchScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        // Bottom bar: only the selection total and the one primary action.
+        // Bottom bar: selection total, live budget readout, and the one primary action.
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(MetriqColors.border))
             Row(
@@ -262,6 +288,12 @@ fun FoodSearchScreen(
                     )
                     Text(
                         text = "${formatCount(selectedKcal)} kcal",
+                        style = MaterialTheme.typography.caption.copy(fontFeatureSettings = "tnum"),
+                        color = MetriqColors.ink3,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = budgetText,
                         style = MaterialTheme.typography.caption.copy(fontFeatureSettings = "tnum"),
                         color = MetriqColors.ink3,
                         maxLines = 1,

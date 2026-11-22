@@ -29,6 +29,8 @@ import com.metriq.app.log.FoodRecognitionManager
 import com.metriq.app.ui.aimodels.AiModelsScreen
 import com.metriq.app.ui.analytics.AnalyticsScreen
 import com.metriq.app.ui.analytics.AnalyticsViewModel
+import com.metriq.app.ui.onboarding.OnboardingScreen
+import com.metriq.app.ui.onboarding.OnboardingViewModel
 import com.metriq.app.ui.settings.DataSettingsScreen
 import com.metriq.app.ui.voice.VoiceLogScreen
 import com.metriq.app.ui.body.BodyScreen
@@ -90,6 +92,24 @@ class MainActivity : ComponentActivity() {
                 var screen by rememberSaveable {
                     mutableStateOf(screenFor(intent?.action) ?: Screen.DASHBOARD)
                 }
+                var onboardingDone by remember {
+                    mutableStateOf(
+                        intent?.getBooleanExtra("skip_onboarding", false) == true ||
+                            AppSettings.bool(AppSettings.ONBOARDING_COMPLETE),
+                    )
+                }
+
+                if (!onboardingDone) {
+                    val onboardingViewModel: OnboardingViewModel = viewModel()
+                    OnboardingScreen(
+                        viewModel = onboardingViewModel,
+                        onComplete = {
+                            onboardingDone = true
+                            screen = Screen.DASHBOARD
+                            viewModel.refresh()
+                        },
+                    )
+                } else {
                 val action by navAction.collectAsStateWithLifecycle()
                 LaunchedEffect(action) {
                     screenFor(action)?.let { screen = it }
@@ -148,6 +168,8 @@ class MainActivity : ComponentActivity() {
                             viewModel.addFood(food, grams)
                             screen = Screen.DASHBOARD
                         },
+                        budgetConsumed = state.kcalConsumed,
+                        budgetTarget = state.kcalTarget,
                     )
 
                     Screen.SCAN -> BarcodeScreen(
@@ -356,6 +378,7 @@ class MainActivity : ComponentActivity() {
                         onBack = { screen = Screen.SETTINGS },
                     )
                 }
+                } // end onboarding else
             }
         }
     }

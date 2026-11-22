@@ -60,24 +60,3 @@ internal fun fmt0(value: Double): String = String.format(Locale.ENGLISH, "%.0f",
 internal fun macroMeta(calories: Double, protein: Double, carbs: Double, fat: Double): String =
     "${String.format(Locale.ENGLISH, "%,d", calories.toInt())} kcal · " +
         "P ${fmt0(protein)} g · C ${fmt0(carbs)} g · F ${fmt0(fat)} g"
-
-internal fun foodEmoji(name: String, category: String?): String {
-    val text = "$name ${category.orEmpty()}".lowercase(Locale.ROOT)
-    return when {
-        "egg" in text -> "🥚"
-        "chicken" in text || "poultry" in text -> "🍗"
-        "beef" in text || "steak" in text -> "🥩"
-        "fish" in text || "salmon" in text || "tuna" in text -> "🐟"
-        "rice" in text || "grain" in text -> "🍚"
-        "bread" in text || "toast" in text -> "🍞"
-        "pasta" in text || "noodle" in text -> "🍝"
-        "banana" in text -> "🍌"
-        "apple" in text -> "🍎"
-        "milk" in text || "yogurt" in text || "cheese" in text -> "🥛"
-        "coffee" in text || "tea" in text -> "☕"
-        "oat" in text || "cereal" in text -> "🥣"
-        "salad" in text || "vegetable" in text -> "🥗"
-        "oil" in text || "nut" in text || "almond" in text -> "🥜"
-        else -> "🍽️"
-    }
-}
