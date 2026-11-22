@@ -20,11 +20,15 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept SDK licenses
-        run: yes | sdkmanager --licenses > /dev/null || true
+      - name: Prepare preinstalled Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMGR=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          echo "SDKMGR=$SDKMGR"
+          if [ -n "$SDKMGR" ]; then
+            yes | "$SDKMGR" --licenses > /dev/null || true
+            "$SDKMGR" "platforms;android-36" "build-tools;36.0.0" || true
+          fi
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
