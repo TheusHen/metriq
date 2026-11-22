@@ -1,17 +1,12 @@
 package com.metriq.app.ui.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,6 +40,7 @@ import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -84,7 +79,7 @@ import com.metriq.app.ui.theme.label
 import com.metriq.app.ui.theme.number40
 import java.util.Locale
 
-/** Standard panel with accent-free surface separation and generous inner padding. */
+/** One coherent block: a flat surface step, one small radius, no accent, no shadow. */
 @Composable
 fun Panel(
     modifier: Modifier = Modifier,
@@ -93,13 +88,14 @@ fun Panel(
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(MetriqColors.surface1)
             .padding(16.dp),
         content = content,
     )
 }
 
+/** Titles sit outside panels; the action is a quiet text action, never an accent link. */
 @Composable
 fun SectionHeader(
     title: String,
@@ -124,8 +120,8 @@ fun SectionHeader(
             Spacer(Modifier.width(12.dp))
             Text(
                 text = action,
-                style = MaterialTheme.typography.label,
-                color = MetriqColors.accent,
+                style = MaterialTheme.typography.body,
+                color = MetriqColors.ink2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clickable { onAction() },
@@ -134,7 +130,20 @@ fun SectionHeader(
     }
 }
 
-/** The signature energy-budget panel: total, progress and three macro rails. */
+/** Tabular figures for every value that lines up in a row or updates in place. */
+@Composable
+internal fun tabularNumbers() = MaterialTheme.typography.bodyStrong.copy(
+    fontFeatureSettings = "tnum",
+)
+
+@Composable
+internal fun tabularCaption() = MaterialTheme.typography.caption.copy(
+    fontFeatureSettings = "tnum",
+)
+
+internal fun formatCount(value: Int): String = String.format(Locale.ENGLISH, "%,d", value)
+
+/** The one block that carries the screen's answer: intake, budget fill and macro rails. */
 @Composable
 fun EnergyBudget(
     consumed: Int,
@@ -147,49 +156,56 @@ fun EnergyBudget(
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(MetriqColors.surface1)
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "ENERGY BUDGET",
-                style = MaterialTheme.typography.label,
-                color = MetriqColors.ink2,
+                text = "Daily target",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
-            if (target > 0 && consumed <= target) {
-                Box(
-                    Modifier
-                        .clip(CircleShape)
-                        .background(MetriqColors.surface2)
-                        .padding(horizontal = 9.dp, vertical = 4.dp),
-                ) {
-                    Text(
-                        text = "HOLDING",
-                        style = MaterialTheme.typography.caption,
-                        color = MetriqColors.accent,
-                        maxLines = 1,
-                    )
-                }
+            val over = target > 0 && consumed > target
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MetriqColors.surface2)
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = if (over) "Over target" else "Holding",
+                    style = MaterialTheme.typography.label,
+                    color = if (over) MetriqColors.danger else MetriqColors.ink2,
+                    maxLines = 1,
+                )
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = consumed.toString(),
-                style = MaterialTheme.typography.number40,
+                text = formatCount(consumed),
+                style = MaterialTheme.typography.number40.copy(fontFeatureSettings = "tnum"),
                 color = MetriqColors.ink,
                 maxLines = 1,
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "/ $target kcal",
-                style = MaterialTheme.typography.body,
+                text = "/ ${formatCount(target)}",
+                style = MaterialTheme.typography.body.copy(fontFeatureSettings = "tnum"),
                 color = MetriqColors.ink2,
                 maxLines = 1,
                 modifier = Modifier.padding(bottom = 5.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "kcal",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+                maxLines = 1,
+                modifier = Modifier.padding(bottom = 6.dp),
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -207,50 +223,58 @@ fun EnergyBudget(
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
-        MacroRow("PROTEIN", protein.first, protein.second, MetriqColors.protein)
         Spacer(Modifier.height(12.dp))
-        MacroRow("CARBS", carbs.first, carbs.second, MetriqColors.carbs)
-        Spacer(Modifier.height(12.dp))
-        MacroRow("FAT", fat.first, fat.second, MetriqColors.fat)
+        MacroRow("Protein", protein.first, protein.second)
+        HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
+        MacroRow("Carbs", carbs.first, carbs.second)
+        HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
+        MacroRow("Fat", fat.first, fat.second)
     }
 }
 
 @Composable
-private fun MacroRow(label: String, consumed: Int, target: Int, color: Color) {
-    Column(Modifier.fillMaxWidth()) {
+private fun MacroRow(label: String, consumed: Int, target: Int) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(color),
-            )
-            Spacer(Modifier.width(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.label,
+                style = MaterialTheme.typography.body,
                 color = MetriqColors.ink2,
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                text = "$consumed / $target g",
-                style = MaterialTheme.typography.caption,
-                color = MetriqColors.ink2,
-                maxLines = 1,
-            )
+            Row(
+                Modifier.width(112.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(text = formatCount(consumed), style = tabularNumbers(), color = MetriqColors.ink)
+                Text(
+                    text = " / ${formatCount(target)}",
+                    style = tabularCaption(),
+                    color = MetriqColors.ink3,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    text = "g",
+                    style = tabularCaption(),
+                    color = MetriqColors.ink3,
+                    maxLines = 1,
+                    modifier = Modifier.padding(bottom = 1.dp),
+                )
+            }
         }
         Spacer(Modifier.height(6.dp))
         val fraction = if (target <= 0) 0f else (consumed.toFloat() / target.toFloat()).coerceIn(0f, 1f)
-        Canvas(Modifier.widthIn(max = 150.dp).fillMaxWidth().height(5.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(3.dp)) {
             drawRoundRect(
                 color = MetriqColors.surface2,
                 cornerRadius = CornerRadius(size.height / 2),
             )
             if (fraction > 0f) {
                 drawRoundRect(
-                    color = color,
+                    color = MetriqColors.ink2,
                     size = Size(size.width * fraction, size.height),
                     cornerRadius = CornerRadius(size.height / 2),
                 )
@@ -259,7 +283,7 @@ private fun MacroRow(label: String, consumed: Int, target: Int, color: Color) {
     }
 }
 
-/** Seven-day rail; today is the filled accent circle, past logged days carry a dot. */
+/** Seven-day rail: a neutral raised slot marks today, a small dot marks days with data. */
 @Composable
 fun WeekStrip(
     week: List<WeekDay>,
@@ -284,25 +308,24 @@ fun WeekStrip(
                 Box(
                     Modifier
                         .size(34.dp)
-                        .clip(CircleShape)
-                        .background(if (day.isToday) MetriqColors.accent else MetriqColors.surface2),
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (day.isToday) MetriqColors.surface2 else Color.Transparent),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = day.dayOfMonth.toString(),
-                        style = MaterialTheme.typography.bodyStrong,
-                        color = if (day.isToday) MetriqColors.accentInk else MetriqColors.ink2,
+                        style = tabularNumbers(),
+                        color = if (day.isToday) MetriqColors.ink else MetriqColors.ink2,
                         maxLines = 1,
                     )
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(5.dp))
                 Box(
                     Modifier
                         .size(4.dp)
                         .clip(CircleShape)
                         .background(
                             when {
-                                day.isToday -> MetriqColors.accent
                                 day.logged -> MetriqColors.ink3
                                 else -> Color.Transparent
                             },
@@ -314,87 +337,42 @@ fun WeekStrip(
 }
 
 /**
- * Flat food-category icon: a tinted Material icon in a subtle 40.dp slot.
- * [category] is a keyword string (e.g. "fruit", "grain", "sushi"); unknown values
- * fall back to a neutral restaurant glyph.
+ * One monochrome glyph, no tinted slot. [category] is a keyword string such as
+ * "fruit" or "grain"; unknown values fall back to a neutral restaurant glyph.
  */
 @Composable
 fun FoodIcon(category: String?, modifier: Modifier = Modifier) {
     val key = category?.lowercase(Locale.ROOT).orEmpty()
-    val glyph: ImageVector
-    val tint: Color
-    when {
+    val glyph: ImageVector = when {
         key.contains("fruit") || key.contains("berry") || key.contains("berries") ||
             key.contains("apple") || key.contains("banana") || key.contains("grape") ||
-            key.contains("melon") -> {
-            glyph = Icons.Outlined.Spa
-            tint = MetriqColors.carbs
-        }
+            key.contains("melon") -> Icons.Outlined.Spa
         key.contains("vegetable") || key.contains("greens") || key.contains("salad") ||
-            key.contains("leaf") || key.contains("broccoli") || key.contains("carrot") -> {
-            glyph = Icons.Outlined.Eco
-            tint = MetriqColors.carbs
-        }
+            key.contains("leaf") || key.contains("broccoli") || key.contains("carrot") -> Icons.Outlined.Eco
         key.contains("meat") || key.contains("chicken") || key.contains("beef") ||
             key.contains("steak") || key.contains("fish") || key.contains("sushi") ||
-            key.contains("seafood") -> {
-            glyph = Icons.Outlined.SetMeal
-            tint = MetriqColors.protein
-        }
+            key.contains("seafood") -> Icons.Outlined.SetMeal
         key.contains("dairy") || key.contains("milk") || key.contains("cheese") ||
-            key.contains("yogurt") || key.contains("egg") -> {
-            glyph = Icons.Outlined.BreakfastDining
-            tint = MetriqColors.fat
-        }
+            key.contains("yogurt") || key.contains("egg") -> Icons.Outlined.BreakfastDining
         key.contains("grain") || key.contains("bread") || key.contains("rice") ||
-            key.contains("pasta") || key.contains("oat") || key.contains("cereal") -> {
-            glyph = Icons.Outlined.LunchDining
-            tint = MetriqColors.carbs
-        }
-        key.contains("pizza") -> {
-            glyph = Icons.Outlined.LocalPizza
-            tint = MetriqColors.energy
-        }
-        key.contains("snack") || key.contains("burger") || key.contains("fried") -> {
-            glyph = Icons.Outlined.Fastfood
-            tint = MetriqColors.energy
-        }
+            key.contains("pasta") || key.contains("oat") || key.contains("cereal") -> Icons.Outlined.LunchDining
+        key.contains("pizza") -> Icons.Outlined.LocalPizza
+        key.contains("snack") || key.contains("burger") || key.contains("fried") -> Icons.Outlined.Fastfood
         key.contains("sweet") || key.contains("cake") || key.contains("honey") ||
-            key.contains("chocolate") || key.contains("dessert") -> {
-            glyph = Icons.Outlined.Cake
-            tint = MetriqColors.carbs
-        }
+            key.contains("chocolate") || key.contains("dessert") -> Icons.Outlined.Cake
         key.contains("drink") || key.contains("water") || key.contains("juice") ||
-            key.contains("coffee") -> {
-            glyph = Icons.Outlined.LocalDrink
-            tint = MetriqColors.trend
-        }
-        else -> {
-            glyph = Icons.Outlined.Restaurant
-            tint = MetriqColors.accent
-        }
+            key.contains("coffee") -> Icons.Outlined.LocalDrink
+        else -> Icons.Outlined.Restaurant
     }
-    Box(
-        Modifier
-            .size(40.dp)
-            .then(modifier)
-            .clip(RoundedCornerShape(12.dp))
-            .background(tint.copy(alpha = 0.12f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = glyph,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(20.dp),
-        )
-    }
+    Icon(
+        imageVector = glyph,
+        contentDescription = null,
+        tint = MetriqColors.ink2,
+        modifier = Modifier.size(18.dp).then(modifier),
+    )
 }
 
-/**
- * Compact food/log row with an icon slot and a circular quick-add slot.
- * [icon] is interpreted as a food category key and rendered by [FoodIcon].
- */
+/** Two-line food row with a plain text add action, right-aligned tabular meta and hairline-ready padding. */
 @Composable
 fun FoodRow(
     name: String,
@@ -406,7 +384,8 @@ fun FoodRow(
     Row(
         modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FoodIcon(icon)
@@ -414,35 +393,29 @@ fun FoodRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = name,
-                style = MaterialTheme.typography.bodyStrong,
+                style = MaterialTheme.typography.body,
                 color = MetriqColors.ink,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = meta,
-                style = MaterialTheme.typography.caption,
-                color = MetriqColors.ink2,
+                style = tabularCaption(),
+                color = MetriqColors.ink3,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Box(
-            Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(MetriqColors.surface2)
-                .clickable { onClick() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "+",
-                style = MaterialTheme.typography.bodyStrong,
-                color = MetriqColors.accent,
-                maxLines = 1,
-            )
-        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = "+",
+            style = MaterialTheme.typography.bodyStrong,
+            color = MetriqColors.ink2,
+            maxLines = 1,
+            modifier = Modifier
+                .clickable { onClick() }
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        )
     }
 }
 
@@ -509,16 +482,23 @@ private fun NavTab(
     active: Boolean,
     onClick: () -> Unit,
 ) {
-    val tint = if (active) MetriqColors.accent else MetriqColors.ink3
+    val tint = if (active) MetriqColors.ink else MetriqColors.ink3
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.height(4.dp))
+        Box(
+            Modifier
+                .size(width = 20.dp, height = 2.dp)
+                .clip(RoundedCornerShape(1.dp))
+                .background(if (active) MetriqColors.accent else Color.Transparent),
+        )
+        Spacer(Modifier.height(5.dp))
+        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.height(3.dp))
         Text(text = label, style = MaterialTheme.typography.caption, color = tint, maxLines = 1)
     }
 }
@@ -530,21 +510,10 @@ fun MetriqButton(
     modifier: Modifier = Modifier,
     primary: Boolean = true,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 600f),
-        label = "buttonPress",
-    )
     Button(
         onClick = onClick,
-        modifier = modifier.graphicsLayer {
-            scaleX = pressScale
-            scaleY = pressScale
-        },
-        interactionSource = interactionSource,
-        shape = CircleShape,
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (primary) MetriqColors.accent else MetriqColors.surface2,
@@ -607,36 +576,27 @@ fun Segmented(
     Row(
         modifier
             .fillMaxWidth()
-            .clip(CircleShape)
-            .background(MetriqColors.surface2)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .clip(RoundedCornerShape(10.dp))
+            .background(MetriqColors.bg)
+            .border(1.dp, MetriqColors.border, RoundedCornerShape(10.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         options.forEachIndexed { index, option ->
             val selected = index == selectedIndex
-            val pillColor by animateColorAsState(
-                targetValue = if (selected) MetriqColors.accent else Color.Transparent,
-                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                label = "segmentBackground",
-            )
-            val labelColor by animateColorAsState(
-                targetValue = if (selected) MetriqColors.accentInk else MetriqColors.ink2,
-                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                label = "segmentLabel",
-            )
             Box(
                 Modifier
                     .weight(1f)
-                    .clip(CircleShape)
-                    .background(pillColor)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(if (selected) MetriqColors.surface2 else Color.Transparent)
                     .clickable { onSelect(index) }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 7.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = option,
                     style = MaterialTheme.typography.label,
-                    color = labelColor,
+                    color = if (selected) MetriqColors.ink else MetriqColors.ink2,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

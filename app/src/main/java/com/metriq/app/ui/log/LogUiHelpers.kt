@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -29,7 +30,8 @@ internal fun FramedColumn(content: @Composable ColumnScope.() -> Unit) {
                 .widthIn(max = 560.dp)
                 .background(MetriqColors.bg)
                 .statusBarsPadding()
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .imePadding(),
             content = content,
         )
     }
@@ -56,7 +58,8 @@ internal fun darkFieldColors() = OutlinedTextFieldDefaults.colors(
 internal fun fmt0(value: Double): String = String.format(Locale.ENGLISH, "%.0f", value)
 
 internal fun macroMeta(calories: Double, protein: Double, carbs: Double, fat: Double): String =
-    "${calories.toInt()} kcal · P ${fmt0(protein)}g · C ${fmt0(carbs)}g · F ${fmt0(fat)}g"
+    "${String.format(Locale.ENGLISH, "%,d", calories.toInt())} kcal · " +
+        "P ${fmt0(protein)} g · C ${fmt0(carbs)} g · F ${fmt0(fat)} g"
 
 internal fun foodEmoji(name: String, category: String?): String {
     val text = "$name ${category.orEmpty()}".lowercase(Locale.ROOT)

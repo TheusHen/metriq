@@ -109,6 +109,14 @@ class FoodRepositoryTest {
     }
 
     @Test
+    fun `bundled pack includes barcoded products for offline scanning`() {
+        val store = store()
+        val hit = store.food.byBarcode("5449000054227")
+        assertTrue(hit != null, "Expected a bundled product with barcode 5449000054227")
+        assertEquals("Coca-Cola Original Taste", hit!!.name)
+    }
+
+    @Test
     fun `barcode lookup works after inserting a branded food`() {
         val store = store()
         store.db.metriqQueries.insertFood(
