@@ -155,7 +155,7 @@ fun GoalEditorSheet(
             if (isMinor) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Menor de 18: déficit máximo de 10%",
+                    text = "Menor de 18: o app sugere até 10% de déficit, mas podes ajustar. Pede orientação a um responsável.",
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     maxLines = 1,

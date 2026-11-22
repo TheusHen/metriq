@@ -44,8 +44,6 @@ class OnboardingViewModel : ViewModel() {
         const val TOTAL_STEPS = 7
         const val LAST_STEP = TOTAL_STEPS - 1
         private const val MINOR_AGE = 18
-        private const val MIN_AGE = 14
-        private const val MAX_AGE = 100
     }
 
     private val _state = MutableStateFlow(initialState())
@@ -103,7 +101,7 @@ class OnboardingViewModel : ViewModel() {
 
     fun setSex(value: Sex) = update { it.copy(sex = value) }
 
-    fun setAge(value: Int) = update { it.copy(age = value.coerceIn(MIN_AGE, MAX_AGE)) }
+    fun setAge(value: Int) = update { it.copy(age = value) }
 
     fun setHeightCm(value: Double) = update { it.copy(heightCm = value) }
 

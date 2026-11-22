@@ -25,25 +25,23 @@ data class RecalculatedPlan(
 )
 
 /**
- * Manual-goal recalculation with the same safety rails as [OnboardingPlanner].
+ * Manual-goal recalculation using the same maths as [OnboardingPlanner].
  *
- * Adults never go below the greater of 1.10 x BMR and the energy needed for
- * the protein/fat floors; minors never cut more than 10% of TDEE and keep a
- * balanced macro split. The function is pure: no clock, I/O or Android APIs.
+ * The user's requested kcal is always applied as entered (only a non-negative
+ * guard is kept). Below-floor targets, aggressive deficits for minors and
+ * unreachable deadlines produce advisory warnings only — no number is changed.
+ * The function is pure: no clock, I/O or Android APIs.
  */
 object GoalEngine {
 
-    private const val MIN_AGE = 10
     private const val MINOR_AGE = 18
-    private const val MIN_WEIGHT_KG = 25.0
-    private const val MAX_WEIGHT_KG = 300.0
     private const val DEFAULT_WEIGHT_KG = 75.0
 
     private const val FAT_FLOOR_PER_KG = 0.5
     private const val ADULT_BMR_FACTOR = 1.10
     private const val MINOR_MAX_DEFICIT_SHARE = 0.10
-    private const val MAX_ADULT_RATE_KG_PER_WEEK = 0.5
-    private const val MAX_MINOR_RATE_KG_PER_WEEK = 0.25
+    private const val REFERENCE_ADULT_RATE_KG_PER_WEEK = 0.5
+    private const val REFERENCE_MINOR_RATE_KG_PER_WEEK = 0.25
     private const val DEFAULT_ACTIVITY_FACTOR = 1.55
 
     fun recalculate(
@@ -54,33 +52,69 @@ object GoalEngine {
     ): RecalculatedPlan {
         val suggestedKcal = safeKcal(suggested.dailyKcal)
         val requestedKcal = override.dailyKcal.coerceAtLeast(0)
-        val weightKg = safeDouble(profile.weightKg, DEFAULT_WEIGHT_KG).coerceIn(MIN_WEIGHT_KG, MAX_WEIGHT_KG)
-        val bodyFat = profile.bodyFatPercent
-            ?.let { if (it.isFinite()) it.coerceIn(0.0, 100.0) else null }
-        val fatMassKg = bodyFat?.let { weightKg * it / 100.0 }
-        val fatFreeMassKg = fatMassKg?.let { weightKg - it }
 
-        // Age is only trusted for the minor flag the caller already computed;
-        // clamp it here so a nonsensical profile cannot leak into the maths.
-        val age = profile.age.coerceAtLeast(MIN_AGE)
-        val effectiveMinor = isMinor || age < MINOR_AGE
+        val weightKg = if (profile.weightKg.isFinite() && profile.weightKg > 0.0) {
+            profile.weightKg
+        } else {
+            DEFAULT_WEIGHT_KG
+        }
+        val bodyFat = profile.bodyFatPercent?.let { if (it.isFinite() && it > 0.0) it else null }
+        val fatMassKg = bodyFat?.let { weightKg * it / 100.0 }
+        val composedFfm = fatMassKg?.let { weightKg - it }
+        val fatFreeMassKg = if (composedFfm != null && composedFfm > 0.0) composedFfm else null
+
+        // Only the caller-supplied minor flag (or a plainly underage profile age) drives
+        // advisories. Age itself is never clamped or used to override the requested goal.
+        val minor = isMinor || profile.age < MINOR_AGE
         val tdee = safeDouble(suggested.tdee, 0.0).let {
             if (it > 0.0) it else safeDouble(suggested.bmr, 0.0) * DEFAULT_ACTIVITY_FACTOR
         }
+        val bmr = safeDouble(suggested.bmr, 0.0)
 
-        val rateWarnings = rateWarnings(override, weightKg, effectiveMinor)
+        val proteinFloorG = MacroPlanner.proteinPerKgFatFreeMass(profile.goal, ProteinTier.MODERATE) *
+            (fatFreeMassKg ?: 0.75 * weightKg)
+        val fatFloorG = FAT_FLOOR_PER_KG * weightKg
+        val macroFloorKcal = proteinFloorG * 4.0 + fatFloorG * 9.0
+        val adultFloorKcal = maxOf(bmr * ADULT_BMR_FACTOR, macroFloorKcal)
+        val floorKcal = if (adultFloorKcal.isFinite()) ceil(adultFloorKcal).toInt().coerceAtLeast(0) else 0
+
         val warnings = ArrayList<String>(suggested.warnings)
+        warnings.addAll(rateWarnings(override, weightKg, minor))
+
+        if (override.dailyKcal < 0) {
+            warnings += "Meta negativa ignorada; ajustada para 0 kcal/dia."
+        }
+        if (!profile.weightKg.isFinite() || profile.weightKg <= 0.0) {
+            warnings += "Peso inválido; usando ${number(DEFAULT_WEIGHT_KG)} kg como valor neutro."
+        }
+        if (profile.bodyFatPercent != null && bodyFat == null) {
+            warnings += "Gordura corporal inválida; estimativa feita pelo peso corporal."
+        }
+        if (profile.bodyFatPercent != null && bodyFat != null && composedFfm != null && composedFfm <= 0.0) {
+            warnings += "Composição corporal inconsistente; estimativa feita pelo peso corporal."
+        }
+
+        if (minor) {
+            if (warnings.none { it.contains("profissional de saúde") }) {
+                warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
+            }
+            if (profile.diet == DietStyle.KETO) {
+                warnings += "Dietas cetogênicas não são indicadas para menores; acompanhe com um responsável/profissional."
+            }
+            if (requestedKcal < tdee * (1.0 - MINOR_MAX_DEFICIT_SHARE)) {
+                warnings += "Deficit acima de 10% do gasto: acompanhe com responsavel/profissional."
+            }
+        } else if (requestedKcal < floorKcal) {
+            warnings += "Meta abaixo do piso estimado de $floorKcal kcal/dia: " +
+                "o cálculo substitui orientação profissional? Consulte um profissional de saúde."
+        }
+
+        if (requestedKcal.toDouble() < macroFloorKcal) {
+            warnings += "Calorias insuficientes para proteína e gordura mínimas; carboidratos zerados."
+        }
+        override.reason?.takeIf { it.isNotBlank() }?.let { warnings += "Motivo informado: ${it.trim()}" }
 
         if (requestedKcal == suggestedKcal) {
-            warnings.addAll(rateWarnings)
-            if (effectiveMinor) {
-                if (warnings.none { it.contains("déficit limitado a 10%") }) {
-                    warnings += "Menor de 18 anos: déficit limitado a 10% do gasto diário."
-                }
-                if (warnings.none { it.contains("profissional de saúde") }) {
-                    warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
-                }
-            }
             return RecalculatedPlan(
                 plan = suggested,
                 suggestedKcal = suggestedKcal,
@@ -91,46 +125,15 @@ object GoalEngine {
             )
         }
 
-        val bmr = safeDouble(suggested.bmr, 0.0)
-        val proteinFloorG = MacroPlanner.proteinPerKgFatFreeMass(profile.goal, ProteinTier.MODERATE) *
-            (fatFreeMassKg ?: 0.75 * weightKg)
-        val fatFloorG = FAT_FLOOR_PER_KG * weightKg
-        val macroFloorKcal = proteinFloorG * 4.0 + fatFloorG * 9.0
-        val floor = if (effectiveMinor) {
-            tdee * (1.0 - MINOR_MAX_DEFICIT_SHARE)
-        } else {
-            maxOf(bmr * ADULT_BMR_FACTOR, macroFloorKcal)
-        }
-        val safeFloor = if (floor.isFinite()) ceil(floor).toInt().coerceAtLeast(0) else 0
-        val appliedKcal = maxOf(requestedKcal, safeFloor)
-        val didClamp = appliedKcal > requestedKcal
-
-        if (didClamp) {
-            warnings += "Meta abaixo do mínimo seguro: ajustada para ${number(appliedKcal)} kcal/dia " +
-                "(piso de ${number(safeFloor)} kcal)."
-        }
-        if (effectiveMinor) {
-            if (warnings.none { it.contains("déficit limitado a 10%") }) {
-                warnings += "Menor de 18 anos: déficit limitado a 10% do gasto diário."
-            }
-            if (warnings.none { it.contains("profissional de saúde") }) {
-                warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
-            }
-        }
-        warnings.addAll(rateWarnings)
-        if (appliedKcal.toDouble() < macroFloorKcal) {
-            warnings += "Calorias insuficientes para proteína e gordura mínimas; carboidratos zerados."
-        }
-        override.reason?.takeIf { it.isNotBlank() }?.let { warnings += "Motivo informado: ${it.trim()}" }
-
-        val diet = if (effectiveMinor) DietStyle.BALANCED else profile.diet
+        // The requested value is the applied value: no floor, no rate-driven adjustment.
+        val appliedKcal = requestedKcal
         val macros = MacroPlanner.plan(
             kcal = appliedKcal.toDouble(),
             bodyWeightKg = weightKg,
             fatFreeMassKg = fatFreeMassKg,
             goal = profile.goal,
             tier = ProteinTier.MODERATE,
-            diet = diet,
+            diet = profile.diet,
         )
 
         val explanation = buildString {
@@ -160,17 +163,22 @@ object GoalEngine {
             suggestedKcal = suggestedKcal,
             appliedKcal = appliedKcal,
             warnings = warnings,
-            didClamp = didClamp,
+            didClamp = false,
             summary = summary,
         )
     }
 
     private fun rateWarnings(override: GoalOverride, weightKg: Double, isMinor: Boolean): List<String> {
         val result = ArrayList<String>()
-        val target = override.targetWeightKg
-            ?.let { if (it.isFinite()) safeDouble(it, weightKg).coerceIn(MIN_WEIGHT_KG, MAX_WEIGHT_KG) else null }
+        val target = override.targetWeightKg?.let { if (it.isFinite() && it > 0.0) it else null }
         val weeks = override.weeks?.takeIf { it >= 1 }
 
+        if (override.targetWeightKg != null && target == null) {
+            result += "Peso-alvo inválido; ajuste de taxa ignorado."
+        }
+        if (override.weeks != null && weeks == null) {
+            result += "Prazo inválido; ajuste de taxa ignorado."
+        }
         if (target == null || weeks == null) {
             if (override.targetWeightKg != null || override.weeks != null) {
                 result += "Informe peso-alvo e prazo juntos; ajuste de taxa ignorado."
@@ -180,11 +188,14 @@ object GoalEngine {
 
         val deltaKg = abs(weightKg - target)
         val neededRate = deltaKg / weeks
-        val cap = if (isMinor) MAX_MINOR_RATE_KG_PER_WEEK else MAX_ADULT_RATE_KG_PER_WEEK
-        if (neededRate > cap) {
-            val extendedWeeks = ceil(deltaKg / cap).toInt().coerceAtLeast(1)
-            result += "Meta inalcançável no prazo informado: prazo estendido para " +
-                "$extendedWeeks semanas (limite de ${number(cap, 2)} kg/semana)."
+        val referenceRate = if (isMinor) {
+            REFERENCE_MINOR_RATE_KG_PER_WEEK
+        } else {
+            REFERENCE_ADULT_RATE_KG_PER_WEEK
+        }
+        if (neededRate > referenceRate) {
+            result += "Ritmo solicitado ${number(neededRate, 2)} kg/semana acima do referencial de " +
+                "${number(referenceRate, 2)} kg/semana; meta e prazo mantidos conforme informados."
         }
         return result
     }

@@ -3,7 +3,6 @@ package com.metriq.core
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.ceil
 
 data class OnboardingInput(
     val sex: Sex,
@@ -33,29 +32,30 @@ data class PlanResult(
 /**
  * Onboarding goal calculation. Adults go through the same equations used by the app
  * dashboard (Bmr.forProfile -> activity factor -> CaloriePlan.target -> MacroPlanner.plan).
- * Minors use a pediatric resting-energy equation and stricter safety guardrails.
+ * Minors use a pediatric resting-energy equation. Every user-entered value is used
+ * exactly as provided; unusual values only produce advisory warnings.
  */
 object OnboardingPlanner {
 
-    private const val MIN_AGE = 14
-    private const val MAX_AGE = 100
     private const val MINOR_AGE = 18
 
-    private const val MIN_HEIGHT_CM = 100.0
-    private const val MAX_HEIGHT_CM = 230.0
+    private const val AGE_VALIDATED_MIN = 10
+    private const val AGE_USUAL_MAX = 100
+
+    // Typical ranges are advisory only: values outside them are still used as entered.
+    private const val TYPICAL_HEIGHT_MIN_CM = 100.0
+    private const val TYPICAL_HEIGHT_MAX_CM = 230.0
     private const val DEFAULT_HEIGHT_CM = 175.0
 
-    private const val MIN_WEIGHT_KG = 25.0
-    private const val MAX_WEIGHT_KG = 300.0
+    private const val TYPICAL_WEIGHT_MIN_KG = 25.0
+    private const val TYPICAL_WEIGHT_MAX_KG = 300.0
     private const val DEFAULT_WEIGHT_KG = 75.0
 
-    private const val MIN_BODY_FAT = 3.0
-    private const val MAX_BODY_FAT = 60.0
-    private const val LOW_BODY_FAT_KETO_HINT = 12.0
+    private const val TYPICAL_BODY_FAT_MIN = 3.0
+    private const val TYPICAL_BODY_FAT_MAX = 60.0
 
-    private const val MAX_ADULT_RATE_KG_PER_WEEK = 0.5
-    private const val MAX_MINOR_RATE_KG_PER_WEEK = 0.25
-    private const val MINOR_MAX_DEFICIT_SHARE = 0.10
+    private const val REFERENCE_ADULT_RATE_KG_PER_WEEK = 0.5
+    private const val REFERENCE_MINOR_RATE_KG_PER_WEEK = 0.25
 
     private const val FAT_FLOOR_PER_KG = 0.5
 
@@ -63,11 +63,10 @@ object OnboardingPlanner {
      * Schofield (1985) weight-only resting-energy equations for ages 10-18, as published
      * in WHO Technical Report Series 724 and reproduced in the "Schofield equation" table:
      * https://en.wikipedia.org/wiki/Schofield_equation (kcal/day, 10-18 years).
-     * Metriq supports these equations from age 14 onward.
+     * The equation is applied below age 18; ages outside 10-18 only add a warning.
      *   boys  17.686 kcal/kg/day + 658.2
      *   girls 13.384 kcal/kg/day + 692.6
      * Original reference: Schofield WN (1985), Hum Nutr Clin Nutr 39(Suppl 1):5-41.
-     * Weight is clamped by [plan] before this is called.
      */
     private fun pediatricBmr(sex: Sex, weightKg: Double): Double {
         val bmr = when (sex) {
@@ -80,14 +79,30 @@ object OnboardingPlanner {
     fun plan(input: OnboardingInput): PlanResult {
         val warnings = ArrayList<String>()
 
-        // Guardrails: clamp everything, and fall back to sane defaults for non-finite doubles.
-        val age = input.age.coerceIn(MIN_AGE, MAX_AGE)
-        val heightCm = finiteOr(input.heightCm, DEFAULT_HEIGHT_CM).coerceIn(MIN_HEIGHT_CM, MAX_HEIGHT_CM)
-        val weightKg = finiteOr(input.weightKg, DEFAULT_WEIGHT_KG).coerceIn(MIN_WEIGHT_KG, MAX_WEIGHT_KG)
-        val bodyFatPercent = input.bodyFatPercent
-            ?.let { if (it.isFinite()) it.coerceIn(MIN_BODY_FAT, MAX_BODY_FAT) else null }
-        val targetWeightKg = input.targetWeightKg
-            ?.let { if (it.isFinite()) it.coerceIn(MIN_WEIGHT_KG, MAX_WEIGHT_KG) else null }
+        // Age is accepted exactly as entered; only advisory text changes.
+        val age = input.age
+        if (age < AGE_VALIDATED_MIN) {
+            warnings += "Idade abaixo da faixa validada das equações pediátricas; interprete o resultado com cautela."
+        } else if (age > AGE_USUAL_MAX) {
+            warnings += "Idade fora da faixa usual; confira os dados antes de usar o plano."
+        }
+
+        val heightCm = positiveOrFallback(
+            input.heightCm, DEFAULT_HEIGHT_CM, "Altura", warnings,
+            TYPICAL_HEIGHT_MIN_CM, TYPICAL_HEIGHT_MAX_CM,
+        )
+        val weightKg = positiveOrFallback(
+            input.weightKg, DEFAULT_WEIGHT_KG, "Peso", warnings,
+            TYPICAL_WEIGHT_MIN_KG, TYPICAL_WEIGHT_MAX_KG,
+        )
+        val bodyFatPercent = optionalPositive(
+            input.bodyFatPercent, "Gordura corporal", warnings,
+            TYPICAL_BODY_FAT_MIN, TYPICAL_BODY_FAT_MAX,
+        )
+        val targetWeightKg = optionalPositive(
+            input.targetWeightKg, "Peso-alvo", warnings,
+            TYPICAL_WEIGHT_MIN_KG, TYPICAL_WEIGHT_MAX_KG,
+        )
         val weeks = input.weeks?.takeIf { it >= 1 }
         if (input.weeks != null && weeks == null) {
             warnings += "Prazo inválido ignorado; informe ao menos 1 semana."
@@ -102,20 +117,28 @@ object OnboardingPlanner {
             bodyFatPercent = bodyFatPercent,
             activityLevel = input.activityLevel,
             goal = input.goal,
-            diet = if (isMinor) DietStyle.BALANCED else input.diet,
+            diet = input.diet,
             proteinTier = ProteinTier.MODERATE,
         )
 
-        val bmr = if (isMinor) pediatricBmr(input.sex, weightKg) else Bmr.forProfile(profile)
+        var bmr = if (isMinor) pediatricBmr(input.sex, weightKg) else Bmr.forProfile(profile)
+        if (!bmr.isFinite()) {
+            // A physically impossible body-fat percentage can yield a negative fat-free
+            // mass and a NaN composition equation; keep the maths finite without changing
+            // any user-entered value outside of that sanity path.
+            bmr = Bmr.fromBody(weightKg, heightCm, age, input.sex)
+            warnings += "Composição corporal inconsistente; gasto basal estimado sem o percentual de gordura."
+        }
+        if (!bmr.isFinite()) bmr = 0.0
+        bmr = bmr.coerceAtLeast(0.0)
         val tdee = bmr * input.activityLevel.factor
 
-        // CONSERVATIVE is the harshest aggressiveness a minor may ever see (10% cut).
-        // AGGRESSIVE (CaloriePlan's 0.70 multiplier) is never used for minors.
+        // CONSERVATIVE (a 10% cut) is only the DEFAULT suggestion for a minor's CUT goal.
+        // It is never used as a floor for a later explicit target.
         val aggressiveness = if (isMinor) Aggressiveness.CONSERVATIVE else Aggressiveness.MODERATE
         var dailyKcal = CaloriePlan.target(tdee, input.goal, aggressiveness).dailyKcal
+        val plannedWeeks = weeks
 
-        val rateCap = if (isMinor) MAX_MINOR_RATE_KG_PER_WEEK else MAX_ADULT_RATE_KG_PER_WEEK
-        var plannedWeeks = weeks
         if (targetWeightKg != null && weeks != null) {
             val toLoseKg = weightKg - targetWeightKg
             val goalMismatch = (input.goal == GoalType.CUT && toLoseKg <= 0.0) ||
@@ -124,17 +147,16 @@ object OnboardingPlanner {
                 warnings += "Peso-alvo incompatível com a meta; objetivo padrão mantido."
             } else {
                 val neededRate = abs(toLoseKg) / weeks
-                val effectiveWeeks = if (neededRate > rateCap) {
-                    ceil(abs(toLoseKg) / rateCap).toInt().coerceAtLeast(1)
+                val referenceRate = if (isMinor) {
+                    REFERENCE_MINOR_RATE_KG_PER_WEEK
                 } else {
-                    weeks
+                    REFERENCE_ADULT_RATE_KG_PER_WEEK
                 }
-                if (effectiveWeeks != weeks) {
-                    plannedWeeks = effectiveWeeks
-                    warnings += "Meta inalcançável no prazo informado: prazo estendido para " +
-                        "$effectiveWeeks semanas (limite de ${number(rateCap, 2)} kg/semana)."
+                if (neededRate > referenceRate) {
+                    warnings += "Ritmo solicitado ${number(neededRate, 2)} kg/semana acima do referencial de " +
+                        "${number(referenceRate, 2)} kg/semana; prazo e meta calculados exatamente como informados."
                 }
-                val weeklyRateKg = toLoseKg / effectiveWeeks
+                val weeklyRateKg = toLoseKg / weeks
                 dailyKcal = tdee - weeklyRateKg * Expenditure.KCAL_PER_KG / 7.0
             }
         } else if (targetWeightKg != null || input.weeks != null) {
@@ -142,28 +164,28 @@ object OnboardingPlanner {
         }
 
         if (isMinor) {
-            val floor = tdee * (1.0 - MINOR_MAX_DEFICIT_SHARE)
-            if (dailyKcal < floor) dailyKcal = floor
-            warnings += "Menor de 18 anos: déficit limitado a 10% do gasto diário."
+            warnings += "Menor de 18 anos: o app sugere deficit de ate 10%, mas voce pode ajustar. " +
+                "Acompanhe com um responsavel/profissional."
             warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
-            // Low body fat or a cutting intent is where a keto plan would otherwise be implied.
-            if (input.goal == GoalType.CUT || (bodyFatPercent != null && bodyFatPercent <= LOW_BODY_FAT_KETO_HINT)) {
-                warnings += "Dietas cetogênicas não são indicadas para menores; macros equilibrados foram forçados."
+            if (input.diet == DietStyle.KETO) {
+                warnings += "Dietas cetogênicas não são indicadas para menores; acompanhe com um responsável/profissional."
             }
         }
 
         if (!dailyKcal.isFinite()) dailyKcal = tdee
-        dailyKcal = dailyKcal.coerceAtLeast(0.0)
+        if (dailyKcal < 0.0) {
+            warnings += "A meta resultaria em calorias negativas; valor ajustado para 0 kcal/dia."
+            dailyKcal = 0.0
+        }
 
-        // Minors are always balanced; adults keep the diet selected in the wizard.
-        val diet = profile.diet
+        // The diet the user selected is honored, including for minors.
         val macros = MacroPlanner.plan(
             kcal = dailyKcal,
             bodyWeightKg = weightKg,
             fatFreeMassKg = profile.fatFreeMassKg,
             goal = input.goal,
             tier = ProteinTier.MODERATE,
-            diet = diet,
+            diet = input.diet,
         )
 
         val proteinFloorG = MacroPlanner.proteinPerKgFatFreeMass(input.goal, ProteinTier.MODERATE) *
@@ -185,7 +207,7 @@ object OnboardingPlanner {
         }
 
         return PlanResult(
-            bmr = bmr.coerceAtLeast(0.0),
+            bmr = bmr,
             tdee = tdee,
             dailyKcal = dailyKcal,
             proteinG = macros.proteinG.coerceAtLeast(0),
@@ -197,7 +219,49 @@ object OnboardingPlanner {
         )
     }
 
-    private fun finiteOr(value: Double, fallback: Double): Double = if (value.isFinite()) value else fallback
+    private fun positiveOrFallback(
+        value: Double,
+        fallback: Double,
+        field: String,
+        warnings: MutableList<String>,
+        typicalMin: Double? = null,
+        typicalMax: Double? = null,
+    ): Double {
+        if (!value.isFinite() || value <= 0.0) {
+            warnings += "$field inválido; usando ${number(fallback)} como valor neutro."
+            return fallback
+        }
+        warnIfOutsideTypical(value, field, warnings, typicalMin, typicalMax)
+        return value
+    }
+
+    private fun optionalPositive(
+        value: Double?,
+        field: String,
+        warnings: MutableList<String>,
+        typicalMin: Double? = null,
+        typicalMax: Double? = null,
+    ): Double? {
+        if (value == null) return null
+        if (!value.isFinite() || value <= 0.0) {
+            warnings += "$field inválido; ignorado."
+            return null
+        }
+        warnIfOutsideTypical(value, field, warnings, typicalMin, typicalMax)
+        return value
+    }
+
+    private fun warnIfOutsideTypical(
+        value: Double,
+        field: String,
+        warnings: MutableList<String>,
+        typicalMin: Double?,
+        typicalMax: Double?,
+    ) {
+        if ((typicalMin != null && value < typicalMin) || (typicalMax != null && value > typicalMax)) {
+            warnings += "$field fora da faixa usual; valor informado mantido."
+        }
+    }
 
     private fun number(value: Double, digits: Int = 1): String {
         val format = NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-BR"))
