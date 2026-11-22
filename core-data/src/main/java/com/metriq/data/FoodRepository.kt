@@ -32,10 +32,7 @@ class FoodRepository(
     fun count(): Long = db.metriqQueries.countFood().executeAsOne()
 
     fun seedIfNeeded(assetText: String) {
-        if (count() > 0L) {
-            rebuildIndex()
-            return
-        }
+        if (count() > 0L) return
         assetText.lineSequence()
             .map { it.split('\t') }
             .filter { it.size >= 11 && it[0].isNotBlank() }
@@ -64,7 +61,6 @@ class FoodRepository(
                     isCustom = 0L,
                 )
                 val id = lastInsertedId()
-                index(id, cols[0], cols[1], cols[2])
                 if (extended) {
                     val names = listOf(
                         "saturatedFat", "transFat", "cholesterol", "potassium", "calcium",
@@ -80,12 +76,8 @@ class FoodRepository(
                 }
             }
     }
-    fun rebuildIndex() {
-        driver.execute(null, "DELETE FROM foodFts", 0)
-        db.metriqQueries.selectAllFoodIds().executeAsList().forEach { food ->
-            index(food.id, food.name, food.brand ?: "", food.category ?: "")
-        }
-    }
+    /** Kept for source compatibility; search no longer depends on a separate index. */
+    fun rebuildIndex() = Unit
 
     fun insertCustomFood(
         name: String,
@@ -104,7 +96,6 @@ class FoodRepository(
             name, brand, calories, protein, fat, carbs, fiber, sugar, sodium, servingLabel, servingGrams,
         )
         val id = lastInsertedId()
-        index(id, name, brand ?: "", "custom")
         notifier?.notify(DataType.FOOD_LOG)
         return id
     }
@@ -116,23 +107,28 @@ class FoodRepository(
     fun recent(limit: Long = 30) = db.metriqQueries.recentFood(limit).executeAsList()
 
     /**
-     * FTS5 treats quotes, colons, dashes and words such as NEAR as operators. Keep only
-     * word characters and quote every token so any user input is a harmless phrase query.
+     * Device-compatible food search. Android's system SQLite does not always ship the FTS5
+     * extension (e.g. Samsung/One UI), so search uses plain LIKE over the food table instead.
+     * Only word characters are kept, which also makes malformed input harmless.
      */
-    private fun ftsMatch(rawQuery: String): String = Regex("\\w+")
-        .findAll(rawQuery)
-        .joinToString(" ") { "\"${it.value}\"*" }
-
     fun search(rawQuery: String, limit: Int = 40): List<FoodHit> {
-        val match = ftsMatch(rawQuery)
-        if (match.isEmpty()) return emptyList()
+        val terms = Regex("\\w+").findAll(rawQuery)
+            .map { it.value.lowercase() }
+            .distinct()
+            .take(6)
+            .toList()
+        if (terms.isEmpty()) return emptyList()
 
+        val where = terms.joinToString(" AND ") {
+            "(lower(f.name) LIKE ? OR lower(COALESCE(f.brand,'')) LIKE ? OR lower(COALESCE(f.category,'')) LIKE ?)"
+        }
+        val prefix = terms.first() + "%"
         val sql = """
             SELECT f.id, f.name, f.brand, f.category, f.iconId, f.calories,
                    f.protein, f.fat, f.carbs, f.servingLabel, f.servingGrams
-            FROM foodFts ft JOIN food f ON f.id = CAST(ft.foodId AS INTEGER)
-            WHERE foodFts MATCH ?
-            ORDER BY bm25(foodFts)
+            FROM food f
+            WHERE $where
+            ORDER BY (lower(f.name) LIKE ? OR lower(COALESCE(f.brand,'')) LIKE ?) DESC, f.name ASC
             LIMIT ?
         """.trimIndent()
 
@@ -145,15 +141,20 @@ class FoodRepository(
                     while (cursor.next().value) out.add(cursor.toFoodHit())
                     QueryResult.Value(out)
                 },
-                2,
+                terms.size * 3 + 3,
                 {
-                    bindString(0, match)
-                    bindLong(1, limit.toLong())
+                    var index = 0
+                    terms.forEach { term ->
+                        bindString(index++, "%$term%")
+                        bindString(index++, "%$term%")
+                        bindString(index++, "%$term%")
+                    }
+                    bindString(index++, prefix)
+                    bindString(index++, prefix)
+                    bindLong(index, limit.toLong())
                 },
             ).value
-        } catch (e: Exception) {
-            // FTS5 signals malformed MATCH expressions with a platform-specific
-            // SQLite exception (android.database on device, org.sqlite in JVM tests).
+        } catch (_: Exception) {
             // Search is best-effort: a bad query must never crash the screen.
             emptyList()
         }
@@ -180,20 +181,6 @@ class FoodRepository(
         if (cols[0].equals("name", ignoreCase = true)) return true
         val kcal = cols.getOrNull(if (cols.size >= 26) 4 else 3)?.trim().orEmpty()
         return kcal.isNotEmpty() && kcal.toDoubleOrNull() == null
-    }
-
-    private fun index(id: Long, name: String, brand: String, category: String) {
-        driver.execute(
-            null,
-            "INSERT INTO foodFts(name, brand, category, foodId) VALUES (?, ?, ?, ?)",
-            4,
-            {
-                bindString(0, name)
-                bindString(1, brand)
-                bindString(2, category)
-                bindString(3, id.toString())
-            },
-        )
     }
 
     private fun lastInsertedId(): Long = driver.executeQuery(

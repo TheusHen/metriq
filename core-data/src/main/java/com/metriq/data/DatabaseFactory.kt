@@ -22,7 +22,7 @@ class MetriqStore(
     val body = BodyRepository(db, notifier)
     val photo = PhotoRepository(
         db,
-        File(context?.filesDir ?: File(System.getProperty("java.io.tmpdir")), "progress_photos"),
+        File(context?.filesDir ?: File(System.getProperty("java.io.tmpdir") ?: "."), "progress_photos"),
         notifier,
     )
     val habit = HabitRepository(db, notifier)
@@ -36,8 +36,6 @@ class MetriqStore(
 
 object DatabaseFactory {
 
-    private const val FTS_SQL =
-        "CREATE VIRTUAL TABLE IF NOT EXISTS foodFts USING fts5(name, brand, category, foodId UNINDEXED)"
     private const val MICROS_SQL =
         "CREATE TABLE IF NOT EXISTS foodMicros(foodId INTEGER PRIMARY KEY REFERENCES food(id), json TEXT NOT NULL)"
 
@@ -53,7 +51,6 @@ object DatabaseFactory {
                 }
             },
         )
-        driver.execute(null, FTS_SQL, 0)
         driver.execute(null, MICROS_SQL, 0)
 
         val store = MetriqStore(MetriqDatabase(driver), driver, DataChangeNotifier(), context)

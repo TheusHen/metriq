@@ -11,12 +11,9 @@ class FoodRepositoryTest {
 
     private fun emptyStore(): MetriqStore {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        // Deliberately NO foodFts table: Android's system SQLite may lack FTS5.
+        // Search must work against the plain food table on every device.
         MetriqDatabase.Schema.create(driver)
-        driver.execute(
-            null,
-            "CREATE VIRTUAL TABLE foodFts USING fts5(name, brand, category, foodId UNINDEXED)",
-            0,
-        )
         return MetriqStore(MetriqDatabase(driver), driver, DataChangeNotifier())
     }
 

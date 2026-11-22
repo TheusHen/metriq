@@ -21,7 +21,6 @@ object MetriqMigrations {
     /** Maps the version being upgraded FROM to the SQL applied on the way to the next version. */
     private val STEPS: Map<Long, List<String>> = mapOf(
         1L to listOf(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS foodFts USING fts5(name, brand, category, foodId UNINDEXED)",
             "CREATE TABLE IF NOT EXISTS foodMicros(foodId INTEGER PRIMARY KEY REFERENCES food(id), json TEXT NOT NULL)",
         ),
     )

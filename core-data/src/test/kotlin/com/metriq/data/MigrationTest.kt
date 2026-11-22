@@ -32,10 +32,11 @@ class MigrationTest {
             { cursor -> app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0) ?: -1L) },
             0,
         ).value)
-        // Additive tables are present after the upgrade, too.
+        // Additive tables are present after the upgrade, too. No FTS5 virtual table is
+        // created: Android's system SQLite does not always include the FTS5 module.
         assertEquals(0L, driver.executeQuery(
             null,
-            "SELECT COUNT(*) FROM foodFts",
+            "SELECT COUNT(*) FROM foodMicros",
             { cursor -> app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0) ?: -1L) },
             0,
         ).value)
