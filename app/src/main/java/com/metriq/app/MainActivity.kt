@@ -15,6 +15,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +30,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.metriq.app.health.HealthConnectSyncWorker
 import com.metriq.app.log.FoodRecognitionManager
 import com.metriq.app.hevy.HevyKeyStore
-import com.metriq.app.hevy.HevyRepository
 import com.metriq.app.ui.aimodels.AiModelsScreen
 import com.metriq.app.ui.goal.GoalEditorSheet
 import com.metriq.app.ui.analytics.AnalyticsScreen
@@ -59,8 +59,13 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.metriq.core.NutritionLabelParser
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -97,6 +102,9 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
                 var showGoalEditor by remember { mutableStateOf(false) }
+                // Read the keystore once, not on every recomposition.
+                var hevyKeyInput by remember { mutableStateOf(HevyKeyStore.read(context).orEmpty()) }
+                var hevyKeyPersisted by remember { mutableStateOf(hevyKeyInput) }
                 var screen by rememberSaveable {
                     mutableStateOf(
                         when (intent?.getStringExtra("start_screen")) {
@@ -160,6 +168,36 @@ class MainActivity : ComponentActivity() {
                 }
 
                 BackHandler(enabled = screen != Screen.DASHBOARD) { screen = Screen.DASHBOARD }
+
+                // Persist off the UI thread and only after typing pauses.
+                LaunchedEffect(hevyKeyInput) {
+                    val key = hevyKeyInput
+                    if (key == hevyKeyPersisted) return@LaunchedEffect
+                    delay(400)
+                    val ok = withContext(Dispatchers.IO) { HevyKeyStore.save(context, key) }
+                    if (hevyKeyInput != key) {
+                        // Disconnect or a newer edit landed during the write: restore it.
+                        withContext(Dispatchers.IO) { HevyKeyStore.save(context, hevyKeyInput) }
+                        return@LaunchedEffect
+                    }
+                    if (ok) {
+                        hevyKeyPersisted = key
+                    } else {
+                        showKeySaveError(context)
+                    }
+                }
+
+                // Flush a pending edit on rotation/navigation (remember is not saved to a Bundle).
+                DisposableEffect(Unit) {
+                    onDispose {
+                        val pending = hevyKeyInput
+                        if (pending != hevyKeyPersisted) {
+                            CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                                HevyKeyStore.save(context.applicationContext, pending)
+                            }
+                        }
+                    }
+                }
 
                 when (screen) {
                     Screen.DASHBOARD -> HomeScreen(
@@ -385,33 +423,48 @@ class MainActivity : ComponentActivity() {
                         healthStatus = healthStatus,
                         onBack = { screen = Screen.PROFILE },
                         onOpenAiModels = { screen = Screen.AI_MODELS },
-                        hevyConnected = AppSettings.bool(AppSettings.HEVY_CONNECTED),
+                        hevyConnected = AppSettings.bool(AppSettings.HEVY_CONNECTED) &&
+                            AppGraph.hevyRepository.hasKey(),
                         hevyAutoSync = AppSettings.bool(AppSettings.HEVY_AUTO_SYNC),
                         hevyLastSync = AppSettings.get(AppSettings.HEVY_LAST_SYNC).ifBlank { null },
                         hevyWorkoutCount = state.hevyWorkoutCount,
-                        hevyApiKey = "",
-                        onHevyApiKeyChange = { key -> HevyKeyStore.save(context, key) },
+                        hevyApiKey = hevyKeyInput,
+                        onHevyApiKeyChange = { key -> hevyKeyInput = key },
+                        hevyLastError = AppSettings.get(AppSettings.HEVY_LAST_ERROR).ifBlank { null },
                         onHevyConnect = {
                             scope.launch {
-                                val result = HevyRepository(context).sync()
-                                if (result.imported == 0 && result.message.isNotBlank() &&
-                                    !AppSettings.bool(AppSettings.HEVY_CONNECTED)
-                                ) {
-                                    viewModel.setSetting(AppSettings.HEVY_LAST_SYNC, "Erro: ${result.message}")
+                                // A sync right after typing must not race the debounced save.
+                                val ok = withContext(Dispatchers.IO) {
+                                    HevyKeyStore.save(context, hevyKeyInput)
                                 }
+                                if (ok) hevyKeyPersisted = hevyKeyInput
+                                else showKeySaveError(context)
+                                AppGraph.hevyRepository.sync()
                                 viewModel.refresh()
                             }
                         },
                         onHevySync = {
                             scope.launch {
-                                HevyRepository(context).sync()
+                                val ok = withContext(Dispatchers.IO) {
+                                    HevyKeyStore.save(context, hevyKeyInput)
+                                }
+                                if (ok) hevyKeyPersisted = hevyKeyInput
+                                else showKeySaveError(context)
+                                AppGraph.hevyRepository.sync()
                                 viewModel.refresh()
                             }
                         },
                         onHevyDisconnect = {
-                            HevyKeyStore.clear(context)
-                            viewModel.setSetting(AppSettings.HEVY_CONNECTED, "false")
-                            viewModel.setSetting(AppSettings.HEVY_LAST_SYNC, "")
+                            hevyKeyInput = ""
+                            hevyKeyPersisted = ""
+                            if (!AppGraph.hevyRepository.clear()) {
+                                Toast.makeText(
+                                    context,
+                                    "Não foi possível limpar todos os dados do Hevy.",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                            viewModel.refresh()
                         },
                         onHevyAutoSyncChange = { enabled ->
                             viewModel.setSetting(AppSettings.HEVY_AUTO_SYNC, enabled.toString())
@@ -430,6 +483,7 @@ class MainActivity : ComponentActivity() {
                         suggestedKcal = state.goalRecalculation?.suggestedKcal ?: state.kcalTarget,
                         current = GoalStore.read(),
                         isMinor = profile.age < 18,
+                        previewWarnings = viewModel::previewGoalWarnings,
                         onDismiss = { showGoalEditor = false },
                         onApply = { goal ->
                             GoalStore.write(goal)
@@ -468,7 +522,7 @@ class MainActivity : ComponentActivity() {
                 java.time.Duration.between(last, java.time.Instant.now()).toMinutes() >= 30
             if (stale) {
                 lifecycleScope.launch {
-                    HevyRepository(applicationContext).sync()
+                    AppGraph.hevyRepository.sync()
                     viewModel.refresh()
                 }
             }
@@ -496,4 +550,8 @@ class MainActivity : ComponentActivity() {
             else -> null
         }
     }
+}
+
+private fun showKeySaveError(context: Context) {
+    Toast.makeText(context, "Não foi possível salvar a chave no aparelho.", Toast.LENGTH_SHORT).show()
 }

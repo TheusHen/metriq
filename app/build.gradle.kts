@@ -74,5 +74,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
+    // Local JVM tests use the real org.json implementation; Android's stub throws.
+    testImplementation("org.json:json:20240303")
 }
 

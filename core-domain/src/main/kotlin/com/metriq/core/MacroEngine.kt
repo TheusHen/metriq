@@ -36,12 +36,6 @@ object MacroEngine {
     private const val KCAL_PER_FAT_G = 9.0
     private const val FAT_FLOOR_PER_KG = 0.5
 
-    private const val MIN_ACTIVE_KCAL = 5.0
-    private const val MIN_EXERCISE_MINUTES = 5
-    private const val LIGHT_KCAL_PER_KG = 3.0
-    private const val LIGHT_MINUTES = 25
-    private const val MODERATE_KCAL_PER_KG = 6.0
-    private const val MODERATE_MINUTES = 60
 
     private const val LIGHT_CARB_SHARE = 0.02
     private const val MODERATE_CARB_SHARE = 0.05
@@ -67,15 +61,19 @@ object MacroEngine {
         val count = sessions.coerceAtLeast(0)
         val weight = if (bodyWeightKg.isFinite()) bodyWeightKg.coerceAtLeast(0.0) else 0.0
 
-        if (count == 0 || kcal < MIN_ACTIVE_KCAL || minutes < MIN_EXERCISE_MINUTES) {
+        if (count == 0 || kcal < TrainingThresholds.MIN_ACTIVE_KCAL ||
+            minutes < TrainingThresholds.MIN_DURATION_MINUTES
+        ) {
             return TrainingIntensity.REST
         }
 
         // A missing/invalid weight leaves only the duration signal to classify the day.
         val kcalPerKg = if (weight > 0.0) kcal / weight else 0.0
         return when {
-            kcalPerKg < LIGHT_KCAL_PER_KG && minutes < LIGHT_MINUTES -> TrainingIntensity.LIGHT
-            kcalPerKg < MODERATE_KCAL_PER_KG && minutes < MODERATE_MINUTES -> TrainingIntensity.MODERATE
+            kcalPerKg < TrainingThresholds.LIGHT_KCAL_PER_KG &&
+                minutes < TrainingThresholds.LIGHT_MINUTES -> TrainingIntensity.LIGHT
+            kcalPerKg < TrainingThresholds.MODERATE_KCAL_PER_KG &&
+                minutes < TrainingThresholds.MODERATE_MINUTES -> TrainingIntensity.MODERATE
             else -> TrainingIntensity.HARD
         }
     }

@@ -382,7 +382,7 @@ private fun MinorBanner() {
         )
         Spacer(Modifier.height(5.dp))
         Text(
-            text = "Vamos adaptar as recomendações à tua idade. No fim, um responsável confirma o plano contigo.",
+            text = "A partir dos 14 anos adaptamos as recomendações à tua idade. No fim, um responsável confirma o plano contigo.",
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
@@ -414,6 +414,7 @@ private fun WelcomeStep() {
     WelcomeFact("Sem conta", "Não pedimos email nem palavra-passe.")
     WelcomeFact("Fica no telemóvel", "Os teus registos não saem do dispositivo.")
     WelcomeFact("Sem telemetria", "Não enviamos estatísticas de utilização.")
+    WelcomeFact("Dos 14 aos 100", "A partir dos 14 anos, com contas adaptadas à idade.")
 }
 
 @Composable
@@ -449,7 +450,7 @@ private fun AboutStep(state: OnboardingState, viewModel: OnboardingViewModel) {
         label = "Idade",
         initial = state.age.toString(),
         onValueChange = { raw -> raw.toIntLoose()?.let { viewModel.setAge(it) } },
-        helper = "Anos completos",
+        helper = "Anos completos · a partir dos 14",
     )
 
     if (state.isMinor) {

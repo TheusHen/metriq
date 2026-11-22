@@ -25,10 +25,6 @@ data class TrainingSignal(
  */
 object TrainingEngine {
 
-    private const val MIN_ACTIVE_KCAL = 5.0
-    private const val MIN_DURATION_MINUTES = 5
-    private const val LIGHT_MINUTES = 25
-    private const val MODERATE_MINUTES = 60
 
     // Volume lifted per kg of bodyweight. ~30 kg/kg is a light session,
     // ~70 kg/kg a serious one; duration can equally promote a day a tier.
@@ -36,8 +32,6 @@ object TrainingEngine {
     private const val MODERATE_VOLUME_PER_KG = 70.0
 
     // Supporting energy signal, expressed per kg of bodyweight.
-    private const val LIGHT_KCAL_PER_KG = 3.0
-    private const val MODERATE_KCAL_PER_KG = 6.0
 
     private const val WINDOW_DAYS = 7
     private const val REFERENCE_DAILY_ACTIVE_KCAL = 600.0
@@ -115,7 +109,9 @@ object TrainingEngine {
         sessions: Int,
         bodyWeightKg: Double,
     ): TrainingIntensity {
-        if (sessions <= 0 || (minutes < MIN_DURATION_MINUTES && kcal < MIN_ACTIVE_KCAL && volumeKg <= 0.0)) {
+        if (sessions <= 0 || (minutes < TrainingThresholds.MIN_DURATION_MINUTES &&
+                kcal < TrainingThresholds.MIN_ACTIVE_KCAL && volumeKg <= 0.0)
+        ) {
             return TrainingIntensity.REST
         }
 
@@ -128,13 +124,13 @@ object TrainingEngine {
             else -> 0
         }
         val durationTier = when {
-            minutes >= MODERATE_MINUTES -> 2
-            minutes >= LIGHT_MINUTES -> 1
+            minutes >= TrainingThresholds.MODERATE_MINUTES -> 2
+            minutes >= TrainingThresholds.LIGHT_MINUTES -> 1
             else -> 0
         }
         val kcalTier = when {
-            kcalPerKg >= MODERATE_KCAL_PER_KG -> 2
-            kcalPerKg >= LIGHT_KCAL_PER_KG -> 1
+            kcalPerKg >= TrainingThresholds.MODERATE_KCAL_PER_KG -> 2
+            kcalPerKg >= TrainingThresholds.LIGHT_KCAL_PER_KG -> 1
             else -> 0
         }
 

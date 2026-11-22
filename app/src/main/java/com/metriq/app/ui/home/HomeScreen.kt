@@ -209,6 +209,15 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
                     color = MetriqColors.ink3,
                     maxLines = 3,
                 )
+                recalculation.warnings.forEach { warning ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = warning,
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.ink2,
+                        maxLines = 3,
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
             Text(
@@ -253,15 +262,6 @@ private fun TrainingSection(state: DashboardState) {
     SectionHeader(title = "Training")
     Spacer(Modifier.height(6.dp))
     val signal = state.trainingSignal
-    if (signal == null) {
-        Text(
-            text = "Sem treino registrado hoje.",
-            style = MaterialTheme.typography.caption,
-            color = MetriqColors.ink3,
-            maxLines = 1,
-        )
-        return
-    }
     val muscles = signal.muscles.sorted().joinToString(", ")
     Text(
         text = muscles.ifEmpty { "Sem grupos musculares registrados" },

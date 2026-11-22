@@ -59,6 +59,20 @@ class GoalEngineTest {
     }
 
     @Test
+    fun `same kcal for a minor still carries the safety advisory`() {
+        val input = minor()
+        // The dashboard builds its suggested plan with no warnings, so the
+        // safety text must come from GoalEngine itself (and only once).
+        val suggested = OnboardingPlanner.plan(input).copy(warnings = emptyList())
+        val result = GoalEngine.recalculate(
+            suggested, GoalOverride(suggested.dailyKcal.roundToInt()), profile(input), true,
+        )
+
+        assertFalse(result.didClamp)
+        assertEquals(1, result.warnings.count { it.contains("profissional de saúde") })
+    }
+
+    @Test
     fun `adult goal below the floor is clamped and warned`() {
         val input = adult()
         val suggested = OnboardingPlanner.plan(input)
@@ -214,5 +228,19 @@ class GoalEngineTest {
 
         assertTrue(result.plan.warnings.containsAll(suggested.warnings))
         assertTrue(result.warnings.containsAll(suggested.warnings))
+    }
+
+    @Test
+    fun `age fourteen gets the same minor deficit cap as older minors`() {
+        val input = minor().copy(age = 14)
+        val suggested = OnboardingPlanner.plan(input)
+        val result = GoalEngine.recalculate(
+            suggested, GoalOverride(900), profile(input), true,
+        )
+
+        assertTrue(result.didClamp)
+        assertEquals(ceil(suggested.tdee * 0.90).toInt(), result.appliedKcal)
+        assertTrue(result.warnings.any { it.contains("10%") })
+        assertTrue(result.plan.isMinor)
     }
 }

@@ -1,6 +1,7 @@
 package com.metriq.app
 
 import android.app.Application
+import com.metriq.app.hevy.HevyRepository
 import com.metriq.app.health.HealthConnectManager
 import com.metriq.app.widget.WidgetRefreshWorker
 import com.metriq.data.DatabaseFactory
@@ -23,7 +24,13 @@ object AppGraph {
     var healthConnect: HealthConnectManager? = null
         private set
 
+    private lateinit var appContext: android.content.Context
+
+    /** One process-wide repository so every caller sees the same decoded cache. */
+    val hevyRepository: HevyRepository by lazy { HevyRepository(appContext) }
+
     fun init(application: Application) {
+        appContext = application.applicationContext
         store = DatabaseFactory.create(application)
         healthConnect = HealthConnectManager(application)
 
@@ -48,6 +55,7 @@ object AppGraph {
     }
 
     fun ensure(context: android.content.Context) {
+        if (!::appContext.isInitialized) appContext = context.applicationContext
         if (!::store.isInitialized) store = DatabaseFactory.create(context.applicationContext)
     }
 }

@@ -48,6 +48,7 @@ fun GoalEditorSheet(
     suggestedKcal: Int,
     current: GoalOverride?,
     isMinor: Boolean,
+    previewWarnings: (GoalOverride) -> List<String> = { emptyList() },
     onDismiss: () -> Unit,
     onApply: (GoalOverride) -> Unit,
     onReset: () -> Unit,
@@ -158,6 +159,20 @@ fun GoalEditorSheet(
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     maxLines = 1,
+                )
+            }
+            val warnings = enteredKcal?.let { kcal ->
+                previewWarnings(
+                    GoalOverride(kcal, enteredWeight, enteredWeeks, reason = null),
+                )
+            }.orEmpty()
+            warnings.forEach { warning ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = warning,
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink2,
+                    maxLines = 3,
                 )
             }
             Spacer(Modifier.height(14.dp))

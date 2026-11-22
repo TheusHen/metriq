@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metriq.app.AppSettings
+import com.metriq.app.util.HevyTimeFormatter
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.Panel
 import com.metriq.app.ui.components.ScreenHeader
@@ -75,6 +76,7 @@ fun DataSettingsScreen(
     hevyConnected: Boolean = false,
     hevyAutoSync: Boolean = false,
     hevyLastSync: String? = null,
+    hevyLastError: String? = null,
     hevyWorkoutCount: Int = 0,
     hevyApiKey: String = "",
     onHevyApiKeyChange: (String) -> Unit = {},
@@ -315,24 +317,24 @@ fun DataSettingsScreen(
 
                 Spacer(Modifier.height(18.dp))
 
-                // ---------------------------------------------------------------- Hevy integration
-                SectionHeader(title = "Hevy integration")
+                // ---------------------------------------------------------------- Hevy
+                SectionHeader(title = "Integração Hevy")
                 Spacer(Modifier.height(8.dp))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
-                        "API KEY",
+                        "CHAVE DE API",
                         style = MaterialTheme.typography.label,
                         color = MetriqColors.ink3,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(8.dp))
-                    // The key stays obscured and is never written to logs or another Text.
+                    // A chave permanece oculta e nunca é escrita em logs ou outro Text.
                     OutlinedTextField(
                         value = hevyApiKey,
                         onValueChange = onHevyApiKeyChange,
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Hevy API key") },
+                        label = { Text("Chave da API Hevy") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -355,9 +357,9 @@ fun DataSettingsScreen(
                     Text(
                         when {
                             !hevyConnected && hevyApiKey.isBlank() ->
-                                "No API key saved. Add your Hevy key to connect."
-                            !hevyConnected -> "Not connected. Connect to read your workouts."
-                            else -> "Connected"
+                                "Nenhuma chave salva. Adicione sua chave para conectar."
+                            !hevyConnected -> "Não conectado. Conecte para ler seus treinos."
+                            else -> "Conectado"
                         },
                         style = MaterialTheme.typography.bodyStrong,
                         color = if (hevyConnected) MetriqColors.ink else MetriqColors.ink2,
@@ -366,38 +368,54 @@ fun DataSettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        if (hevyWorkoutCount > 0) "$hevyWorkoutCount workouts imported"
-                        else "No workouts imported yet",
+                        if (hevyWorkoutCount > 0) "$hevyWorkoutCount treinos importados"
+                        else "Nenhum treino importado ainda",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    val lastSyncText = when {
+                        hevyLastSync.isNullOrBlank() -> "Nunca sincronizado"
+                        else -> HevyTimeFormatter.formatLastSync(hevyLastSync)
+                            ?.let { "Última sincronização: $it" }
+                            ?: "Data de sincronização indisponível"
+                    }
                     Text(
-                        hevyLastSync?.let { "Last sync: $it" } ?: "Never synced",
+                        lastSyncText,
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (!hevyLastError.isNullOrBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "Último erro: $hevyLastError",
+                            style = MaterialTheme.typography.caption,
+                            color = MetriqColors.ink2,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     Hairline()
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         MetriqButton(
-                            text = "Connect",
+                            text = "Conectar",
                             onClick = onHevyConnect,
                             modifier = Modifier.weight(1f),
                             primary = !hevyConnected,
                         )
                         MetriqButton(
-                            text = "Sync now",
+                            text = "Sincronizar",
                             onClick = onHevySync,
                             modifier = Modifier.weight(1f),
                             primary = hevyConnected,
                         )
                         MetriqButton(
-                            text = "Disconnect",
+                            text = "Desconectar",
                             onClick = onHevyDisconnect,
                             modifier = Modifier.weight(1f),
                             primary = false,
@@ -407,8 +425,8 @@ fun DataSettingsScreen(
                     Hairline()
                     Spacer(Modifier.height(6.dp))
                     SettingSwitch(
-                        label = "Auto-sync",
-                        subtitle = "Read new Hevy workouts automatically",
+                        label = "Sincronização automática",
+                        subtitle = "Ler novos treinos do Hevy automaticamente",
                         checked = hevyAutoSync,
                         reducedMotion = reducedMotion,
                         onChange = onHevyAutoSyncChange,

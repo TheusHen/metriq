@@ -217,4 +217,45 @@ class OnboardingPlannerTest {
         assertTrue(keto.fatG > balanced.fatG)
         assertEquals(balanced.dailyKcal, keto.dailyKcal, 1.0)
     }
+
+    @Test
+    fun `age fourteen is supported with pediatric equation and safety cap`() {
+        val input = OnboardingInput(
+            sex = Sex.MALE, age = 14, heightCm = 165.0, weightKg = 60.0,
+            activityLevel = ActivityLevel.MODERATE, goal = GoalType.CUT,
+        )
+        val result = OnboardingPlanner.plan(input)
+
+        assertTrue(result.isMinor)
+        assertEquals(17.686 * 60.0 + 658.2, result.bmr, 0.001)
+        assertEquals(result.bmr * ActivityLevel.MODERATE.factor, result.tdee, 0.001)
+        assertEquals(result.tdee * 0.90, result.dailyKcal, 0.001)
+        assertTrue(result.warnings.any { it.contains("Menor de 18") })
+    }
+
+    @Test
+    fun `age below fourteen is clamped to fourteen`() {
+        val input = OnboardingInput(Sex.FEMALE, 10, 160.0, 50.0)
+        val result = OnboardingPlanner.plan(input)
+
+        assertTrue(result.isMinor)
+        assertEquals(13.384 * 50.0 + 692.6, result.bmr, 0.001)
+    }
+
+    @Test
+    fun `age seventeen is the last pediatric year and eighteen switches to adult`() {
+        val base = adult().copy(age = 17, weightKg = 60.0, heightCm = 165.0)
+        val seventeen = OnboardingPlanner.plan(base)
+        val eighteen = OnboardingPlanner.plan(base.copy(age = 18))
+
+        assertTrue(seventeen.isMinor)
+        assertEquals(17.686 * 60.0 + 658.2, seventeen.bmr, 0.001)
+        assertFalse(eighteen.isMinor)
+        assertEquals(
+            Bmr.forProfile(Profile(Sex.MALE, 18, 165.0, 60.0, null, ActivityLevel.MODERATE)),
+            eighteen.bmr,
+            0.001,
+        )
+        assertTrue(eighteen.warnings.isEmpty())
+    }
 }

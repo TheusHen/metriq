@@ -37,7 +37,7 @@ data class PlanResult(
  */
 object OnboardingPlanner {
 
-    private const val MIN_AGE = 10
+    private const val MIN_AGE = 14
     private const val MAX_AGE = 100
     private const val MINOR_AGE = 18
 
@@ -62,7 +62,8 @@ object OnboardingPlanner {
     /**
      * Schofield (1985) weight-only resting-energy equations for ages 10-18, as published
      * in WHO Technical Report Series 724 and reproduced in the "Schofield equation" table:
-     * https://en.wikipedia.org/wiki/Schofield_equation (kcal/day, 10-18 years)
+     * https://en.wikipedia.org/wiki/Schofield_equation (kcal/day, 10-18 years).
+     * Metriq supports these equations from age 14 onward.
      *   boys  17.686 kcal/kg/day + 658.2
      *   girls 13.384 kcal/kg/day + 692.6
      * Original reference: Schofield WN (1985), Hum Nutr Clin Nutr 39(Suppl 1):5-41.

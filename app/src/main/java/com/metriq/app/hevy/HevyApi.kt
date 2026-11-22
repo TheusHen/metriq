@@ -107,7 +107,7 @@ private fun jsonLong(obj: JSONObject, vararg keys: String): Long? {
     return null
 }
 
-private fun parseWorkouts(body: String): List<HevyWorkout> {
+internal fun parseWorkouts(body: String): List<HevyWorkout> {
     val root = JSONObject(body)
     val workouts = root.optJSONArray("workouts") ?: return emptyList()
     val result = mutableListOf<HevyWorkout>()

@@ -73,6 +73,14 @@ object GoalEngine {
 
         if (requestedKcal == suggestedKcal) {
             warnings.addAll(rateWarnings)
+            if (effectiveMinor) {
+                if (warnings.none { it.contains("déficit limitado a 10%") }) {
+                    warnings += "Menor de 18 anos: déficit limitado a 10% do gasto diário."
+                }
+                if (warnings.none { it.contains("profissional de saúde") }) {
+                    warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
+                }
+            }
             return RecalculatedPlan(
                 plan = suggested,
                 suggestedKcal = suggestedKcal,
@@ -105,7 +113,9 @@ object GoalEngine {
             if (warnings.none { it.contains("déficit limitado a 10%") }) {
                 warnings += "Menor de 18 anos: déficit limitado a 10% do gasto diário."
             }
-            warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
+            if (warnings.none { it.contains("profissional de saúde") }) {
+                warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
+            }
         }
         warnings.addAll(rateWarnings)
         if (appliedKcal.toDouble() < macroFloorKcal) {
