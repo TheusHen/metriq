@@ -82,7 +82,16 @@ jobs:
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity || true
-            sleep 25
+            sleep 12
+            adb exec-out screencap -p > screen-home.png
+            adb shell am start -a com.metriq.LOG -n com.metriq.app/.MainActivity || true
+            sleep 4
+            adb exec-out screencap -p > screen-search.png
+            adb shell am start -a com.metriq.SCAN -n com.metriq.app/.MainActivity || true
+            sleep 4
+            adb exec-out screencap -p > screen-scan.png
+            adb shell am start -n com.metriq.app/.MainActivity || true
+            sleep 4
             echo "=== LOGCAT (threadtime) ==="
             adb logcat -d -v threadtime > crash-log.txt
             echo "=== CRASH LINES ==="
@@ -90,12 +99,14 @@ jobs:
             echo "=== PROCESS STATE ==="
             adb shell pidof com.metriq.app || echo "process not running"
 
-      - name: Upload crash log
+      - name: Upload crash log and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: crash-log
-          path: crash-log.txt
+          path: |
+            crash-log.txt
+            screen-*.png
           if-no-files-found: warn
 
       - name: Print crash log in the run summary
