@@ -107,7 +107,9 @@ class FoodRepository(
     fun recent(limit: Long = 30) = db.metriqQueries.recentFood(limit).executeAsList()
 
     /** Canonical everyday foods from the bundled pack, not the newest imported products. */
-    fun favorites(limit: Long = 6): List<FoodHit> = db.metriqQueries.firstFoods(limit)
+    fun favorites(limit: Long = 6): List<FoodHit> = commonFoods(limit)
+
+    fun commonFoods(limit: Long = 40): List<FoodHit> = db.metriqQueries.firstFoods(limit)
         .executeAsList()
         .map { food ->
             FoodHit(

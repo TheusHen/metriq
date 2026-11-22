@@ -96,21 +96,7 @@ fun FoodSearchScreen(
     val selected = remember { mutableStateListOf<FoodHit>() }
 
     val results = remember(query) {
-        if (query.isBlank()) AppGraph.store.food.recent(40).map { food ->
-            FoodHit(
-                id = food.id,
-                name = food.name,
-                brand = food.brand,
-                category = food.category,
-                iconId = food.iconId,
-                calories = food.calories,
-                protein = food.protein,
-                fat = food.fat,
-                carbs = food.carbs,
-                servingLabel = food.servingLabel,
-                servingGrams = food.servingGrams,
-            )
-        }
+        if (query.isBlank()) AppGraph.store.food.commonFoods(40)
         else AppGraph.store.food.search(query)
     }
     val favorites = remember { AppGraph.store.food.favorites(6) }
