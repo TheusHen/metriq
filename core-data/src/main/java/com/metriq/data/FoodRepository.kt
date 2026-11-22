@@ -186,7 +186,11 @@ class FoodRepository(
     private fun lastInsertedId(): Long = driver.executeQuery(
         null,
         "SELECT last_insert_rowid()",
-        { cursor -> QueryResult.Value(cursor.getLong(0) ?: 0L) },
+        { cursor ->
+            // Android cursors start at position -1; the JVM test driver happens to
+            // auto-position. Always advance before reading so both behave the same.
+            QueryResult.Value(if (cursor.next().value) cursor.getLong(0) ?: 0L else 0L)
+        },
         0,
     ).value
 }
