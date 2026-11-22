@@ -88,11 +88,11 @@ jobs:
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
             sleep 8
             adb exec-out screencap -p > screen-home.png
-            adb shell am start -a com.metriq.LOG -n com.metriq.app/.MainActivity || true
+            adb shell am start -a com.metriq.LOG -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
             sleep 4
             adb exec-out screencap -p > screen-search.png
             adb shell pm grant com.metriq.app android.permission.CAMERA || true
-            adb shell am start -a com.metriq.SCAN -n com.metriq.app/.MainActivity || true
+            adb shell am start -a com.metriq.SCAN -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
             sleep 4
             adb exec-out screencap -p > screen-scan.png
             adb shell am start -n com.metriq.app/.MainActivity || true
