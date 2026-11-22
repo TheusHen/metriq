@@ -135,7 +135,84 @@ object MacroEngine {
         // Avoid pushing harder when the rolling week is already overloaded.
         val overreaching = intensity == TrainingIntensity.HARD && weeklyLoad(recentLoads) > OVERREACH_WEEKLY_LOAD
         if (overreaching) desiredCarbBumpG /= 2
+        return buildAdaptation(base, profile, intensity, desiredCarbBumpG, overreaching)
+    }
 
+    /**
+     * Rich-signal variant used when Health Connect data is combined with Hevy
+     * volume, duration and muscle coverage. The declared [TrainingSignal.intensity]
+     * drives the allocation; the extra detail adds a modest, capped bonus for
+     * genuinely demanding sessions. All of the [adapt] guardrails still apply.
+     */
+    fun adaptWithSignal(
+        base: MacroTargets,
+        profile: Profile,
+        signal: TrainingSignal?,
+        recentSignals: List<TrainingSignal>,
+        enabled: Boolean,
+    ): MacroAdaptation {
+        val intensity = signal?.intensity ?: TrainingIntensity.REST
+
+        if (!enabled) {
+            return unchanged(base, intensity, "Adaptação desativada; sinal de treino ignorado, macros mantidos.")
+        }
+        if (signal == null || intensity == TrainingIntensity.REST) {
+            return unchanged(base, intensity, "Sem sinal de treino hoje; macros mantidos.")
+        }
+        if (profile.diet == DietStyle.KETO) {
+            return unchanged(base, intensity, "Dieta cetogênica: carboidrato mantido, sem ajuste por treino.")
+        }
+
+        val volume = if (signal.volumeKg.isFinite()) signal.volumeKg.coerceAtLeast(0.0) else 0.0
+        val weight = if (profile.weightKg.isFinite()) profile.weightKg.coerceAtLeast(0.0) else 0.0
+        val volumePerKg = if (weight > 0.0) volume / weight else 0.0
+        val muscles = signal.muscles.size.coerceAtLeast(0)
+        val minutes = signal.durationMinutes.coerceAtLeast(0)
+
+        val shareBump = when (intensity) {
+            TrainingIntensity.LIGHT -> min((base.carbG * LIGHT_CARB_SHARE).roundToInt(), LIGHT_CARB_CAP_G)
+            TrainingIntensity.MODERATE -> min((base.carbG * MODERATE_CARB_SHARE).roundToInt(), MODERATE_CARB_CAP_G)
+            TrainingIntensity.HARD -> min((base.carbG * HARD_CARB_SHARE).roundToInt(), HARD_CARB_CAP_G)
+            TrainingIntensity.REST -> 0 // handled above
+        }
+        val muscleBonus = min(muscles / 2, 6)
+        val volumeBonus = when {
+            volumePerKg >= 70.0 -> 3
+            volumePerKg >= 30.0 -> 1
+            else -> 0
+        }
+        val durationBonus = if (minutes >= 60) 1 else 0
+        val cap = when (intensity) {
+            TrainingIntensity.LIGHT -> LIGHT_CARB_CAP_G
+            TrainingIntensity.MODERATE -> MODERATE_CARB_CAP_G
+            TrainingIntensity.HARD -> HARD_CARB_CAP_G
+            TrainingIntensity.REST -> 0
+        }
+        var desiredCarbBumpG = (shareBump + muscleBonus + volumeBonus + durationBonus)
+            .coerceAtMost(cap)
+            .coerceAtLeast(0)
+
+        val overreaching = intensity == TrainingIntensity.HARD &&
+            TrainingEngine.weeklyLoad(recentSignals) > OVERREACH_WEEKLY_LOAD
+        if (overreaching) desiredCarbBumpG /= 2
+
+        val signalDetail = buildString {
+            append(" Sinal de treino: ").append(minutes).append(" min")
+            if (muscles > 0) append(", ").append(muscles).append(" grupamentos")
+            if (volume > 0.0) append(", ").append(volume.toLong()).append(" kg de volume")
+            append(".")
+        }
+        return buildAdaptation(base, profile, intensity, desiredCarbBumpG, overreaching, signalDetail)
+    }
+
+    private fun buildAdaptation(
+        base: MacroTargets,
+        profile: Profile,
+        intensity: TrainingIntensity,
+        desiredCarbBumpG: Int,
+        overreaching: Boolean,
+        reasonSuffix: String = "",
+    ): MacroAdaptation {
         val weight = if (profile.weightKg.isFinite()) profile.weightKg.coerceAtLeast(0.0) else 0.0
         val fatFloorG = ceil(FAT_FLOOR_PER_KG * weight).toInt()
         val availableFatG = (base.fatG - fatFloorG).coerceAtLeast(0)
@@ -175,6 +252,7 @@ object MacroEngine {
             append(": +").append(carbDeltaG).append(" g de carboidrato, ")
             append(fatDeltaG).append(" g de gordura.")
             if (overreaching) append(" Carga semanal alta: aumento reduzido.")
+            append(reasonSuffix)
         }
 
         return MacroAdaptation(targets, intensity, carbDeltaG, fatDeltaG, reason)

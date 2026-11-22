@@ -19,14 +19,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.metriq.app.health.HealthConnectSyncWorker
 import com.metriq.app.log.FoodRecognitionManager
+import com.metriq.app.hevy.HevyKeyStore
+import com.metriq.app.hevy.HevyRepository
 import com.metriq.app.ui.aimodels.AiModelsScreen
+import com.metriq.app.ui.goal.GoalEditorSheet
 import com.metriq.app.ui.analytics.AnalyticsScreen
 import com.metriq.app.ui.analytics.AnalyticsViewModel
 import com.metriq.app.ui.onboarding.OnboardingScreen
@@ -55,6 +60,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.metriq.core.NutritionLabelParser
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -89,8 +95,16 @@ class MainActivity : ComponentActivity() {
             MetriqTheme {
                 val state by viewModel.state.collectAsStateWithLifecycle()
                 val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+                var showGoalEditor by remember { mutableStateOf(false) }
                 var screen by rememberSaveable {
-                    mutableStateOf(screenFor(intent?.action) ?: Screen.DASHBOARD)
+                    mutableStateOf(
+                        when (intent?.getStringExtra("start_screen")) {
+                            "settings" -> Screen.SETTINGS
+                            "analytics" -> Screen.ANALYTICS
+                            else -> screenFor(intent?.action) ?: Screen.DASHBOARD
+                        },
+                    )
                 }
                 var onboardingDone by remember {
                     mutableStateOf(
@@ -155,6 +169,7 @@ class MainActivity : ComponentActivity() {
                         onAddFood = { screen = Screen.SEARCH },
                         onDeleteLog = { viewModel.deleteLog(it) },
                         onAcceptCheckin = { viewModel.acceptCheckin() },
+                        onEditGoal = { showGoalEditor = true },
                     )
 
                     Screen.SEARCH -> FoodSearchScreen(
@@ -370,12 +385,62 @@ class MainActivity : ComponentActivity() {
                         healthStatus = healthStatus,
                         onBack = { screen = Screen.PROFILE },
                         onOpenAiModels = { screen = Screen.AI_MODELS },
+                        hevyConnected = AppSettings.bool(AppSettings.HEVY_CONNECTED),
+                        hevyAutoSync = AppSettings.bool(AppSettings.HEVY_AUTO_SYNC),
+                        hevyLastSync = AppSettings.get(AppSettings.HEVY_LAST_SYNC).ifBlank { null },
+                        hevyWorkoutCount = state.hevyWorkoutCount,
+                        hevyApiKey = "",
+                        onHevyApiKeyChange = { key -> HevyKeyStore.save(context, key) },
+                        onHevyConnect = {
+                            scope.launch {
+                                val result = HevyRepository(context).sync()
+                                if (result.imported == 0 && result.message.isNotBlank() &&
+                                    !AppSettings.bool(AppSettings.HEVY_CONNECTED)
+                                ) {
+                                    viewModel.setSetting(AppSettings.HEVY_LAST_SYNC, "Erro: ${result.message}")
+                                }
+                                viewModel.refresh()
+                            }
+                        },
+                        onHevySync = {
+                            scope.launch {
+                                HevyRepository(context).sync()
+                                viewModel.refresh()
+                            }
+                        },
+                        onHevyDisconnect = {
+                            HevyKeyStore.clear(context)
+                            viewModel.setSetting(AppSettings.HEVY_CONNECTED, "false")
+                            viewModel.setSetting(AppSettings.HEVY_LAST_SYNC, "")
+                        },
+                        onHevyAutoSyncChange = { enabled ->
+                            viewModel.setSetting(AppSettings.HEVY_AUTO_SYNC, enabled.toString())
+                        },
                     )
 
                     Screen.AI_MODELS -> AiModelsScreen(
                         settings = AppSettings.all(),
                         onSettingChange = { key, value -> viewModel.setSetting(key, value) },
                         onBack = { screen = Screen.SETTINGS },
+                    )
+                }
+                if (showGoalEditor) {
+                    val profile = AppGraph.store.profile.get() ?: DefaultProfile.PROFILE
+                    GoalEditorSheet(
+                        suggestedKcal = state.goalRecalculation?.suggestedKcal ?: state.kcalTarget,
+                        current = GoalStore.read(),
+                        isMinor = profile.age < 18,
+                        onDismiss = { showGoalEditor = false },
+                        onApply = { goal ->
+                            GoalStore.write(goal)
+                            showGoalEditor = false
+                            viewModel.refresh()
+                        },
+                        onReset = {
+                            GoalStore.clear()
+                            showGoalEditor = false
+                            viewModel.refresh()
+                        },
                     )
                 }
                 } // end onboarding else
@@ -392,6 +457,22 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refresh()
+        if (AppSettings.bool(AppSettings.HEVY_CONNECTED) &&
+            AppSettings.bool(AppSettings.HEVY_AUTO_SYNC) &&
+            HevyKeyStore.read(this) != null
+        ) {
+            val last = runCatching {
+                java.time.Instant.parse(AppSettings.get(AppSettings.HEVY_LAST_SYNC))
+            }.getOrNull()
+            val stale = last == null ||
+                java.time.Duration.between(last, java.time.Instant.now()).toMinutes() >= 30
+            if (stale) {
+                lifecycleScope.launch {
+                    HevyRepository(applicationContext).sync()
+                    viewModel.refresh()
+                }
+            }
+        }
     }
 
     private fun setting(key: String, default: Boolean): Boolean =

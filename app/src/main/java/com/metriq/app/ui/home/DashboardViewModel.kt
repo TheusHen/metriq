@@ -1,24 +1,31 @@
 package com.metriq.app.ui.home
 
+import android.app.Application
 import android.content.Context
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import com.metriq.app.DefaultProfile
 import com.metriq.app.AppGraph
 import com.metriq.app.AppSettings
 import com.metriq.app.TrainingHistory
+import com.metriq.app.GoalStore
+import com.metriq.app.hevy.HevyRepository
 import com.metriq.core.Aggressiveness
 import com.metriq.core.Bmr
 import com.metriq.core.CaloriePlan
 import com.metriq.core.Confidence
 import com.metriq.core.Expenditure
 import com.metriq.core.ExpenditureResult
+import com.metriq.core.GoalEngine
 import com.metriq.core.MacroEngine
 import com.metriq.core.MacroAdaptation
 import com.metriq.core.MacroPlanner
+import com.metriq.core.PlanResult
+import com.metriq.core.TrainingEngine
 import com.metriq.core.TrainingLoad
+import com.metriq.core.TrainingSignal
 import com.metriq.core.TrendWeight
 import com.metriq.core.WeightEntry
 import com.metriq.app.ui.log.FoodDraft
@@ -71,6 +78,10 @@ data class DashboardState(
     val recipes: List<com.metriq.data.db.Recipe>,
     val micros: Map<String, Double>,
     val macroAdaptation: MacroAdaptation?,
+    val trainingSignal: com.metriq.core.TrainingSignal?,
+    val goalRecalculation: com.metriq.core.RecalculatedPlan?,
+    val hevyWorkoutCount: Int,
+    val hevyLastSync: String?,
     val loggedDates: Set<LocalDate>,
     val healthCalories: Double?,
     val healthExerciseSessions: Int?,
@@ -79,7 +90,9 @@ data class DashboardState(
 data class HabitUi(val id: Long, val name: String, val streak: Int, val doneToday: Boolean)
 
 /** Builds the dashboard from local data using the pure algorithms in core-domain. */
-class DashboardViewModel : ViewModel() {
+class DashboardViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val hevyRepository by lazy { HevyRepository(getApplication<Application>()) }
 
     /** Re-evaluated on every refresh so the app does not get stuck on yesterday after midnight. */
     private var today: LocalDate = LocalDate.now()
@@ -280,25 +293,67 @@ class DashboardViewModel : ViewModel() {
             tier = effectiveProfile.proteinTier,
             diet = effectiveProfile.diet,
         )
-        val history = TrainingHistory.all()
-        fun loadOf(day: com.metriq.app.DailyTraining) = TrainingLoad(
-            activeKcal = day.activeKcal,
-            exerciseMinutes = day.minutes,
-            sessions = day.sessions,
-            intensity = MacroEngine.intensityOf(
-                day.activeKcal, day.minutes, day.sessions, effectiveProfile.weightKg,
-            ),
-        )
-        val todayLoad = history.firstOrNull { it.date == today }?.let(::loadOf)
-        val recentLoads = history.takeLast(7).map(::loadOf)
-        val adaptation = MacroEngine.adapt(
+        fun signalFor(date: LocalDate): TrainingSignal {
+            val health = TrainingHistory.forDate(date)
+            val hevy = hevyRepository.daySignal(date)
+            val kcal = health?.activeKcal ?: 0.0
+            val minutes = health?.minutes ?: 0
+            val sessions = health?.sessions ?: 0
+            return if (hevy != null) {
+                TrainingEngine.fromHevy(
+                    activeKcal = kcal,
+                    steps = null,
+                    volumeKg = hevy.volumeKg,
+                    durationMinutes = hevy.durationMinutes,
+                    muscles = hevy.muscles,
+                    sessions = hevy.sessions,
+                    bodyWeightKg = effectiveProfile.weightKg,
+                )
+            } else {
+                TrainingEngine.fromHealthConnect(
+                    activeKcal = kcal,
+                    steps = null,
+                    sessions = sessions,
+                    durationMinutes = minutes,
+                    bodyWeightKg = effectiveProfile.weightKg,
+                )
+            }
+        }
+        val trainingSignal = signalFor(today)
+        val recentSignals = (1..7).map { today.minusDays(it.toLong()) }.map(::signalFor)
+        val adaptation = MacroEngine.adaptWithSignal(
             base = baseMacros,
             profile = effectiveProfile,
-            load = todayLoad,
-            recentLoads = recentLoads,
+            signal = trainingSignal,
+            recentSignals = recentSignals,
             enabled = AppSettings.bool(AppSettings.ADAPTIVE_MACROS),
         )
-        val macros = adaptation.targets
+        var macros = adaptation.targets
+
+        val isMinor = effectiveProfile.age < 18
+        val suggestedPlan = PlanResult(
+            bmr = bmr,
+            tdee = expenditure.kcal,
+            dailyKcal = calorieTargets.dailyKcal,
+            proteinG = baseMacros.proteinG,
+            fatG = baseMacros.fatG,
+            carbG = baseMacros.carbG,
+            isMinor = isMinor,
+            warnings = emptyList(),
+            explanation = "",
+        )
+        val goalRecalculation = GoalStore.read()?.let { override ->
+            GoalEngine.recalculate(suggestedPlan, override, effectiveProfile, isMinor)
+        }
+        if (goalRecalculation != null) {
+            val recalculated = goalRecalculation.plan
+            macros = com.metriq.core.MacroTargets(
+                kcal = Math.round(recalculated.dailyKcal).toInt(),
+                proteinG = recalculated.proteinG,
+                fatG = recalculated.fatG,
+                carbG = recalculated.carbG,
+            )
+        }
 
         val trendSeries = trend.values.toList()
         val changePerWeek = TrendWeight.changeRatePerWeek(trend, today)
@@ -362,6 +417,10 @@ class DashboardViewModel : ViewModel() {
             recipes = AppGraph.store.recipe.all(),
             micros = micros,
             macroAdaptation = adaptation,
+            trainingSignal = trainingSignal,
+            goalRecalculation = goalRecalculation,
+            hevyWorkoutCount = hevyRepository.workouts().size,
+            hevyLastSync = AppSettings.get(AppSettings.HEVY_LAST_SYNC).ifBlank { null },
             loggedDates = intake.filter { it.value != null }.keys +
                 weightEntries.map { it.date }.toSet(),
             healthCalories = AppGraph.store.settings.get("health_active_calories")?.toDoubleOrNull()

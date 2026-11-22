@@ -95,6 +95,12 @@ jobs:
             adb shell am start -a com.metriq.SCAN -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
             sleep 4
             adb exec-out screencap -p > screen-scan.png
+            adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen settings || true
+            sleep 4
+            adb exec-out screencap -p > screen-settings.png
+            adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen analytics || true
+            sleep 4
+            adb exec-out screencap -p > screen-analytics.png
             adb shell am start -n com.metriq.app/.MainActivity || true
             sleep 4
             echo "=== LOGCAT (threadtime) ==="

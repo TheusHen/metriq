@@ -2,6 +2,7 @@ package com.metriq.app.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -65,6 +66,7 @@ fun HomeScreen(
     onAddFood: () -> Unit,
     onDeleteLog: (Long) -> Unit,
     onAcceptCheckin: () -> Unit,
+    onEditGoal: () -> Unit = {},
 ) {
     Scaffold(
         containerColor = MetriqColors.bg,
@@ -106,8 +108,9 @@ fun HomeScreen(
                                 Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(14.dp),
                             ) {
-                                BudgetSection(state)
+                                BudgetSection(state, onEditGoal)
                                 AdaptationSection(state)
+                                TrainingSection(state)
                                 WeekSection(state)
                                 FoodLogSection(state, onAddFood, onDeleteLog)
                             }
@@ -122,8 +125,9 @@ fun HomeScreen(
                             }
                         }
                     } else {
-                        BudgetSection(state)
+                        BudgetSection(state, onEditGoal)
                         AdaptationSection(state)
+                        TrainingSection(state)
                         WeekSection(state)
                         FoodLogSection(state, onAddFood, onDeleteLog)
                         TrendSection(state)
@@ -172,8 +176,13 @@ private fun findingFor(state: DashboardState): String {
 }
 
 @Composable
-private fun BudgetSection(state: DashboardState) {
-    SectionHeader(title = "Energy budget")
+private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
+    val recalculation = state.goalRecalculation
+    SectionHeader(
+        title = "Energy budget",
+        action = if (recalculation == null) "Editar meta" else null,
+        onAction = onEditGoal,
+    )
     Spacer(Modifier.height(8.dp))
     EnergyBudget(
         consumed = state.kcalConsumed,
@@ -183,6 +192,34 @@ private fun BudgetSection(state: DashboardState) {
         fat = state.fatG to state.fatTarget,
         modifier = Modifier.fillMaxWidth(),
     )
+    if (recalculation != null) {
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "Meta ajustada: ${formatCount(recalculation.appliedKcal)} kcal " +
+                        "(sugerido ${formatCount(recalculation.suggestedKcal)})",
+                    style = MaterialTheme.typography.bodyStrong,
+                    color = MetriqColors.ink,
+                    maxLines = 2,
+                )
+                Text(
+                    text = recalculation.summary,
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink3,
+                    maxLines = 3,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Editar meta",
+                style = MaterialTheme.typography.body,
+                color = MetriqColors.ink2,
+                maxLines = 1,
+                modifier = Modifier.clickable { onEditGoal() }.padding(vertical = 2.dp),
+            )
+        }
+    }
 }
 
 @Composable
@@ -207,6 +244,41 @@ private fun AdaptationSection(state: DashboardState) {
         style = MaterialTheme.typography.body,
         color = MetriqColors.ink2,
         maxLines = 2,
+    )
+}
+
+/** Compact, honest training readout — real numbers only, no tinted icon slots. */
+@Composable
+private fun TrainingSection(state: DashboardState) {
+    SectionHeader(title = "Training")
+    Spacer(Modifier.height(6.dp))
+    val signal = state.trainingSignal
+    if (signal == null) {
+        Text(
+            text = "Sem treino registrado hoje.",
+            style = MaterialTheme.typography.caption,
+            color = MetriqColors.ink3,
+            maxLines = 1,
+        )
+        return
+    }
+    val muscles = signal.muscles.sorted().joinToString(", ")
+    Text(
+        text = muscles.ifEmpty { "Sem grupos musculares registrados" },
+        style = MaterialTheme.typography.body,
+        color = MetriqColors.ink2,
+        maxLines = 2,
+    )
+    Spacer(Modifier.height(4.dp))
+    val intensity = signal.intensity.toString()
+        .lowercase(Locale.ENGLISH)
+        .replaceFirstChar { it.uppercase(Locale.ENGLISH) }
+    Text(
+        text = String.format(Locale.ENGLISH, "%.0f", signal.volumeKg.toDouble()) +
+            " kg · " + signal.durationMinutes.toString().removeSuffix(".0") + " min · " + intensity,
+        style = MaterialTheme.typography.caption,
+        color = MetriqColors.ink3,
+        maxLines = 1,
     )
 }
 

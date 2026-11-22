@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metriq.app.AppSettings
@@ -68,6 +72,16 @@ fun DataSettingsScreen(
     healthStatus: String,
     onBack: () -> Unit,
     onOpenAiModels: () -> Unit = {},
+    hevyConnected: Boolean = false,
+    hevyAutoSync: Boolean = false,
+    hevyLastSync: String? = null,
+    hevyWorkoutCount: Int = 0,
+    hevyApiKey: String = "",
+    onHevyApiKeyChange: (String) -> Unit = {},
+    onHevyConnect: () -> Unit = {},
+    onHevySync: () -> Unit = {},
+    onHevyDisconnect: () -> Unit = {},
+    onHevyAutoSyncChange: (Boolean) -> Unit = {},
 ) {
     // Snapshot-backed reads: recomposition re-evaluates these when settings change.
     fun value(key: String): String = settings[key] ?: AppSettings.defaults[key].orEmpty()
@@ -295,6 +309,116 @@ fun DataSettingsScreen(
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                // ---------------------------------------------------------------- Hevy integration
+                SectionHeader(title = "Hevy integration")
+                Spacer(Modifier.height(8.dp))
+                Panel(Modifier.fillMaxWidth()) {
+                    Text(
+                        "API KEY",
+                        style = MaterialTheme.typography.label,
+                        color = MetriqColors.ink3,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    // The key stays obscured and is never written to logs or another Text.
+                    OutlinedTextField(
+                        value = hevyApiKey,
+                        onValueChange = onHevyApiKeyChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Hevy API key") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MetriqColors.ink,
+                            unfocusedTextColor = MetriqColors.ink,
+                            cursorColor = MetriqColors.accent,
+                            focusedBorderColor = MetriqColors.accent,
+                            unfocusedBorderColor = MetriqColors.border,
+                            focusedLabelColor = MetriqColors.ink2,
+                            unfocusedLabelColor = MetriqColors.ink3,
+                            focusedContainerColor = MetriqColors.surface2,
+                            unfocusedContainerColor = MetriqColors.surface1,
+                        ),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        when {
+                            !hevyConnected && hevyApiKey.isBlank() ->
+                                "No API key saved. Add your Hevy key to connect."
+                            !hevyConnected -> "Not connected. Connect to read your workouts."
+                            else -> "Connected"
+                        },
+                        style = MaterialTheme.typography.bodyStrong,
+                        color = if (hevyConnected) MetriqColors.ink else MetriqColors.ink2,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (hevyWorkoutCount > 0) "$hevyWorkoutCount workouts imported"
+                        else "No workouts imported yet",
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.ink3,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        hevyLastSync?.let { "Last sync: $it" } ?: "Never synced",
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.ink3,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Hairline()
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MetriqButton(
+                            text = "Connect",
+                            onClick = onHevyConnect,
+                            modifier = Modifier.weight(1f),
+                            primary = !hevyConnected,
+                        )
+                        MetriqButton(
+                            text = "Sync now",
+                            onClick = onHevySync,
+                            modifier = Modifier.weight(1f),
+                            primary = hevyConnected,
+                        )
+                        MetriqButton(
+                            text = "Disconnect",
+                            onClick = onHevyDisconnect,
+                            modifier = Modifier.weight(1f),
+                            primary = false,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Hairline()
+                    Spacer(Modifier.height(6.dp))
+                    SettingSwitch(
+                        label = "Auto-sync",
+                        subtitle = "Read new Hevy workouts automatically",
+                        checked = hevyAutoSync,
+                        reducedMotion = reducedMotion,
+                        onChange = onHevyAutoSyncChange,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "A chave fica criptografada no aparelho. Os treinos são apenas lidos do Hevy; nada é enviado de volta.",
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.ink3,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

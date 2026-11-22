@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.health.connect)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
 }
