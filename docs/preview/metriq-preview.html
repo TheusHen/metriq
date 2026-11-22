@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Metriq — UI preview (rendered from app source)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px; background: #e9eaee; color: #111;
+    font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #555; margin-bottom: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 393px); gap: 24px; }
+  .caption { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: #222; }
+  .phone {
+    width: 393px; height: 851px; border-radius: 32px; overflow: hidden;
+    border: 9px solid #1b1c20; box-shadow: 0 10px 30px rgba(0,0,0,.22);
+    position: relative; display: flex; flex-direction: column;
+  }
+  .screen { flex: 1; overflow: hidden; padding: 22px 20px 84px; background: var(--bg); color: var(--ink); }
+  .light {
+    --bg:#ffffff; --ink:#000000; --surface:#f6f6f6; --muted:#6b6b6b;
+    --outline:#e8e8e8; --accent:#4dd0e1; --protein:#ffb5a0; --carb:#a0d9b9; --fat:#ffde97;
+    --err:#d93025; --chip:#f0f0f0;
+  }
+  .dark {
+    --bg:#0a0a0c; --ink:#ffffff; --surface:#121214; --muted:#9a9aa0;
+    --outline:#2a2a30; --accent:#4dd0e1; --protein:#ff8f73; --carb:#6fc79b; --fat:#f2c463;
+    --err:#ff7b72; --chip:#1a1a1e;
+  }
+  .date { font-size: 11px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .h1 { font-size: 40px; line-height: 42px; letter-spacing: -1.2px; font-weight: 650; margin: 4px 0 22px; }
+  .label { font-size: 11px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .rails { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .rail { margin-bottom: 2px; }
+  .rail .num { font-size: 17px; font-weight: 600; }
+  .rail .target { font-size: 14px; color: var(--muted); }
+  .track { height: 6px; border-radius: 99px; margin-top: 6px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; }
+  .week { display: flex; justify-content: space-between; margin: 24px 0 26px; }
+  .day { text-align: center; }
+  .day .l { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .day .c {
+    width: 34px; height: 34px; border-radius: 50%; margin: 6px auto;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    background: var(--surface); color: var(--muted);
+  }
+  .day.today .c { background: var(--ink); color: var(--bg); font-weight: 700; }
+  .day .dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; margin: 6px auto 0; }
+  .day.logged .dot { background: var(--ink); opacity: .35; }
+  .card { background: var(--surface); border-radius: 22px; padding: 18px; margin-bottom: 14px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .link { font-size: 17px; font-weight: 500; }
+  .logrow { padding: 8px 0; border-bottom: 1px solid var(--outline); }
+  .logrow:last-child { border-bottom: none; }
+  .logrow .hour { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .logrow .name { font-size: 17px; font-weight: 500; margin-top: 1px; }
+  .logrow .meta { font-size: 14px; color: var(--muted); }
+  .chart { width: 100%; height: 96px; display: block; margin-top: 8px; }
+  .big { font-size: 24px; font-weight: 650; letter-spacing: -.4px; }
+  .trend { display: flex; gap: 4px; align-items: baseline; }
+  .trend small { font-size: 14px; color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: center; }
+  .bar { display: flex; flex-direction: column; gap: 14px; }
+  .bottom {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: var(--surface);
+    border-top: 1px solid var(--outline); display: flex; justify-content: space-around; padding: 10px 8px;
+  }
+  .tab { text-align: center; font-size: 11px; color: var(--muted); font-weight: 600; }
+  .tab.active { color: var(--accent); }
+  .tab .ic { font-size: 22px; display: block; line-height: 26px; }
+  .header { display: flex; align-items: center; gap: 18px; padding: 2px 0 14px; }
+  .back { font-size: 14px; color: var(--muted); }
+  .header .title { font-size: 17px; font-weight: 600; }
+  .field {
+    border: 1px solid var(--outline); border-radius: 16px; padding: 12px 14px 9px;
+    margin-bottom: 10px; position: relative;
+  }
+  .field .fl { font-size: 11px; color: var(--muted); display: block; }
+  .field .fv { font-size: 16px; }
+  .searchbox { border:1px solid var(--outline); border-radius:16px; padding:12px 14px; font-size:16px; color:var(--muted); }
+  .chips { display:flex; gap:8px; margin:12px 0 18px; flex-wrap:wrap; }
+  .chip { background:var(--chip); border-radius:10px; padding:8px 11px; font-size:13px; }
+  .foodrow { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--outline); }
+  .foodrow .n { font-size:17px; font-weight:500; }
+  .foodrow .m { font-size:14px; color:var(--muted); }
+  .add { color:var(--accent); font-size:14px; font-weight:600; }
+  .nutrient { margin: 12px 0; }
+  .nutrient .top { display:flex; justify-content:space-between; font-size:14px; }
+  .nutrient .name { font-size:17px; font-weight:500; }
+  .nutrient .track { margin-top:5px; }
+  .nodata { color:var(--muted); font-size:14px; }
+  .btn { background:var(--ink); color:var(--bg); border-radius:16px; padding:12px; text-align:center; font-size:14px; font-weight:600; margin:10px 0; }
+  .toggle { display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:14px; }
+  .sw { width:38px; height:22px; border-radius:99px; background:var(--accent); position:relative; }
+  .sw::after { content:""; position:absolute; right:2px; top:2px; width:18px; height:18px; border-radius:50%; background:#fff; }
+  .choice { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 14px; }
+  .opt { background:var(--chip); border-radius:10px; padding:8px 10px; font-size:13px; color:var(--muted); }
+  .opt.on { background:var(--ink); color:var(--bg); }
+  .section { font-size:17px; font-weight:600; margin:18px 0 6px; }
+  .photo { height:110px; border-radius:14px; background:linear-gradient(135deg,#8a7f72,#3d4a3a); margin:8px 0; }
+  .hint { font-size:13px; color:var(--muted); }
+  .period { font-size:24px; font-weight:600; }
+</style>
+</head>
+<body>
+<h1>Metriq — rendered UI preview</h1>
+<div class="sub">
+  Faithful HTML/CSS transcription of the Compose sources: <code>ui/theme/Color.kt</code>, <code>Type.kt</code>,
+  <code>HomeScreen.kt</code>, <code>TargetBar.kt</code>, <code>TrendChart.kt</code>, and the sub-screens.
+  No emulator was available, so these are code-derived previews — not device screenshots.
+</div>
+<div class="grid">
+
+  <!-- 1. Dashboard light -->
+  <div>
+    <div class="caption">1 · Dashboard — light theme</div>
+    <div class="phone light"><div class="screen">
+      <div class="date">Sunday, Nov 22</div><div class="h1">Today</div>
+      <div class="rails">
+        <div class="rail"><div><span class="num">1480</span> <span class="target">/ 2100</span></div><div class="track" style="background:rgba(0,0,0,.12)"><div class="fill" style="width:70%;background:#000"></div></div></div>
+        <div class="rail"><div><span class="num">96</span> <span class="target">/ 140</span></div><div class="track" style="background:rgba(255,181,160,.25)"><div class="fill" style="width:69%;background:#ffb5a0"></div></div></div>
+        <div class="rail"><div><span class="num">42</span> <span class="target">/ 70</span></div><div class="track" style="background:rgba(255,222,151,.25)"><div class="fill" style="width:60%;background:#ffde97"></div></div></div>
+        <div class="rail"><div><span class="num">168</span> <span class="target">/ 220</span></div><div class="track" style="background:rgba(160,217,185,.25)"><div class="fill" style="width:76%;background:#a0d9b9"></div></div></div>
+      </div>
+      <div class="week">
+        <div class="day"><div class="l">M</div><div class="c">16</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">T</div><div class="c">17</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">W</div><div class="c">18</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">T</div><div class="c">19</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">F</div><div class="c">20</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">S</div><div class="c">21</div><div class="dot"></div></div>
+        <div class="day today"><div class="l">S</div><div class="c">22</div><div class="dot"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Food log</span><span class="link">Add food</span></div>
+        <div class="logrow"><div class="hour">08:00</div><div class="name">Oatmeal with berries</div><div class="meta">320 kcal · 45 g</div></div>
+        <div class="logrow"><div class="hour">12:30</div><div class="name">Chicken salad</div><div class="meta">540 kcal · 180 g</div></div>
+        <div class="logrow"><div class="hour">18:10</div><div class="name">Greek yoghurt</div><div class="meta">220 kcal · 150 g</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Weight trend</span></div>
+        <div class="trend"><span class="big">78.4 kg</span></div>
+        <div class="hint">Down 0.35 kg per week</div>
+        <svg class="chart" viewBox="0 0 320 96" preserveAspectRatio="none">
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4dd0e1" stop-opacity=".35"/><stop offset="1" stop-color="#4dd0e1" stop-opacity="0"/></linearGradient></defs>
+          <line x1="0" y1="24" x2="320" y2="24" stroke="#e8e8e8"/><line x1="0" y1="60" x2="320" y2="60" stroke="#e8e8e8"/>
+          <path d="M0 20 C40 26,60 30,90 34 S140 42,170 46 S220 54,250 60 S290 66,320 70 L320 96 L0 96 Z" fill="url(#lg)"/>
+          <path d="M0 20 C40 26,60 30,90 34 S140 42,170 46 S220 54,250 60 S290 66,320 70" fill="none" stroke="#4dd0e1" stroke-width="3"/>
+        </svg>
+        <div class="row hint"><span>Sep 28</span><span>Nov 22</span></div>
+      </div>
+      <div class="card row">
+        <div><div class="label">Expenditure</div><div class="trend"><span class="big">2340</span><small>kcal</small></div><div class="hint">Estimated · medium confidence</div></div>
+        <div style="text-align:right"><div class="label">Goal</div><div style="font-size:17px;font-weight:500;margin-top:4px">Maintain</div></div>
+      </div>
+      <div class="card">
+        <div class="label">Weekly check-in</div>
+        <div style="font-size:16px;margin-top:6px">Based on your updated expenditure, your target is 2100 kcal per day.</div>
+        <div class="link" style="margin-top:12px">Accept</div>
+      </div>
+      <div class="card">
+        <div class="label">Health Connect</div>
+        <div style="font-size:17px;font-weight:500;margin:6px 0 4px">8,420 steps today</div>
+        <div class="hint">Active energy: 412 kcal · Exercise: 1 sessions</div>
+      </div>
+    </div>
+    <div class="bottom">
+      <div class="tab active"><span class="ic">▦</span>Dashboard</div>
+      <div class="tab"><span class="ic">◍</span>Log</div>
+      <div class="tab"><span class="ic">◉</span>Weight</div>
+      <div class="tab"><span class="ic">···</span>More</div>
+    </div></div>
+  </div>
+
+  <!-- 2. Dashboard dark -->
+  <div>
+    <div class="caption">2 · Dashboard — dark theme</div>
+    <div class="phone dark"><div class="screen">
+      <div class="date">Sunday, Nov 22</div><div class="h1">Today</div>
+      <div class="rails">
+        <div class="rail"><div><span class="num">1480</span> <span class="target">/ 2100</span></div><div class="track" style="background:rgba(255,255,255,.14)"><div class="fill" style="width:70%;background:#fff"></div></div></div>
+        <div class="rail"><div><span class="num">96</span> <span class="target">/ 140</span></div><div class="track" style="background:rgba(255,143,115,.25)"><div class="fill" style="width:69%;background:#ff8f73"></div></div></div>
+        <div class="rail"><div><span class="num">42</span> <span class="target">/ 70</span></div><div class="track" style="background:rgba(242,196,99,.25)"><div class="fill" style="width:60%;background:#f2c463"></div></div></div>
+        <div class="rail"><div><span class="num">168</span> <span class="target">/ 220</span></div><div class="track" style="background:rgba(111,199,155,.25)"><div class="fill" style="width:76%;background:#6fc79b"></div></div></div>
+      </div>
+      <div class="week">
+        <div class="day"><div class="l">M</div><div class="c">16</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">T</div><div class="c">17</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">W</div><div class="c">18</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">T</div><div class="c">19</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">F</div><div class="c">20</div><div class="dot logged"></div></div>
+        <div class="day"><div class="l">S</div><div class="c">21</div><div class="dot"></div></div>
+        <div class="day today"><div class="l">S</div><div class="c">22</div><div class="dot"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Food log</span><span class="link">Add food</span></div>
+        <div class="logrow"><div class="hour">08:00</div><div class="name">Oatmeal with berries</div><div class="meta">320 kcal · 45 g</div></div>
+        <div class="logrow"><div class="hour">12:30</div><div class="name">Chicken salad</div><div class="meta">540 kcal · 180 g</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="label">Weight trend</span></div>
+        <div class="trend"><span class="big">78.4 kg</span></div><div class="hint">Down 0.35 kg per week</div>
+        <svg class="chart" viewBox="0 0 320 96" preserveAspectRatio="none">
+          <line x1="0" y1="24" x2="320" y2="24" stroke="#2a2a30"/><line x1="0" y1="60" x2="320" y2="60" stroke="#2a2a30"/>
+          <path d="M0 20 C40 26,60 30,90 34 S140 42,170 46 S220 54,250 60 S290 66,320 70" fill="none" stroke="#4dd0e1" stroke-width="3"/>
+        </svg>
+        <div class="row hint"><span>Sep 28</span><span>Nov 22</span></div>
+      </div>
+      <div class="card row">
+        <div><div class="label">Expenditure</div><div class="trend"><span class="big">2340</span><small>kcal</small></div><div class="hint">Estimated · medium confidence</div></div>
+        <div style="text-align:right"><div class="label">Goal</div><div style="font-size:17px;font-weight:500;margin-top:4px">Maintain</div></div>
+      </div>
+      <div class="card">
+        <div class="label">Weekly check-in</div>
+        <div style="font-size:16px;margin-top:6px">Based on your updated expenditure, your target is 2100 kcal per day.</div>
+        <div class="link" style="margin-top:12px">Accept</div>
+      </div>
+    </div>
+    <div class="bottom">
+      <div class="tab active"><span class="ic">▦</span>Dashboard</div>
+      <div class="tab"><span class="ic">◍</span>Log</div>
+      <div class="tab"><span class="ic">◉</span>Weight</div>
+      <div class="tab"><span class="ic">···</span>More</div>
+    </div></div>
+  </div>
+
+  <!-- 3. Food search -->
+  <div>
+    <div class="caption">3 · Food search (FTS5)</div>
+    <div class="phone light"><div class="screen">
+      <div class="header"><span class="back">Back</span><span class="title">Add food</span></div>
+      <div class="searchbox">Search foods…</div>
+      <div class="chips"><span class="chip">Scan label</span><span class="chip">Barcode</span><span class="chip">Photo</span><span class="chip">Custom food</span></div>
+      <div class="label">Recent &amp; suggested</div>
+      <div class="foodrow"><div><div class="n">Oat flakes</div><div class="m">100 g · 379 kcal</div></div><span class="add">ADD</span></div>
+      <div class="foodrow"><div><div class="n">Chicken breast, cooked</div><div class="m">100 g · 165 kcal</div></div><span class="add">ADD</span></div>
+      <div class="foodrow"><div><div class="n">Greek yoghurt, plain</div><div class="m">100 g · 59 kcal</div></div><span class="add">ADD</span></div>
+      <div class="foodrow"><div><div class="n">Banana</div><div class="m">100 g · 89 kcal</div></div><span class="add">ADD</span></div>
+      <div class="foodrow"><div><div class="n">Brown rice, cooked</div><div class="m">100 g · 123 kcal</div></div><span class="add">ADD</span></div>
+      <div class="foodrow"><div><div class="n">Almonds</div><div class="m">100 g · 579 kcal</div></div><span class="add">ADD</span></div>
+      <div class="hint" style="margin-top:14px">Malformed queries are sanitized — no crash.</div>
+    </div>
+    <div class="bottom">
+      <div class="tab active"><span class="ic">▦</span>Dashboard</div><div class="tab"><span class="ic">◍</span>Log</div>
+      <div class="tab"><span class="ic">◉</span>Weight</div><div class="tab"><span class="ic">···</span>More</div>
+    </div></div>
+  </div>
+
+  <!-- 4. Micronutrients -->
+  <div>
+    <div class="caption">4 · Micronutrients (no-data aware)</div>
+    <div class="phone light"><div class="screen">
+      <div class="header"><span class="back">Back</span><span class="title">Nutrients</span></div>
+      <div class="nutrient"><div class="name">Fiber</div><div class="top"><span>14 / 28 g</span></div><div class="track" style="background:rgba(217,48,37,.25)"><div class="fill" style="width:37%;background:#d93025"></div></div></div>
+      <div class="nutrient"><div class="name">Sodium</div><div class="top"><span>1,020 / 2,300 mg</span></div><div class="track" style="background:rgba(77,208,225,.25)"><div class="fill" style="width:33%;background:#4dd0e1"></div></div></div>
+      <div class="nutrient"><div class="name">Potassium</div><div class="top"><span>3,100 / 4,700 mg</span></div><div class="track" style="background:rgba(249,168,37,.25)"><div class="fill" style="width:44%;background:#f9a825"></div></div></div>
+      <div class="nutrient"><div class="name">Calcium</div><div class="top"><span>860 / 1,000 mg</span></div><div class="track" style="background:rgba(77,208,225,.25)"><div class="fill" style="width:57%;background:#4dd0e1"></div></div></div>
+      <div class="nutrient"><div class="name">Iron</div><div class="top"><span>11 / 8 mg</span></div><div class="track" style="background:rgba(179,136,255,.25)"><div class="fill" style="width:92%;background:#b388ff"></div></div></div>
+      <div class="nutrient"><div class="name">Vitamin C</div><div class="top"><span>72 / 90 mg</span></div><div class="track" style="background:rgba(249,168,37,.25)"><div class="fill" style="width:53%;background:#f9a825"></div></div></div>
+      <div class="nutrient"><div class="top"><div class="name">Vitamin E</div><span class="nodata">no data</span></div></div>
+      <div class="nutrient"><div class="top"><div class="name">Vitamin K</div><span class="nodata">no data</span></div></div>
+      <div class="nutrient"><div class="top"><div class="name">Phosphorus</div><span class="nodata">no data</span></div></div>
+      <div class="nutrient"><div class="top"><div class="name">Caffeine</div><span class="nodata">no data</span></div></div>
+      <div class="hint" style="margin-top:16px">Unknown values are never shown as measured zeros.</div>
+    </div>
+    <div class="bottom">
+      <div class="tab active"><span class="ic">▦</span>Dashboard</div><div class="tab"><span class="ic">◍</span>Log</div>
+      <div class="tab"><span class="ic">◉</span>Weight</div><div class="tab"><span class="ic">···</span>More</div>
+    </div></div>
+  </div>
+
+  <!-- 5. Body -->
+  <div>
+    <div class="caption">5 · Body &amp; progress photos</div>
+    <div class="phone light"><div class="screen">
+      <div class="header"><span class="back">Back</span><span class="title">Body</span></div>
+      <div class="section">Measurements</div>
+      <div class="row" style="font-size:14px;padding:6px 0"><span>Waist</span><span>82.0 cm</span></div>
+      <div class="row" style="font-size:14px;padding:6px 0"><span>Hips</span><span>98.0 cm</span></div>
+      <div class="field"><span class="fl">Site</span><span class="fv">Waist</span></div>
+      <div class="field"><span class="fl">cm</span><span class="fv"></span></div>
+      <div class="btn">Save measurement</div>
+      <div class="section">Period today</div>
+      <div class="period">On</div>
+      <div class="section">Progress photos</div>
+      <div class="btn" style="background:var(--ink)">Add photo from gallery</div>
+      <div class="photo"></div>
+      <div class="hint">Delete photo</div>
+      <div class="hint" style="margin-top:10px">Photos are stored locally only.</div>
+    </div>
+    <div class="bottom">
+      <div class="tab active"><span class="ic">▦</span>Dashboard</div><div class="tab"><span class="ic">◍</span>Log</div>
+      <div class="tab"><span class="ic">◉</span>Weight</div><div class="tab"><span class="ic">···</span>More</div>
+    </div></div>
+  </div>
+
+  <!-- 6. Profile -->
+  <div>
+    <div class="caption">6 · Profile &amp; Health Connect</div>
+    <div class="phone light"><div class="screen">
+      <div class="header"><span class="back">Back</span><span class="title">Your profile</span></div>
+      <div class="label">Sex</div><div class="choice"><span class="opt on">male</span><span class="opt">female</span></div>
+      <div class="rails" style="gap:10px">
+        <div class="field"><span class="fl">Age</span><span class="fv">34</span></div>
+        <div class="field"><span class="fl">Height cm</span><span class="fv">178</span></div>
+        <div class="field"><span class="fl">Weight kg</span><span class="fv">78.4</span></div>
+        <div class="field"><span class="fl">Body fat %</span><span class="fv">18</span></div>
+      </div>
+      <div class="section">Goal</div><div class="choice"><span class="opt">lose</span><span class="opt on">maintain</span><span class="opt">gain</span></div>
+      <div class="section">Activity</div><div class="choice"><span class="opt on">moderate</span><span class="opt">high</span></div>
+      <div class="section">Diet</div><div class="choice"><span class="opt on">omnivore</span><span class="opt">vegetarian</span></div>
+      <div class="btn">Save profile</div>
+      <div class="btn" style="background:var(--surface);color:var(--ink)">Export CSV</div>
+      <div class="section">Health Connect</div>
+      <div class="hint">Available · Last sync: Nov 22, 09:41</div>
+      <div class="toggle"><span>Import steps</span><span class="sw"></span></div>
+      <div class="toggle"><span>Import weight</span><span class="sw"></span></div>
+      <div class="btn">Connect Health Connect</div>
+      <div class="btn" style="background:var(--surface);color:var(--ink)">Sync now</div>
+    </div>
+    <div class="bottom">
+      <div class="tab active"><span class="ic">▦</span>Dashboard</div><div class="tab"><span class="ic">◍</span>Log</div>
+      <div class="tab"><span class="ic">◉</span>Weight</div><div class="tab"><span class="ic">···</span>More</div>
+    </div></div>
+  </div>
+
+</div>
+</body>
+</html>

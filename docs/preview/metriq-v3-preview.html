@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Metriq v3 — analytics, configurações e ícones</title>
+<style>
+@font-face{font-family:Geist;src:url('./fonts/geist.ttf') format('truetype');font-weight:100 900}
+@font-face{font-family:SG;src:url('./fonts/space_grotesk.ttf') format('truetype');font-weight:300 700}
+:root{--bg:#0B0D0F;--s1:#15181C;--s2:#1E2228;--bd:#2A2F37;--ink:#F3F5F6;--ink2:#9AA1AB;--ink3:#646C77;--ac:#C6F26E;--acInk:#0B0D0F;--en:#FF7A5C;--tr:#7ED9C2;--pr:#FF9B82;--cb:#F5C96B;--ft:#7AB8FF}
+*{box-sizing:border-box}body{margin:0;padding:28px;background:#e8e9ec;color:#111;font-family:Geist,system-ui,sans-serif}
+h1{font-size:20px;margin:0 0 4px}.sub{font-size:13px;color:#555;margin-bottom:20px}.grid{display:grid;grid-template-columns:repeat(3,390px);gap:28px}
+.cap{font-size:12px;font-weight:600;color:#333;margin:0 0 8px;text-transform:uppercase;letter-spacing:.4px}
+.phone{width:390px;height:844px;background:var(--bg);color:var(--ink);border:9px solid #1b1c20;border-radius:38px;overflow:hidden;position:relative;padding:16px 18px 0;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.scroll{height:770px;overflow:hidden}.status{display:flex;justify-content:space-between;color:var(--ink2);font-size:11px;margin-bottom:12px}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.head .t{font-size:30px;font-weight:650;letter-spacing:-.8px}.head .r{display:flex;gap:8px}
+.icobtn{width:34px;height:34px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--ink2);font-size:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.chip{padding:7px 11px;border-radius:99px;background:var(--s2);font-size:11px;color:var(--ink2);white-space:nowrap}.chip.on{background:var(--ac);color:var(--acInk);font-weight:600}
+.panel{background:var(--s1);border-radius:20px;padding:15px;margin-bottom:13px}.lbl{font-size:11px;color:var(--ink2);font-weight:600;letter-spacing:.3px}
+.num{font-family:SG;font-weight:700}.n40{font-size:40px;line-height:42px;letter-spacing:-1.4px}.n24{font-size:24px;line-height:28px;letter-spacing:-.6px}
+.chart{position:relative;height:182px;margin-top:6px}.chart svg{width:100%;height:100%}
+.tip{position:absolute;left:58%;top:18px;background:var(--s2);border-radius:10px;padding:7px 9px;font-size:11px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:var(--s2);border-radius:14px;padding:10px}.stat .v{font-family:SG;font-weight:700;font-size:17px;margin-top:3px}
+.bar{height:10px;border-radius:99px;display:flex;overflow:hidden;margin:9px 0 5px}.bar i{display:block;height:100%}
+table{width:100%;border-collapse:collapse;font-family:SG;font-size:11px;margin-top:6px}th{text-align:left;color:var(--ink3);font-weight:500;padding:6px 0}td{padding:6px 0;border-bottom:1px solid var(--bd);color:var(--ink2)}td.r,th.r{text-align:right}td.v{color:var(--ink)}
+.seg{display:flex;background:var(--s2);border-radius:99px;padding:4px;gap:3px;margin:7px 0 12px}.seg span{flex:1;text-align:center;padding:7px 0;border-radius:99px;font-size:11px;color:var(--ink2)}.seg span.on{background:var(--ac);color:var(--acInk);font-weight:600}
+.setrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;font-size:14px;border-bottom:1px solid var(--bd)}.setrow:last-child{border:0}
+.sw{width:40px;height:23px;border-radius:99px;background:var(--ac);position:relative}.sw.off{background:var(--bd)}.sw::after{content:'';position:absolute;right:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--acInk)}.sw.off::after{right:auto;left:3px;background:var(--ink2)}
+.act{background:var(--s2);border-radius:14px;padding:12px;text-align:center;font-size:13px;color:var(--ink);margin-top:9px}.act.pri{background:var(--ac);color:var(--acInk);font-weight:600}
+.food{display:flex;align-items:center;gap:11px;padding:10px 0}.fi{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}.fi svg{width:20px;height:20px}.food .tx{flex:1;min-width:0}.food .n{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.food .m{font-size:11px;color:var(--ink2)}
+.nav{position:absolute;left:0;right:0;bottom:0;height:70px;background:var(--s1);border-top:1px solid var(--bd);display:flex;justify-content:space-around;padding-top:9px}.nav div{text-align:center;color:var(--ink3);font-size:10px;font-weight:600}.nav div.on{color:var(--ac)}.nav b{display:block;font-size:19px;line-height:23px}
+</style>
+</head>
+<body>
+<h1>Metriq v3 — visualização densa, filtros, integrações</h1>
+<div class="sub">Transcrição dos tokens/componentes do Compose. Gráfico interativo no app: tap/arrasto mostra crosshair e tooltip; transição de dados em 260ms (respeita "reduced motion").</div>
+<div class="grid">
+
+<div><div class="cap">Analytics — gráfico + scrubber</div><div class="phone">
+ <div class="status"><span>9:41</span><span>●●● ▰</span></div><div class="scroll">
+  <div class="head"><div class="t">Data</div><div class="r"><div class="icobtn">↗</div><div class="icobtn">‹</div></div></div>
+  <div class="chips"><span class="chip on">Energy intake</span><span class="chip">Expenditure</span><span class="chip">Weight</span><span class="chip">Steps</span><span class="chip">Macros</span></div>
+  <div class="chips"><span class="chip">7D</span><span class="chip on">30D</span><span class="chip">90D</span><span class="chip">1Y</span><span class="chip">All</span><span class="chip">Compare</span></div>
+  <div class="panel">
+   <div class="lbl">ENERGY INTAKE · DAILY · 30 DAYS</div>
+   <div style="margin-top:5px"><span class="num n40">2,140</span> <span style="color:var(--ink2);font-size:13px">kcal avg</span></div>
+   <div class="chart">
+    <svg viewBox="0 0 350 180" preserveAspectRatio="none">
+     <line x1="0" y1="20" x2="350" y2="20" stroke="#2A2F37"/><line x1="0" y1="65" x2="350" y2="65" stroke="#2A2F37"/><line x1="0" y1="110" x2="350" y2="110" stroke="#2A2F37"/><line x1="0" y1="155" x2="350" y2="155" stroke="#2A2F37"/>
+     <polyline points="4,44 34,36 64,52 94,30 124,46 154,40 184,62 214,48 244,70 274,56 304,78 344,66" fill="none" stroke="#C6F26E" stroke-width="2.5" stroke-linejoin="round"/>
+     <g fill="#C6F26E"><circle cx="4" cy="44" r="3"/><circle cx="34" cy="36" r="3"/><circle cx="64" cy="52" r="3"/><circle cx="94" cy="30" r="3"/><circle cx="124" cy="46" r="3"/><circle cx="154" cy="40" r="3"/><circle cx="184" cy="62" r="3"/><circle cx="214" cy="48" r="3"/><circle cx="244" cy="70" r="3"/><circle cx="274" cy="56" r="3"/><circle cx="304" cy="78" r="3"/><circle cx="344" cy="66" r="3"/></g>
+     <line x1="214" y1="10" x2="214" y2="158" stroke="#F3F5F6" stroke-opacity=".35" stroke-dasharray="3 3"/><circle cx="214" cy="48" r="5" fill="#C6F26E" stroke="#0B0D0F" stroke-width="2"/>
+     <g fill="#646C77" font-family="Geist" font-size="10"><text x="4" y="172">OCT 24</text><text x="120" y="172">NOV 05</text><text x="280" y="172">NOV 22</text></g>
+    </svg>
+    <div class="tip">Nov 12 · 2,310 kcal</div>
+   </div>
+  </div>
+  <div class="stats">
+   <div class="stat"><div class="lbl">TOTAL</div><div class="v">64,200 kcal</div></div><div class="stat"><div class="lbl">AVERAGE</div><div class="v">2,140 kcal</div></div>
+   <div class="stat"><div class="lbl">RANGE</div><div class="v">1,480 – 2,860</div></div><div class="stat"><div class="lbl">7-DAY Δ</div><div class="v" style="color:var(--tr)">−180 vs prev 7</div></div>
+  </div>
+  <div class="panel" style="margin-top:13px"><div class="lbl">MACRO SPLIT · GRAMS</div><div class="bar"><i style="width:31%;background:var(--pr)"></i><i style="width:46%;background:var(--cb)"></i><i style="width:23%;background:var(--ft)"></i></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink2)"><span>Protein 96g</span><span>Carbs 142g</span><span>Fat 42g</span></div></div>
+  <div class="panel"><div class="lbl">DATA · FILTERED ROWS</div><table><thead><tr><th>DATE</th><th class="r">KCAL</th><th class="r">Δ</th></tr></thead><tbody><tr><td>2026-11-22</td><td class="r v">2,140</td><td class="r">+120</td></tr><tr><td>2026-11-21</td><td class="r v">2,020</td><td class="r" style="color:var(--tr)">−180</td></tr><tr><td>2026-11-20</td><td class="r v">2,200</td><td class="r">+60</td></tr><tr><td>2026-11-19</td><td class="r v">2,140</td><td class="r">—</td></tr></tbody></table></div>
+ </div>
+ <div class="nav"><div class="on"><b>▦</b>Today</div><div><b>◍</b>Log</div><div class="on"><b>▤</b>Data</div><div><b>◉</b>Weight</div><div><b>···</b>More</div></div>
+</div></div>
+
+<div><div class="cap">Configurações — integrações completas</div><div class="phone">
+ <div class="status"><span>9:41</span><span>●●● ▰</span></div><div class="scroll">
+  <div class="head"><div class="t" style="font-size:26px">All settings</div><div class="r"><div class="icobtn">‹</div></div></div>
+  <div class="panel"><div class="lbl">UNITS &amp; DISPLAY</div><div class="seg"><span class="on">kg</span><span>lb</span></div><div class="seg"><span class="on">kcal</span><span>kJ</span></div>
+   <div class="setrow"><span>Reduced motion</span><span class="sw off"></span></div><div class="setrow"><span>Advanced metrics</span><span class="sw"></span></div></div>
+  <div class="panel"><div class="lbl">DATA &amp; PRIVACY</div><div style="font-size:12px;color:var(--ink2);line-height:1.5;margin:6px 0">Everything stays on this device. No account, no backend, no telemetry.</div><div class="act">Export CSV</div>
+   <div class="lbl" style="margin-top:14px">WIDGET REFRESH</div><div class="seg"><span>15m</span><span class="on">30m</span><span>60m</span></div><div style="font-size:11px;color:var(--ink3)">Takes effect on next restart.</div>
+   <div style="font-size:11px;color:var(--ink3);margin-top:10px">v0.1.0 · AGPL-3.0 · clean-room</div></div>
+  <div class="panel"><div class="lbl">INTEGRATIONS · HEALTH CONNECT</div><div class="setrow"><span>Status</span><span style="color:var(--tr);font-size:12px">Available</span></div>
+   <div class="act pri">Connect Health Connect</div><div class="act">Sync now</div>
+   <div class="setrow" style="margin-top:8px"><span>Auto-sync</span><span class="sw"></span></div><div class="setrow"><span>Import steps</span><span class="sw"></span></div><div class="setrow"><span>Import weight</span><span class="sw"></span></div>
+   <div style="font-size:11px;color:var(--ink3);margin-top:8px">Manual entries always win over imported data.</div></div>
+  <div class="panel"><div class="lbl">ANALYTICS DEFAULTS</div><div class="seg"><span>7D</span><span class="on">30D</span><span>90D</span><span>1Y</span></div><div class="seg"><span class="on">Intake</span><span>Burn</span><span>Weight</span><span>Steps</span></div></div>
+  <div style="text-align:center;color:var(--ac);font-size:11px">Saved locally</div>
+ </div>
+</div></div>
+
+<div><div class="cap">Food rows — ícones por categoria</div><div class="phone">
+ <div class="status"><span>9:41</span><span>●●● ▰</span></div><div class="scroll">
+  <div class="head"><div class="t" style="font-size:26px">10 AM Picks</div><div class="r"><div class="icobtn">‹</div></div></div>
+  <div class="chips"><span class="chip on">Search</span><span class="chip">Scan label</span><span class="chip">Barcode</span><span class="chip">Photo</span></div>
+  <div class="panel" style="padding:6px 15px">
+   <div class="food"><div class="fi" style="background:rgba(245,201,107,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#F5C96B" stroke-width="1.8"><path d="M12 21c0-6 2-11 8-14-1 7-4 11-8 14Z"/><path d="M12 21c0-5-2-9-7-12 1 6 3 10 7 12Z"/></svg></div><div class="tx"><div class="n">Blackberries, Fresh</div><div class="m">18 kcal · 1P · 0F · 4C · 42 g</div></div></div>
+   <div class="food"><div class="fi" style="background:rgba(245,201,107,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#F5C96B" stroke-width="1.8"><path d="M12 21c0-6 2-11 8-14-1 7-4 11-8 14Z"/><path d="M12 21c0-5-2-9-7-12 1 6 3 10 7 12Z"/></svg></div><div class="tx"><div class="n">Raspberries, Fresh</div><div class="m">15 kcal · 0P · 0F · 4C · 29 g</div></div></div>
+   <div class="food"><div class="fi" style="background:rgba(245,201,107,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#F5C96B" stroke-width="1.8"><path d="M4 12h16M6 12c0 5 3 8 6 8s6-3 6-8"/><path d="M8 8c0-2 2-3 4-3s4 1 4 3"/></svg></div><div class="tx"><div class="n">Honey</div><div class="m">43 kcal · 0P · 0F · 12C · 14 g</div></div></div>
+   <div class="food"><div class="fi" style="background:rgba(122,184,255,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#7AB8FF" stroke-width="1.8"><ellipse cx="12" cy="14" rx="7" ry="5"/><path d="M7 12c0-4 2-6 5-6s5 2 5 6"/></svg></div><div class="tx"><div class="n">Egg, Whole Raw</div><div class="m">72 kcal · 6P · 5F · 0C · 1 large egg</div></div></div>
+   <div class="food"><div class="fi" style="background:rgba(255,155,130,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#FF9B82" stroke-width="1.8"><path d="M4 12h16M6 12c0 5 3 8 6 8s6-3 6-8"/><path d="M9 8c0-2 1-3 3-3s3 1 3 3"/></svg></div><div class="tx"><div class="n">Chicken breast, cooked</div><div class="m">165 kcal · 31P · 3F · 0C · 100 g</div></div></div>
+   <div class="food"><div class="fi" style="background:rgba(126,217,194,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#7ED9C2" stroke-width="1.8"><path d="M12 21c0-6 2-11 8-14-1 7-4 11-8 14Z"/></svg></div><div class="tx"><div class="n">Broccoli, raw</div><div class="m">34 kcal · 3P · 0F · 7C · 100 g</div></div></div>
+  </div>
+  <div class="panel"><div class="lbl">MOTION</div><div style="font-size:12px;color:var(--ink2);line-height:1.7;margin-top:6px">Button press → scale 0.97 (spring). Filters → 180ms color. Chart reveal → 260ms, alpha + 8px translate only. Scrubber tooltip appears instantly. Reduced motion snaps everything.</div></div>
+ </div>
+</div></div>
+</div>
+</body>
+</html>

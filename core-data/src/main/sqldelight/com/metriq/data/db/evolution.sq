@@ -1,0 +1,99 @@
+-- appended evolution schema and queries
+CREATE TABLE foodMicros (
+  foodId INTEGER PRIMARY KEY REFERENCES food(id),
+  json TEXT NOT NULL
+);
+
+insertFoodMicros:
+INSERT OR REPLACE INTO foodMicros(foodId, json) VALUES (?, ?);
+
+selectFoodMicros:
+SELECT json FROM foodMicros WHERE foodId = ?;
+
+selectMeasurements:
+SELECT * FROM bodyMeasurement WHERE date = ? ORDER BY site;
+
+selectMeasurementHistory:
+SELECT * FROM bodyMeasurement WHERE site = ? ORDER BY date DESC LIMIT ?;
+
+selectAllMeasurementSites:
+SELECT DISTINCT site FROM bodyMeasurement ORDER BY site ASC;
+
+insertMeasurement:
+INSERT INTO bodyMeasurement(date, site, valueCm) VALUES (?, ?, ?);
+
+deleteMeasurement:
+DELETE FROM bodyMeasurement WHERE id = ?;
+
+insertPhoto:
+INSERT INTO progressPhoto(date, path, pose, note) VALUES (?, ?, ?, ?);
+
+selectPhotos:
+SELECT * FROM progressPhoto ORDER BY date DESC;
+
+selectPhotosByDate:
+SELECT * FROM progressPhoto WHERE date = ?;
+
+deletePhoto:
+DELETE FROM progressPhoto WHERE id = ?;
+
+selectActiveHabits:
+SELECT * FROM habit WHERE archived = 0 ORDER BY name;
+
+insertHabit:
+INSERT INTO habit(name, schedule, color, archived) VALUES (?, ?, ?, 0);
+
+archiveHabit:
+UPDATE habit SET archived = 1 WHERE id = ?;
+
+selectHabitLogs:
+SELECT * FROM habitLog WHERE habitId = ? AND date BETWEEN ? AND ?;
+
+toggleHabitLog:
+INSERT OR REPLACE INTO habitLog(habitId, date, done) VALUES (?, ?, ?);
+
+selectStepsRange:
+SELECT * FROM stepEntry WHERE date BETWEEN ? AND ? ORDER BY date;
+
+selectWaterRange:
+SELECT * FROM waterEntry WHERE date BETWEEN ? AND ? ORDER BY date;
+
+selectDayProperties:
+SELECT * FROM dayProperty WHERE date BETWEEN ? AND ? ORDER BY date;
+
+selectNutrientTargets:
+SELECT * FROM nutrientTarget ORDER BY nutrient;
+
+upsertNutrientTarget:
+INSERT OR REPLACE INTO nutrientTarget(nutrient, mode, minimum, maximum, effectiveFrom)
+VALUES (?, ?, ?, ?, ?);
+
+selectRecipes:
+SELECT * FROM recipe ORDER BY id DESC;
+
+insertRecipe:
+INSERT INTO recipe(name, servings, totalGrams, note) VALUES (?, ?, ?, ?);
+
+selectRecipeItems:
+SELECT recipeItem.recipeId, recipeItem.foodId, recipeItem.grams,
+       food.name, food.calories, food.protein, food.fat, food.carbs
+FROM recipeItem JOIN food ON food.id = recipeItem.foodId
+WHERE recipeItem.recipeId = ?;
+
+insertRecipeItem:
+INSERT INTO recipeItem(recipeId, foodId, grams) VALUES (?, ?, ?);
+
+selectProgram:
+SELECT * FROM program ORDER BY id DESC LIMIT 1;
+
+insertProgram:
+INSERT INTO program(style, startDate, weeklyKcal, targetRatePercent, split)
+VALUES (?, ?, ?, ?, ?);
+
+insertExportJob:
+INSERT INTO exportJob(scope, rangeStart, rangeEnd, format, path, createdAt)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertAiRequest:
+INSERT INTO aiRequest(kind, model, tokens, latencyMs, local, createdAt)
+VALUES (?, ?, ?, ?, ?, ?);

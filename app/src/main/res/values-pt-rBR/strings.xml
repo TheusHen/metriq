@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Metriq</string>
+    <string name="widget_daily_macro">Calorias e macros de hoje</string>
+    <string name="widget_quick_log">Ações rápidas</string>
+    <string name="widget_weight">Último peso</string>
+    <string name="back">Voltar</string>
+    <string name="tab_dashboard">Início</string>
+    <string name="tab_log">Registrar</string>
+    <string name="tab_weight">Peso</string>
+    <string name="tab_more">Mais</string>
+    <string name="today">Hoje</string>
+    <string name="food_log_title">REGISTRO ALIMENTAR</string>
+    <string name="add_food">+ Adicionar alimento</string>
+    <string name="nothing_logged">Nada registrado ainda. Toque em Adicionar.</string>
+    <string name="weight_trend">TENDÊNCIA DE PESO</string>
+    <string name="expenditure">GASTO ENERGÉTICO</string>
+    <string name="weekly_checkin">CHECK-IN SEMANAL</string>
+    <string name="accept">Aceitar</string>
+    <string name="checkin_complete">Check-in desta semana concluído.</string>
+    <string name="search_food">Buscar alimento</string>
+    <string name="recent">Recentes</string>
+    <string name="results">Resultados</string>
+    <string name="new_food">+ Novo</string>
+    <string name="scan">Escanear</string>
+    <string name="label">Rótulo</string>
+    <string name="ai">IA</string>
+    <string name="steps">Passos</string>
+    <string name="water">Água</string>
+    <string name="save_steps">Salvar passos</string>
+    <string name="save_water">Salvar água</string>
+    <string name="habits">Hábitos</string>
+    <string name="body">Corpo</string>
+    <string name="recipes">Receitas</string>
+    <string name="nutrients">Nutrientes</string>
+    <string name="profile">Perfil</string>
+    <string name="export_csv">Exportar CSV</string>
+    <string name="health_connect">Health Connect</string>
+    <string name="connect_health">Conectar Health Connect</string>
+    <string name="sync_now">Sincronizar agora</string>
+</resources>

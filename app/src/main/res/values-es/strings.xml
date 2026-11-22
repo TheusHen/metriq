@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Metriq</string>
+    <string name="widget_daily_macro">Calorías y macros de hoy</string>
+    <string name="widget_quick_log">Acciones rápidas</string>
+    <string name="widget_weight">Último peso</string>
+    <string name="back">Atrás</string>
+    <string name="tab_dashboard">Inicio</string>
+    <string name="tab_log">Registrar</string>
+    <string name="tab_weight">Peso</string>
+    <string name="tab_more">Más</string>
+    <string name="today">Hoy</string>
+    <string name="food_log_title">REGISTRO DE ALIMENTOS</string>
+    <string name="add_food">+ Añadir alimento</string>
+    <string name="nothing_logged">Aún no hay registros. Toca Añadir.</string>
+    <string name="weight_trend">TENDENCIA DE PESO</string>
+    <string name="expenditure">GASTO ENERGÉTICO</string>
+    <string name="weekly_checkin">REVISIÓN SEMANAL</string>
+    <string name="accept">Aceptar</string>
+    <string name="checkin_complete">Revisión de esta semana completada.</string>
+    <string name="search_food">Buscar alimento</string>
+    <string name="recent">Recientes</string>
+    <string name="results">Resultados</string>
+    <string name="new_food">+ Nuevo</string>
+    <string name="scan">Escanear</string>
+    <string name="label">Etiqueta</string>
+    <string name="ai">IA</string>
+    <string name="steps">Pasos</string>
+    <string name="water">Agua</string>
+    <string name="save_steps">Guardar pasos</string>
+    <string name="save_water">Guardar agua</string>
+    <string name="habits">Hábitos</string>
+    <string name="body">Cuerpo</string>
+    <string name="recipes">Recetas</string>
+    <string name="nutrients">Nutrientes</string>
+    <string name="profile">Perfil</string>
+    <string name="export_csv">Exportar CSV</string>
+    <string name="health_connect">Health Connect</string>
+    <string name="connect_health">Conectar Health Connect</string>
+    <string name="sync_now">Sincronizar ahora</string>
+</resources>

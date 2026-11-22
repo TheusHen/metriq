@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Metriq v2 — preview do redesign (tokens do código)</title>
+<style>
+@font-face{font-family:Geist;src:url('./fonts/geist.ttf') format('truetype');font-weight:100 900;}
+@font-face{font-family:SpaceGrotesk;src:url('./fonts/space_grotesk.ttf') format('truetype');font-weight:300 700;}
+:root{--bg:#0B0D0F;--s1:#15181C;--s2:#1E2228;--bd:#2A2F37;--ink:#F3F5F6;--ink2:#9AA1AB;--ink3:#646C77;--accent:#C6F26E;--accentInk:#0B0D0F;--energy:#FF7A5C;--trend:#7ED9C2;--protein:#FF9B82;--carbs:#F5C96B;--fat:#7AB8FF;}
+*{box-sizing:border-box}body{margin:0;padding:28px;background:#e8e9ec;color:#111;font-family:Geist,system-ui,sans-serif}
+h1{font-size:20px;margin:0 0 4px}.sub{font-size:13px;color:#555;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(3,390px);gap:28px}
+.cap{font-size:12px;font-weight:600;color:#333;margin:0 0 8px;text-transform:uppercase;letter-spacing:.4px}
+.phone{width:390px;height:844px;background:var(--bg);color:var(--ink);border:9px solid #1b1c20;border-radius:38px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.25);position:relative;padding:14px 20px 0}
+.screen{height:760px;overflow:hidden}
+.status{display:flex;justify-content:space-between;color:var(--ink2);font-size:11px;margin-bottom:14px}
+.date{font-size:12px;letter-spacing:.5px;color:var(--ink2);font-weight:600}
+.title{font-family:Geist;font-size:44px;line-height:46px;letter-spacing:-1.6px;font-weight:650;margin:4px 0 16px}
+.headrow{display:flex;justify-content:space-between;align-items:center}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:20px;font-weight:600}
+.panel{background:var(--s1);border-radius:20px;padding:16px;margin-bottom:16px}
+.label{font-size:12px;color:var(--ink2);font-weight:600}
+.caption{font-size:11px;color:var(--ink3)}
+.pill{background:var(--s2);border-radius:99px;padding:4px 9px;font-size:11px;color:var(--accent);font-weight:600}
+.num{font-family:SpaceGrotesk;font-weight:700;letter-spacing:-1.4px}
+.num40{font-size:40px;line-height:42px}.num24{font-size:24px;line-height:28px;letter-spacing:-.6px}
+.track{height:6px;background:var(--s2);border-radius:99px;overflow:hidden;margin:10px 0 14px}
+.fill{height:100%;border-radius:99px;background:var(--accent)}
+.macro{display:flex;align-items:center;gap:8px;margin-top:10px}.dot{width:6px;height:6px;border-radius:50%;flex:none}
+.macro .nm{flex:1;font-size:12px;color:var(--ink2)}.macro .vl{font-size:11px;color:var(--ink2)}
+.mrow{display:flex;justify-content:space-between;align-items:center;margin-top:7px}
+.week{display:flex;justify-content:space-between;margin:16px 0 18px}
+.day{text-align:center;flex:1}.day .l{font-size:11px;color:var(--ink3)}
+.day .c{width:34px;height:34px;border-radius:50%;background:var(--s2);margin:6px auto;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink2)}
+.day.today .c{background:var(--accent);color:var(--accentInk);font-weight:700}
+.day .d{width:4px;height:4px;border-radius:50%;background:transparent;margin:6px auto 0}.day.past .d{background:var(--ink3)}
+.sec{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.sec .t{font-size:20px;font-weight:600}.sec .a{font-size:12px;color:var(--accent);font-weight:600}
+.food{display:flex;align-items:center;gap:12px;padding:9px 0}
+.food .ic{width:40px;height:40px;border-radius:12px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:20px}
+.food .tx{flex:1;min-width:0}.food .n{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.food .m{font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.food .add{width:30px;height:30px;border-radius:50%;background:var(--s2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:18px}
+.chartbox{height:110px;position:relative;margin-top:8px}.chartbox svg{width:100%;height:100%}
+.nav{position:absolute;left:0;right:0;bottom:0;height:72px;background:var(--s1);border-top:1px solid var(--bd);display:flex;justify-content:space-around;padding-top:10px}
+.tab{text-align:center;color:var(--ink3);font-size:11px;font-weight:600}.tab.on{color:var(--accent)}.tab .ic{display:block;font-size:20px;line-height:24px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:16px}
+.round{width:36px;height:36px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:18px}
+.timepill,.budgetpill{height:36px;border-radius:99px;background:var(--s2);display:flex;align-items:center;padding:0 14px;font-size:14px;font-weight:600}
+.budgetpill{background:var(--accent);color:var(--accentInk)}
+.tabs{display:flex;gap:8px;margin-bottom:18px;overflow:hidden}
+.tabs span{padding:8px 14px;border-radius:99px;background:var(--s2);font-size:12px;color:var(--ink2);white-space:nowrap}
+.tabs span.on{background:var(--accent);color:var(--accentInk);font-weight:600}
+.field{background:var(--s2);border-radius:12px;padding:10px 14px;margin-bottom:10px}.field .l{font-size:11px;color:var(--ink3)}.field .v{font-size:15px;color:var(--ink2)}
+.chips{display:flex;gap:8px;margin-bottom:18px}.chips span{background:var(--s2);border-radius:99px;padding:8px 12px;font-size:12px;color:var(--ink2)}
+.favs{display:flex;gap:14px;margin-bottom:18px}.fav{text-align:center;font-size:12px;color:var(--ink2)}.fav .e{width:52px;height:52px;border-radius:16px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:26px;position:relative;margin-bottom:5px}.fav .plus{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;background:var(--s2);color:var(--accent);font-size:14px}
+.bottom{position:absolute;left:0;right:0;bottom:0;background:var(--bg);padding:12px 20px;display:flex;gap:10px}
+.btn{border-radius:99px;padding:13px 18px;font-size:14px;font-weight:600;text-align:center;flex:1}.btn.pri{background:var(--accent);color:var(--accentInk)}.btn.sec{background:var(--s2);color:var(--ink)}
+.whead{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.wsum{display:flex;justify-content:space-between;margin-bottom:16px}.wsum .r{text-align:right}
+.bigchart{height:230px;background:var(--s1);border-radius:20px;padding:12px;margin-bottom:16px}.bigchart svg{width:100%;height:178px}
+.seg{background:var(--s2);border-radius:99px;padding:4px;display:flex;gap:3px;margin-bottom:14px}.seg span{flex:1;text-align:center;padding:7px 0;border-radius:99px;font-size:12px;color:var(--ink2)}.seg span.on{background:var(--accent);color:var(--accentInk);font-weight:600}
+.legend{display:flex;gap:16px;align-items:center;font-size:12px;color:var(--ink2);margin-bottom:12px}
+.wide{margin-top:36px;background:#fff;border-radius:16px;padding:20px}
+.wideinner{max-width:560px;margin:0 auto;background:var(--bg);border-radius:14px;padding:20px;color:var(--ink)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+</style>
+</head>
+<body>
+<h1>Metriq v2 — preview gerado dos tokens do código</h1>
+<div class="sub">Mesmas cores, fontes (Geist + Space Grotesk), painéis e regras de enquadramento usadas no Compose. Sem emulador, esta é uma transcrição fiel — não screenshot de dispositivo.</div>
+<div class="grid">
+
+<div><div class="cap">01 · Today — 390px</div><div class="phone">
+ <div class="status"><span>9:41</span><span>●●● ▰</span></div>
+ <div class="screen">
+  <div class="date">SUNDAY, 22 NOVEMBER</div><div class="headrow"><div class="title">Today</div><div class="avatar">M</div></div>
+  <div class="panel">
+   <div class="headrow"><span class="label">ENERGY BUDGET</span><span class="pill">HOLDING</span></div>
+   <div style="margin-top:10px"><span class="num num40">1,480</span> <span style="color:var(--ink2);font-size:15px">/ 2,100 kcal</span></div>
+   <div class="track"><div class="fill" style="width:70%"></div></div>
+   <div class="macro"><span class="dot" style="background:var(--protein)"></span><span class="nm">PROTEIN</span><span class="vl">96 / 140 g</span></div>
+   <div class="track" style="height:5px;margin:6px 0 0"><div class="fill" style="width:69%;background:var(--protein)"></div></div>
+   <div class="macro"><span class="dot" style="background:var(--carbs)"></span><span class="nm">CARBS</span><span class="vl">168 / 220 g</span></div>
+   <div class="track" style="height:5px;margin:6px 0 0"><div class="fill" style="width:76%;background:var(--carbs)"></div></div>
+   <div class="macro"><span class="dot" style="background:var(--fat)"></span><span class="nm">FAT</span><span class="vl">42 / 70 g</span></div>
+   <div class="track" style="height:5px;margin:6px 0 0"><div class="fill" style="width:60%;background:var(--fat)"></div></div>
+  </div>
+  <div class="week">
+   <div class="day past"><div class="l">M</div><div class="c">16</div><div class="d"></div></div><div class="day past"><div class="l">T</div><div class="c">17</div><div class="d"></div></div>
+   <div class="day past"><div class="l">W</div><div class="c">18</div><div class="d"></div></div><div class="day past"><div class="l">T</div><div class="c">19</div><div class="d"></div></div>
+   <div class="day past"><div class="l">F</div><div class="c">20</div><div class="d"></div></div><div class="day"><div class="l">S</div><div class="c">21</div><div class="d"></div></div>
+   <div class="day today"><div class="l">S</div><div class="c">22</div><div class="d"></div></div>
+  </div>
+  <div class="sec"><span class="t">Food log</span><span class="a">+ Add</span></div>
+  <div class="food"><div class="ic">🥣</div><div class="tx"><div class="n">Oatmeal with berries</div><div class="m">320 kcal · 6P · 54C · 8F · 45 g</div></div><div class="add">+</div></div>
+  <div class="food"><div class="ic">🥗</div><div class="tx"><div class="n">Chicken salad</div><div class="m">540 kcal · 48P · 12C · 32F · 180 g</div></div><div class="add">+</div></div>
+  <div class="panel" style="padding:14px;margin-top:10px">
+   <div class="headrow"><span class="label">WEIGHT TREND</span><span style="color:var(--trend);font-size:12px">−0.35 kg / wk</span></div>
+   <div style="margin-top:6px"><span class="num num24">78.4</span> <span style="color:var(--ink2)">kg</span></div>
+   <div class="chartbox"><svg viewBox="0 0 320 100" preserveAspectRatio="none"><line x1="0" y1="20" x2="320" y2="20" stroke="#2A2F37"/><line x1="0" y1="55" x2="320" y2="55" stroke="#2A2F37"/><line x1="0" y1="90" x2="320" y2="90" stroke="#2A2F37"/><polyline points="0,26 36,30 72,28 108,40 144,38 180,52 216,50 252,66 288,64 320,78" fill="none" stroke="#7ED9C2" stroke-width="2"/></svg></div>
+  </div>
+  <div class="panel" style="padding:14px"><span class="label">EXPENDITURE</span><div><span class="num num24">2,940</span> <span style="color:var(--ink2)">kcal</span></div><div class="caption">Estimated · medium confidence</div></div>
+ </div>
+ <div class="nav"><div class="tab on"><span class="ic">▦</span>Today</div><div class="tab"><span class="ic">◍</span>Log</div><div class="tab"><span class="ic">◉</span>Weight</div><div class="tab"><span class="ic">···</span>More</div></div>
+</div></div>
+
+<div><div class="cap">02 · Add Food — 390px</div><div class="phone">
+ <div class="status"><span>9:41</span><span>●●● ▰</span></div>
+ <div class="screen">
+  <div class="topbar"><div class="round">×</div><div class="timepill">10 AM</div><div class="budgetpill">0 / 2014</div><div class="round">⋯</div></div>
+  <div class="tabs"><span>Scan</span><span class="on">Search</span><span>AI</span><span>Quick Add</span><span>Lib</span></div>
+  <div class="field"><div class="l">SEARCH</div><div class="v">Search for a food</div></div>
+  <div class="chips"><span>Scan label</span><span>Barcode</span><span>Photo</span><span>Custom</span></div>
+  <div class="sec"><span class="t">Favorites</span></div>
+  <div class="favs"><div class="fav"><div class="e">🍔<span class="plus">+</span></div>Burger</div><div class="fav"><div class="e">🍝<span class="plus">+</span></div>Pasta</div><div class="fav"><div class="e">🍣<span class="plus">+</span></div>Sushi</div><div class="fav"><div class="e">🥦<span class="plus">+</span></div>Greens</div></div>
+  <div class="sec"><span class="t">10 AM Picks</span><span class="a">Recent</span></div>
+  <div class="food"><div class="ic">🫐</div><div class="tx"><div class="n">Blackberries, Fresh</div><div class="m">18 kcal · 1P · 0F · 4C · 42 g</div></div><div class="add">+</div></div>
+  <div class="food"><div class="ic">🍓</div><div class="tx"><div class="n">Raspberries, Fresh, Red</div><div class="m">15 kcal · 0P · 0F · 4C · 29 g</div></div><div class="add">+</div></div>
+  <div class="food"><div class="ic">🍯</div><div class="tx"><div class="n">Honey</div><div class="m">43 kcal · 0P · 0F · 12C · 14 g</div></div><div class="add">+</div></div>
+  <div class="food"><div class="ic">🥚</div><div class="tx"><div class="n">Egg, Whole Raw</div><div class="m">72 kcal · 6P · 5F · 0C · 1 large egg</div></div><div class="add">+</div></div>
+ </div>
+ <div class="bottom"><div class="btn sec">Search</div><div class="btn pri">Log Foods</div></div>
+</div></div>
+
+<div><div class="cap">04 · Weight Trend — 390px</div><div class="phone">
+ <div class="status"><span>9:41</span><span>●●● ▰</span></div>
+ <div class="screen">
+  <div class="whead"><span style="font-size:22px">‹</span><span style="font-size:15px;font-weight:600">Weight Trend</span><span class="caption">ⓘ</span></div>
+  <div class="wsum"><div><div class="label">AVERAGE</div><div class="num num40">153.5</div><div class="caption">Apr 6 – Apr 12, 2025</div></div><div class="r"><div class="label">DIFFERENCE</div><div class="num num24" style="color:var(--trend)">−1.6 lbs</div><div class="caption">past 7 days</div></div></div>
+  <div class="bigchart">
+   <svg viewBox="0 0 320 180" preserveAspectRatio="none"><line x1="0" y1="20" x2="320" y2="20" stroke="#2A2F37"/><line x1="0" y1="65" x2="320" y2="65" stroke="#2A2F37"/><line x1="0" y1="110" x2="320" y2="110" stroke="#2A2F37"/><line x1="0" y1="155" x2="320" y2="155" stroke="#2A2F37"/><polyline points="0,24 34,30 68,26 102,42 136,38 170,62 204,56 238,80 272,72 306,100" fill="none" stroke="#7ED9C2" stroke-width="2" stroke-linejoin="round"/><g fill="#7ED9C2"><circle cx="0" cy="24" r="3"/><circle cx="34" cy="30" r="3"/><circle cx="68" cy="26" r="3"/><circle cx="102" cy="42" r="3"/><circle cx="136" cy="38" r="3"/><circle cx="170" cy="62" r="3"/><circle cx="204" cy="56" r="3"/><circle cx="238" cy="80" r="3"/><circle cx="272" cy="72" r="3"/><circle cx="306" cy="100" r="3"/></g></svg>
+   <div style="display:flex;justify-content:space-between;color:var(--ink3);font-size:11px"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+  </div>
+  <div class="seg"><span class="on">1W</span><span>1M</span><span>3M</span><span>1Y</span><span>All</span></div>
+  <div class="legend"><span style="width:8px;height:8px;border-radius:50%;background:var(--ink3)"></span>Scale Weight <span style="width:8px;height:8px;border-radius:50%;background:var(--trend)"></span>Trend Weight</div>
+  <div class="panel"><div class="label">INSIGHTS &amp; DATA</div><div style="font-size:15px;font-weight:500;margin:6px 0">Weight Changes</div>
+   <div class="mrow"><span style="color:var(--ink2)">3-day</span><span style="color:var(--trend)">−0.3 lbs ↓ Decrease</span></div>
+   <div class="mrow"><span style="color:var(--ink2)">7-day</span><span style="color:var(--trend)">−1.6 lbs ↓ Decrease</span></div>
+  </div>
+ </div>
+</div></div>
+</div>
+
+<div class="wide">
+ <div class="cap">Responsivo · 900px — conteúdo limitado a 560px e centralizado; acima de 600px o dashboard vira duas colunas</div>
+ <div class="wideinner">
+  <div class="date">SUNDAY, 22 NOVEMBER</div><div class="headrow"><div class="title" style="font-size:36px">Today</div><div class="avatar">M</div></div>
+  <div class="cols">
+   <div class="panel"><span class="label">ENERGY BUDGET</span><div style="margin-top:8px"><span class="num num24">1,480 / 2,100</span></div><div class="track"><div class="fill" style="width:70%"></div></div><div class="caption">Proteins, carbs and fats tracked below.</div></div>
+   <div class="panel"><span class="label">WEIGHT TREND</span><div class="num num24">78.4 kg</div><div class="chartbox"><svg viewBox="0 0 320 80" preserveAspectRatio="none"><polyline points="0,26 40,30 80,28 120,40 160,38 200,52 240,50 280,66 320,70" fill="none" stroke="#7ED9C2" stroke-width="2"/></svg></div></div>
+  </div>
+  <div class="caption" style="margin-top:10px">Sem cortes, sem sobreposição: paddings de 20px, insets de sistema e largura máxima de 560px.</div>
+ </div>
+</div>
+</body>
+</html>

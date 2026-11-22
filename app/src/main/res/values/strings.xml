@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Metriq</string>
+    <string name="widget_daily_macro">Today\'s calories and macros</string>
+    <string name="widget_quick_log">Quick log actions</string>
+    <string name="widget_weight">Latest weight</string>
+    <string name="back">Back</string>
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_log">Log</string>
+    <string name="tab_weight">Weight</string>
+    <string name="tab_more">More</string>
+    <string name="today">Today</string>
+    <string name="food_log_title">FOOD LOG</string>
+    <string name="add_food">+ Add food</string>
+    <string name="nothing_logged">Nothing logged yet. Tap Add food.</string>
+    <string name="weight_trend">WEIGHT TREND</string>
+    <string name="expenditure">EXPENDITURE</string>
+    <string name="weekly_checkin">WEEKLY CHECK-IN</string>
+    <string name="accept">Accept</string>
+    <string name="checkin_complete">Check-in complete for this week.</string>
+    <string name="search_food">Search for a food</string>
+    <string name="recent">Recent</string>
+    <string name="results">Results</string>
+    <string name="new_food">+ New</string>
+    <string name="scan">Scan</string>
+    <string name="label">Label</string>
+    <string name="ai">AI</string>
+    <string name="steps">Steps</string>
+    <string name="water">Water</string>
+    <string name="save_steps">Save steps</string>
+    <string name="save_water">Save water</string>
+    <string name="habits">Habits</string>
+    <string name="body">Body</string>
+    <string name="recipes">Recipes</string>
+    <string name="nutrients">Nutrients</string>
+    <string name="profile">Profile</string>
+    <string name="export_csv">Export CSV</string>
+    <string name="health_connect">Health Connect</string>
+    <string name="connect_health">Connect Health Connect</string>
+    <string name="sync_now">Sync now</string>
+</resources>

@@ -1,0 +1,7 @@
+countries:
+  - en:world
+  - fr:france
+  - br:brazil
+min_quality_score: 3
+skip_categories:
+  - en:non-food-products

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="metriq_bg">#0B0D0F</color>
+    <color name="metriq_surface1">#15181C</color>
+    <color name="metriq_surface2">#1E2228</color>
+    <color name="metriq_border">#2A2F37</color>
+    <color name="metriq_ink">#F3F5F6</color>
+    <color name="metriq_accent">#C6F26E</color>
+</resources>

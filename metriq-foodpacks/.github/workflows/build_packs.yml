@@ -1,0 +1,43 @@
+name: build food packs
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+
+jobs:
+  packs:
+    runs-on: ubuntu-latest
+    env:
+      USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install pytest
+      - name: Tests
+        run: python -m pytest tests -q
+      - name: Download OFF
+        continue-on-error: true
+        run: python scripts/download_off.py --out data/off.csv.gz
+      - name: Process OFF
+        if: hashFiles('data/off.csv.gz') != ''
+        run: python scripts/process_off.py --input data/off.csv.gz --out packs/off-global.tsv
+      - name: Download USDA
+        if: env.USDA_API_KEY != ''
+        continue-on-error: true
+        run: |
+          mkdir -p data/usda
+          python scripts/download_usda.py --api-key "$USDA_API_KEY" --out data/usda.zip
+          unzip -o data/usda.zip -d data/usda
+      - name: Process USDA
+        if: hashFiles('data/usda/food.csv') != ''
+        run: python scripts/process_usda.py --input data/usda --out packs/usda.tsv
+      - name: Manifest
+        run: python scripts/generate_manifest.py --packs packs --out packs/manifest.json
+      - name: Release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "packs-$(date +%Y-%m)" packs/*.tsv packs/manifest.json --generate-notes
