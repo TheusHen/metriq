@@ -206,6 +206,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 recentFood:
 SELECT * FROM food ORDER BY id DESC LIMIT ?;
 
+firstFoods:
+SELECT * FROM food WHERE source = 'base' ORDER BY id ASC LIMIT ?;
+
 selectAllFoodIds:
 SELECT id, name, brand, category FROM food ORDER BY id;
 

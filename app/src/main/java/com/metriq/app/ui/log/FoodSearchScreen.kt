@@ -113,7 +113,7 @@ fun FoodSearchScreen(
         }
         else AppGraph.store.food.search(query)
     }
-    val favorites = remember(results) { results.take(6) }
+    val favorites = remember { AppGraph.store.food.favorites(6) }
     val picks = remember(results) { results.take(3) }
     val selectedKcal = selected.sumOf { it.calories.toInt() }
 

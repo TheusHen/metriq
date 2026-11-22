@@ -106,6 +106,25 @@ class FoodRepository(
 
     fun recent(limit: Long = 30) = db.metriqQueries.recentFood(limit).executeAsList()
 
+    /** Canonical everyday foods from the bundled pack, not the newest imported products. */
+    fun favorites(limit: Long = 6): List<FoodHit> = db.metriqQueries.firstFoods(limit)
+        .executeAsList()
+        .map { food ->
+            FoodHit(
+                id = food.id,
+                name = food.name,
+                brand = food.brand,
+                category = food.category,
+                iconId = food.iconId,
+                calories = food.calories,
+                protein = food.protein,
+                fat = food.fat,
+                carbs = food.carbs,
+                servingLabel = food.servingLabel,
+                servingGrams = food.servingGrams,
+            )
+        }
+
     /**
      * Device-compatible food search. Android's system SQLite does not always ship the FTS5
      * extension (e.g. Samsung/One UI), so search uses plain LIKE over the food table instead.
