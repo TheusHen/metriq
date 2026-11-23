@@ -2,6 +2,7 @@ package com.metriq.app.ui.onboarding
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,11 +44,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metriq.app.AppSettings
+import com.metriq.app.R
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.app.ui.theme.Metrics
 import com.metriq.app.ui.theme.body
@@ -391,6 +394,12 @@ private fun MinorBanner() {
 
 @Composable
 private fun WelcomeStep() {
+    Image(
+        painter = painterResource(R.drawable.ic_launcher_foreground),
+        contentDescription = "Metriq",
+        modifier = Modifier.size(56.dp),
+    )
+    Spacer(Modifier.height(14.dp))
     Text(
         text = "Metriq",
         style = MaterialTheme.typography.display,
@@ -400,7 +409,7 @@ private fun WelcomeStep() {
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        text = "Local-first nutrition tracker",
+        text = "Registo nutricional local",
         style = MaterialTheme.typography.h2,
         color = MetriqColors.ink2,
     )

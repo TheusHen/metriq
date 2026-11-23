@@ -1,5 +1,6 @@
 package com.metriq.app.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metriq.app.R
@@ -146,6 +148,12 @@ fun HomeScreen(
 @Composable
 private fun StatusRow(dateLabel: String) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = "Metriq",
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(7.dp))
         Text(
             text = "METRIQ",
             style = MaterialTheme.typography.label,
