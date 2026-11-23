@@ -55,9 +55,9 @@ fun BodyScreen(
     var site by remember { mutableStateOf("Waist") }
     var value by remember { mutableStateOf("") }
 
-    SubScreen("Body", onBack) {
+    SubScreen("Corpo", onBack) {
         Text(
-            "Track your measurements, cycle and progress photos.",
+            "Regista as tuas medições, ciclo e fotos de progresso.",
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
@@ -68,7 +68,7 @@ fun BodyScreen(
         Panel(Modifier.fillMaxWidth()) {
             if (measurements.isEmpty()) {
                 Text(
-                    "No measurements logged yet.",
+                    "Ainda não há medições registadas.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -106,7 +106,7 @@ fun BodyScreen(
         Spacer(Modifier.height(12.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "Add a measurement",
+                "Adicionar medição",
                 style = MaterialTheme.typography.bodyStrong,
                 color = MetriqColors.ink,
             )
@@ -131,7 +131,7 @@ fun BodyScreen(
             }
             Spacer(Modifier.height(12.dp))
             MetriqButton(
-                text = "Save measurement",
+                text = "Guardar medição",
                 onClick = {
                     value.replace(',', '.').toDoubleOrNull()?.let {
                         onAddMeasurement(site, it)
@@ -154,13 +154,13 @@ fun BodyScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "Period today",
+                        "Período hoje",
                         style = MaterialTheme.typography.bodyStrong,
                         color = MetriqColors.ink,
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        "Mark today as part of your cycle.",
+                        "Marcar hoje como parte do ciclo.",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )
@@ -186,12 +186,12 @@ fun BodyScreen(
         }
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Progress photos", action = "Add", onAction = onAddPhoto)
+        SectionHeader(title = "Fotos de progresso", action = "Adicionar", onAction = onAddPhoto)
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             if (photos.isEmpty()) {
                 Text(
-                    "No photos yet. Add one from your gallery.",
+                    "Ainda não há fotos. Adiciona uma da galeria.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -212,7 +212,7 @@ fun BodyScreen(
             }
             Spacer(Modifier.height(14.dp))
             MetriqButton(
-                text = "Add photo from gallery",
+                text = "Adicionar foto da galeria",
                 onClick = onAddPhoto,
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,
@@ -241,7 +241,7 @@ private fun PhotoTile(
             if (bitmap != null) {
                 Image(
                     bitmap,
-                    contentDescription = "Progress photo from ${photo.date}",
+                    contentDescription = "Foto de progresso de ${photo.date}",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
@@ -265,7 +265,7 @@ private fun PhotoTile(
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                "Delete",
+                "Eliminar",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.danger,
                 modifier = Modifier.clickable { onDelete() },

@@ -28,7 +28,7 @@ object IntegrationsHub {
         IntegrationSpec(
             id = "health_connect",
             name = "Health Connect",
-            description = "Steps, weight and exercise are read from Android Health Connect.",
+            description = "Passos, peso e exercício são lidos do Android Health Connect.",
             kind = KIND_ACTIVE,
         ),
         IntegrationSpec(
@@ -40,37 +40,37 @@ object IntegrationsHub {
         IntegrationSpec(
             id = "samsung_health",
             name = "Samsung Health",
-            description = "Direct Samsung Health access is not available in this build.",
+            description = "O acesso direto ao Samsung Health não está disponível nesta versão.",
             kind = KIND_COMING_SOON,
         ),
         IntegrationSpec(
             id = "garmin",
             name = "Garmin",
-            description = "Direct Garmin access is not available in this build.",
+            description = "O acesso direto ao Garmin não está disponível nesta versão.",
             kind = KIND_COMING_SOON,
         ),
         IntegrationSpec(
             id = "fitbit",
             name = "Fitbit",
-            description = "Direct Fitbit access is not available in this build.",
+            description = "O acesso direto ao Fitbit não está disponível nesta versão.",
             kind = KIND_COMING_SOON,
         ),
         IntegrationSpec(
             id = "strava",
             name = "Strava",
-            description = "Direct Strava access is not available in this build.",
+            description = "O acesso direto ao Strava não está disponível nesta versão.",
             kind = KIND_COMING_SOON,
         ),
         IntegrationSpec(
             id = "sleep",
             name = "Sleep",
-            description = "Sleep-stage import is not available in this build.",
+            description = "A importação de fases de sono não está disponível nesta versão.",
             kind = KIND_COMING_SOON,
         ),
         IntegrationSpec(
             id = "smart_scale",
             name = "Smart Scale",
-            description = "Direct smart-scale pairing is not available in this build.",
+            description = "A associação direta de balanças inteligentes não está disponível nesta versão.",
             kind = KIND_COMING_SOON,
         ),
     )

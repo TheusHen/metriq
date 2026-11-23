@@ -46,7 +46,7 @@ fun CreateFoodScreen(
 
     FramedColumn {
         ScreenHeader(
-            title = "Create food",
+            title = "Criar alimento",
             subtitle = "Nutrition values per 100 g",
             onBack = onBack,
         )
@@ -81,13 +81,13 @@ fun CreateFoodScreen(
                 SectionLabel("NUTRITION PER 100 G")
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Field("Calories", kcal, Modifier.weight(1f)) { kcal = it; error = null }
-                    Field("Protein g", protein, Modifier.weight(1f)) { protein = it }
+                    Field("Calorias", kcal, Modifier.weight(1f)) { kcal = it; error = null }
+                    Field("Proteína g", protein, Modifier.weight(1f)) { protein = it }
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Field("Fat g", fat, Modifier.weight(1f)) { fat = it }
-                    Field("Carbs g", carbs, Modifier.weight(1f)) { carbs = it }
+                    Field("Gordura g", fat, Modifier.weight(1f)) { fat = it }
+                    Field("Hidratos g", carbs, Modifier.weight(1f)) { carbs = it }
                 }
                 error?.let { message ->
                     Spacer(Modifier.height(8.dp))
@@ -106,7 +106,7 @@ fun CreateFoodScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             MetriqButton(
-                text = "Create & log",
+                text = "Criar e registar",
                 onClick = {
                     val kcalValue = kcal.replace(',', '.').toDoubleOrNull()
                     if (kcalValue == null || kcalValue <= 0.0) {
@@ -114,7 +114,7 @@ fun CreateFoodScreen(
                     } else {
                         onSave(
                             FoodDraft(
-                                name = name.ifBlank { "Quick Add" },
+                                name = name.ifBlank { "Adição rápida" },
                                 brand = brand.ifBlank { null },
                                 calories = kcalValue,
                                 protein = protein.replace(',', '.').toDoubleOrNull() ?: 0.0,

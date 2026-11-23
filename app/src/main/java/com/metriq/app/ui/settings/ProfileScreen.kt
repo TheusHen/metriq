@@ -76,9 +76,9 @@ fun ProfileScreen(
     LaunchedEffect(importSteps) { localImportSteps = importSteps }
     LaunchedEffect(importWeight) { localImportWeight = importWeight }
 
-    SubScreen("Your profile", onBack) {
+    SubScreen("O teu perfil", onBack) {
         Text(
-            "Your stats and goals drive every daily target in Metriq.",
+            "As tuas estatísticas e metas definem todas as metas diárias no Metriq.",
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
@@ -100,11 +100,11 @@ fun ProfileScreen(
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Field("Weight kg", weight, Modifier.weight(1f)) { weight = it }
-                Field("Body fat %", bodyFat, Modifier.weight(1f)) { bodyFat = it }
+                Field("Peso kg", weight, Modifier.weight(1f)) { weight = it }
+                Field("Gordura corporal %", bodyFat, Modifier.weight(1f)) { bodyFat = it }
             }
             Spacer(Modifier.height(10.dp))
-            Field("Target weight kg (optional)", target) { target = it }
+            Field("Peso-alvo kg (opcional)", target) { target = it }
         }
         Spacer(Modifier.height(18.dp))
 
@@ -112,7 +112,7 @@ fun ProfileScreen(
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             ChoiceSegmented(
-                label = "Goal",
+                label = "Objetivo",
                 options = listOf("Cut" to GoalType.CUT, "Maintain" to GoalType.MAINTAIN, "Bulk" to GoalType.BULK),
                 selected = goal,
                 onSelect = { goal = it },
@@ -140,7 +140,7 @@ fun ProfileScreen(
             )
             Spacer(Modifier.height(14.dp))
             ChoiceSegmented(
-                label = "Protein",
+                label = "Proteína",
                 options = ProteinTier.entries.map {
                     it.name.lowercase().replaceFirstChar { c -> c.uppercase() } to it
                 },
@@ -150,7 +150,7 @@ fun ProfileScreen(
         }
         Spacer(Modifier.height(14.dp))
         MetriqButton(
-            text = "Save profile",
+            text = "Guardar perfil",
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 onSave(
@@ -171,17 +171,17 @@ fun ProfileScreen(
         )
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Data")
+        SectionHeader(title = "Dados")
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "Export your food, weight and body logs as a CSV file.",
+                "Exporta os teus registos de alimentos, peso e corpo num ficheiro CSV.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
             Spacer(Modifier.height(12.dp))
             MetriqButton(
-                text = "Export CSV",
+                text = "Exportar CSV",
                 onClick = onExport,
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,
@@ -198,7 +198,7 @@ fun ProfileScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "All settings",
+                        "Todas as definições",
                         style = MaterialTheme.typography.bodyStrong,
                         color = MetriqColors.ink,
                         maxLines = 1,
@@ -206,7 +206,7 @@ fun ProfileScreen(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        "Units, sync, analytics & privacy",
+                        "Unidades, sincronização, análise e privacidade",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 1,
@@ -235,7 +235,7 @@ fun ProfileScreen(
             lastHealthSync?.let {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Last sync: $it",
+                    "Última sincronização: $it",
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink3,
                 )
@@ -244,8 +244,8 @@ fun ProfileScreen(
             Hairline()
             Spacer(Modifier.height(6.dp))
             SettingToggle(
-                label = "Import steps",
-                subtitle = "Pull step counts from Health Connect",
+                label = "Importar passos",
+                subtitle = "Importar passos do Health Connect",
                 checked = localImportSteps,
                 onChange = { enabled ->
                     localImportSteps = enabled
@@ -253,8 +253,8 @@ fun ProfileScreen(
                 },
             )
             SettingToggle(
-                label = "Import weight",
-                subtitle = "Pull weight samples from Health Connect",
+                label = "Importar peso",
+                subtitle = "Importar pesagens do Health Connect",
                 checked = localImportWeight,
                 onChange = { enabled ->
                     localImportWeight = enabled
@@ -264,13 +264,13 @@ fun ProfileScreen(
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetriqButton(
-                    text = "Connect",
+                    text = "Ligar",
                     onClick = onConnectHealth,
                     modifier = Modifier.weight(1f),
                     primary = false,
                 )
                 MetriqButton(
-                    text = "Sync now",
+                    text = "Sincronizar agora",
                     onClick = onSyncHealth,
                     modifier = Modifier.weight(1f),
                     primary = false,

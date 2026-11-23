@@ -52,18 +52,18 @@ fun RecipesScreen(
     var selectedFood by remember { mutableStateOf<Food?>(null) }
     var items by remember { mutableStateOf<List<Pair<Food, Double>>>(emptyList()) }
 
-    SubScreen("Recipes", onBack) {
+    SubScreen("Receitas", onBack) {
         Text(
-            "Build a recipe from your foods and log a serving in one tap.",
+            "Cria uma receita com os teus alimentos e regista uma dose com um toque.",
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Your recipes")
+        SectionHeader(title = "As tuas receitas")
         Spacer(Modifier.height(6.dp))
         Text(
-            "Saved recipes · tap Log to add a serving to today",
+            "Receitas guardadas · toca em Registar para adicionar uma dose a hoje",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -71,7 +71,7 @@ fun RecipesScreen(
         Panel(Modifier.fillMaxWidth()) {
             if (recipes.isEmpty()) {
                 Text(
-                    "No recipes yet. Build one below.",
+                    "Ainda não há receitas. Cria uma abaixo.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -105,7 +105,7 @@ fun RecipesScreen(
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         ) {
                             Text(
-                                "Log",
+                                "Registar",
                                 style = MaterialTheme.typography.label,
                                 color = MetriqColors.accent,
                             )
@@ -154,7 +154,7 @@ fun RecipesScreen(
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "Pick a food, set the grams, then add it.",
+                "Escolhe um alimento, define os gramas e adiciona.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -167,7 +167,7 @@ fun RecipesScreen(
             ) {
                 if (foods.isEmpty()) {
                     Text(
-                        "No foods available yet.",
+                        "Ainda não há alimentos disponíveis.",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )
@@ -194,7 +194,7 @@ fun RecipesScreen(
                 Spacer(Modifier.height(8.dp))
             }
             MetriqButton(
-                text = "Add ingredient",
+                text = "Adicionar ingrediente",
                 onClick = {
                     val food = selectedFood
                     val amount = grams.replace(',', '.').toDoubleOrNull()
@@ -251,7 +251,7 @@ fun RecipesScreen(
         Spacer(Modifier.height(18.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "ENERGY PER SERVING",
+                "ENERGIA POR DOSE",
                 style = MaterialTheme.typography.label,
                 color = MetriqColors.ink3,
             )

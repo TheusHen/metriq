@@ -75,7 +75,7 @@ fun IntegrationsScreen(
     SubScreen(title = "Integrations", onBack = onBack) {
         Spacer(Modifier.height(4.dp))
         Text(
-            "Read-only connections. Data goes straight into this device's local store.",
+            "Ligações só de leitura. Os dados vão diretamente para o armazenamento local deste dispositivo.",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink2,
             maxLines = 2,
@@ -83,7 +83,7 @@ fun IntegrationsScreen(
         )
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Available & planned")
+        SectionHeader(title = "Disponíveis e planeadas")
         Spacer(Modifier.height(8.dp))
         Column(
             Modifier
@@ -106,7 +106,7 @@ fun IntegrationsScreen(
         }
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Import history")
+        SectionHeader(title = "Importar histórico")
         Spacer(Modifier.height(8.dp))
         Column(
             Modifier
@@ -116,7 +116,7 @@ fun IntegrationsScreen(
                 .padding(16.dp),
         ) {
             Text(
-                "Backfill the last 30 days of steps, weight and exercise from Health Connect. " +
+                "Importa os últimos 30 dias de passos, peso e exercício do Health Connect. " +
                     "Only empty days are filled — existing entries are never overwritten.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink2,
@@ -125,7 +125,7 @@ fun IntegrationsScreen(
             )
             Spacer(Modifier.height(12.dp))
             MetriqButton(
-                text = "Import history",
+                text = "Importar histórico",
                 onClick = onImportHistory,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -133,8 +133,8 @@ fun IntegrationsScreen(
             HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
             Spacer(Modifier.height(10.dp))
             Text(
-                "Privacy: readings stay on this device. Nothing is uploaded, no account is created, " +
-                    "and manual entries always take priority over imported data.",
+                "Privacidade: as leituras ficam neste dispositivo. Nada é enviado, não é criada uma conta e " +
+                    "os registos manuais têm sempre prioridade sobre os dados importados.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 4,
@@ -151,7 +151,7 @@ private fun IntegrationRow(
     onOpenHevy: () -> Unit,
 ) {
     val available = state != IntegrationsHub.STATUS_COMING_SOON
-    val statusText = if (available) "Active" else "Not available in this build"
+    val statusText = if (available) "Active" else "Não disponível nesta versão"
     val statusColor = if (available) MetriqColors.accent else MetriqColors.ink3
     val opensSettings = spec.id == "hevy"
     val clickable = if (opensSettings) Modifier.clickable { onOpenHevy() } else Modifier

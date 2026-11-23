@@ -15,12 +15,15 @@ object MetriqColors {
     val border = Color(0xFF2A2F37)
     val ink = Color(0xFFF3F5F6)
     val ink2 = Color(0xFF9AA1AB)
-    val ink3 = Color(0xFF646C77)
+    /** Tertiary text. 6.2:1 on bg and 4.9:1 on surface2, so it is safe at caption sizes. */
+    val ink3 = Color(0xFF8A919B)
+    /** Decorative only: dividers, disabled glyphs, chart grid ticks. Never body text. */
+    val ink4 = Color(0xFF646C77)
     val accent = Color(0xFFC6F26E)
     val accentInk = Color(0xFF0B0D0F)
     val energy = Color(0xFFFF7A5C)
     val trend = Color(0xFF7ED9C2)
-    val protein = Color(0xFFFF9B82)
+    val protein = Color(0xFFC58CFF)
     val carbs = Color(0xFFF5C96B)
     val fat = Color(0xFF7AB8FF)
     val danger = Color(0xFFFF6B6B)

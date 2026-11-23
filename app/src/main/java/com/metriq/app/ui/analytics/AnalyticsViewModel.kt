@@ -63,19 +63,19 @@ private data class MetricDef(
 )
 
 private val METRICS = listOf(
-    MetricDef("intake", "Calories", "kcal", MetriqColors.accent, Aggregation.SUM, 0),
-    MetricDef("expenditure", "Expenditure", "kcal", MetriqColors.energy, Aggregation.AVERAGE, 0),
-    MetricDef("weight", "Weight", "kg", MetriqColors.trend, Aggregation.AVERAGE, 1),
-    MetricDef("steps", "Steps", "steps", MetriqColors.accent, Aggregation.SUM, 0),
-    MetricDef("water", "Water", "ml", MetriqColors.fat, Aggregation.SUM, 0),
-    MetricDef("protein", "Protein", "g", MetriqColors.protein, Aggregation.SUM, 0),
-    MetricDef("carbs", "Carbs", "g", MetriqColors.carbs, Aggregation.SUM, 0),
-    MetricDef("fat", "Fat", "g", MetriqColors.fat, Aggregation.SUM, 0),
-    MetricDef("fiber", "Fiber", "g", MetriqColors.trend, Aggregation.SUM, 1),
-    MetricDef("sodium", "Sodium", "mg", MetriqColors.energy, Aggregation.SUM, 0),
+    MetricDef("intake", "Calorias", "kcal", MetriqColors.accent, Aggregation.SUM, 0),
+    MetricDef("expenditure", "Gasto", "kcal", MetriqColors.energy, Aggregation.AVERAGE, 0),
+    MetricDef("weight", "Peso", "kg", MetriqColors.trend, Aggregation.AVERAGE, 1),
+    MetricDef("steps", "Passos", "steps", MetriqColors.accent, Aggregation.SUM, 0),
+    MetricDef("water", "Água", "ml", MetriqColors.fat, Aggregation.SUM, 0),
+    MetricDef("protein", "Proteína", "g", MetriqColors.protein, Aggregation.SUM, 0),
+    MetricDef("carbs", "Hidratos", "g", MetriqColors.carbs, Aggregation.SUM, 0),
+    MetricDef("fat", "Gordura", "g", MetriqColors.fat, Aggregation.SUM, 0),
+    MetricDef("fiber", "Fibra", "g", MetriqColors.trend, Aggregation.SUM, 1),
+    MetricDef("sodium", "Sódio", "mg", MetriqColors.energy, Aggregation.SUM, 0),
 )
 
-private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("pt-PT"))
 private val VALID_RANGES = setOf(0, 7, 30, 90, 365)
 
 /** Shared number/unit formatting so chart, table and stats never disagree. */
@@ -411,7 +411,7 @@ class AnalyticsViewModel : ViewModel() {
         val stats = listOf(
             AnalyticsStat("Total", formatted(metricId, total), AnalyticsFormat.unit(metricId)),
             AnalyticsStat(
-                "Average",
+                "Média",
                 average?.let { formatted(metricId, it) } ?: "—",
                 AnalyticsFormat.unit(metricId),
             ),
@@ -427,7 +427,7 @@ class AnalyticsViewModel : ViewModel() {
             AnalyticsStat(
                 "Best day",
                 best?.let { formatted(metricId, it.value) } ?: "—",
-                best?.let { AnalyticsFormat.date(it.date) } ?: "no data",
+                best?.let { AnalyticsFormat.date(it.date) } ?: "sem dados",
             ),
             AnalyticsStat(
                 "7-day change",
@@ -450,9 +450,9 @@ class AnalyticsViewModel : ViewModel() {
         }
 
         val macroSplit = listOf(
-            Triple("Protein", dailyLogs.values.sumOf { items -> items.sumOf { it.protein } }, MetriqColors.protein),
-            Triple("Carbs", dailyLogs.values.sumOf { items -> items.sumOf { it.carbs } }, MetriqColors.carbs),
-            Triple("Fat", dailyLogs.values.sumOf { items -> items.sumOf { it.fat } }, MetriqColors.fat),
+            Triple("Proteína", dailyLogs.values.sumOf { items -> items.sumOf { it.protein } }, MetriqColors.protein),
+            Triple("Hidratos", dailyLogs.values.sumOf { items -> items.sumOf { it.carbs } }, MetriqColors.carbs),
+            Triple("Gordura", dailyLogs.values.sumOf { items -> items.sumOf { it.fat } }, MetriqColors.fat),
         )
 
         // Weekly / monthly averages use the same aggregation rule as the chart, then
@@ -462,12 +462,12 @@ class AnalyticsViewModel : ViewModel() {
         } else {
             listOf(
                 Triple(
-                    "Weekly average",
+                    "Média semanal",
                     "week",
                     mean(bucketedByPeriod(metricId, "week").values),
                 ),
                 Triple(
-                    "Monthly average",
+                    "Média mensal",
                     "month",
                     mean(bucketedByPeriod(metricId, "month").values),
                 ),
@@ -478,26 +478,27 @@ class AnalyticsViewModel : ViewModel() {
         val goal = GoalStore.read()
         val targetWeight = goal?.targetWeightKg
         val etaText = when {
-            goal == null -> "No weight goal set"
-            targetWeight == null -> "Goal has no target weight"
-            trend.isEmpty() -> "Not enough weigh-ins for a trend"
+            goal == null -> "Sem meta de peso definida"
+            targetWeight == null -> "A meta não tem peso-alvo"
+            trend.isEmpty() -> "Pesagens insuficientes para uma tendência"
             else -> {
                 val rate = TrendWeight.changeRatePerWeek(trend, today, 20)
                 val current = trend[today] ?: weightEntries.lastOrNull()?.kg
                 when {
-                    rate == null || current == null -> "Need ~20 days of weigh-ins for an estimate"
-                    abs(rate) < 0.01 -> "Weight trend is flat — no estimate"
+                    rate == null || current == null -> "São necessários ~20 dias de pesagens para uma estimativa"
+                    abs(rate) < 0.01 -> "Tendência de peso estável — sem estimativa"
                     else -> {
+                        val pt = Locale.forLanguageTag("pt-PT")
                         val target = targetWeight
                         val remaining = current - target
+                        val targetText = "%.1f".format(pt, target)
+                        val rateText = "%.2f".format(pt, abs(rate))
                         when {
-                            abs(remaining) < 0.1 -> "Target reached — ${"%.1f".format(Locale.ENGLISH, target)} kg"
-                            remaining * rate > 0.0 -> "Moving away from target (${"%.2f".format(Locale.ENGLISH, rate)} kg/wk)"
+                            abs(remaining) < 0.1 -> "Meta atingida — $targetText kg"
+                            remaining * rate > 0.0 -> "A afastar-se da meta ($rateText kg/semana)"
                             else -> {
-                                val weeks = abs(remaining) / abs(rate)
-                                "≈ ${"%.1f".format(Locale.ENGLISH, weeks)} wk to " +
-                                    "${"%.1f".format(Locale.ENGLISH, target)} kg at " +
-                                    "${"%.2f".format(Locale.ENGLISH, rate)} kg/wk"
+                                val weeks = "%.1f".format(pt, abs(remaining) / abs(rate))
+                                "≈ $weeks semanas até $targetText kg a $rateText kg/semana"
                             }
                         }
                     }

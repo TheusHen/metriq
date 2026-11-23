@@ -38,7 +38,7 @@ class WeightWidget : GlanceAppWidget() {
                     .padding(12)
                     .clickable(actionStartActivity<MainActivity>()),
             ) {
-                Text("WEIGHT TREND", style = TextStyle(color = muted))
+                Text("TENDÊNCIA DE PESO", style = TextStyle(color = muted))
                 Text(
                     latest?.let { String.format(java.util.Locale.ENGLISH, "%.1f kg", it.kg) } ?: "—",
                     style = TextStyle(color = ink, fontWeight = FontWeight.Bold),

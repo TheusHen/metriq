@@ -94,10 +94,10 @@ object OpenFoodFactsLookup {
                 }
             } catch (e: IOException) {
                 return@withContext LookupOutcome.NetworkError(
-                    e.message?.takeIf { it.isNotBlank() } ?: "no network connection",
+                    e.message?.takeIf { it.isNotBlank() } ?: "sem ligação à rede",
                 )
             } catch (e: Exception) {
-                return@withContext LookupOutcome.Error(e.message ?: "unexpected lookup error")
+                return@withContext LookupOutcome.Error(e.message ?: "erro inesperado na pesquisa")
             } finally {
                 connection?.disconnect()
             }
@@ -105,7 +105,7 @@ object OpenFoodFactsLookup {
             val root = try {
                 JSONObject(body)
             } catch (_: Exception) {
-                return@withContext LookupOutcome.Error("Invalid response from Open Food Facts")
+                return@withContext LookupOutcome.Error("Resposta inválida do Open Food Facts")
             }
             if (root.optInt("status", 0) != 1) return@withContext LookupOutcome.NotFound
             val product = root.optJSONObject("product") ?: return@withContext LookupOutcome.NotFound

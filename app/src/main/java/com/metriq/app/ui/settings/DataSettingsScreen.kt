@@ -165,7 +165,7 @@ fun DataSettingsScreen(
                 .imePadding(),
         ) {
             ScreenHeader(
-                title = "Settings",
+                title = "Definições",
                 subtitle = "Stored on this device",
                 onBack = onBack,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -193,7 +193,7 @@ fun DataSettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingChoice(
-                        label = "Weight unit",
+                        label = "Unidade de peso",
                         options = listOf("kg", "lb"),
                         values = listOf("kg", "lb"),
                         selected = value(AppSettings.UNIT_SYSTEM),
@@ -201,7 +201,7 @@ fun DataSettingsScreen(
                     )
                     Spacer(Modifier.height(14.dp))
                     SettingChoice(
-                        label = "Energy unit",
+                        label = "Unidade de energia",
                         options = listOf("kcal", "kJ"),
                         values = listOf("kcal", "kj"),
                         selected = value(AppSettings.ENERGY_UNIT),
@@ -229,11 +229,11 @@ fun DataSettingsScreen(
                 Spacer(Modifier.height(18.dp))
 
                 // ---------------------------------------------------------------- Data & privacy
-                SectionHeader(title = "Data & privacy")
+                SectionHeader(title = "Dados e privacidade")
                 Spacer(Modifier.height(8.dp))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
-                        "Everything stays on this device — no account, no backend, no telemetry.",
+                        "Tudo fica neste dispositivo — sem conta, sem servidor, sem telemetria.",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink2,
                         maxLines = 3,
@@ -241,7 +241,7 @@ fun DataSettingsScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     MetriqButton(
-                        text = "Export CSV",
+                        text = "Exportar CSV",
                         onClick = onExport,
                         modifier = Modifier.fillMaxWidth(),
                         primary = false,
@@ -308,13 +308,13 @@ fun DataSettingsScreen(
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         MetriqButton(
-                            text = "Connect",
+                            text = "Ligar",
                             onClick = onConnectHealth,
                             modifier = Modifier.weight(1f),
                             primary = false,
                         )
                         MetriqButton(
-                            text = "Sync now",
+                            text = "Sincronizar agora",
                             onClick = onSyncHealth,
                             modifier = Modifier.weight(1f),
                             primary = false,
@@ -324,22 +324,22 @@ fun DataSettingsScreen(
                     Hairline()
                     Spacer(Modifier.height(6.dp))
                     SettingSwitch(
-                        label = "Auto-sync",
-                        subtitle = "Sync with Health Connect in the background",
+                        label = "Sincronização automática",
+                        subtitle = "Sincronizar com o Health Connect em segundo plano",
                         checked = switchState[AppSettings.HEALTH_AUTO_SYNC] ?: boolValue(AppSettings.HEALTH_AUTO_SYNC),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.HEALTH_AUTO_SYNC, it) },
                     )
                     SettingSwitch(
-                        label = "Import steps",
-                        subtitle = "Pull step counts from Health Connect",
+                        label = "Importar passos",
+                        subtitle = "Importar passos do Health Connect",
                         checked = switchState[AppSettings.HEALTH_IMPORT_STEPS] ?: boolValue(AppSettings.HEALTH_IMPORT_STEPS),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.HEALTH_IMPORT_STEPS, it) },
                     )
                     SettingSwitch(
-                        label = "Import weight",
-                        subtitle = "Pull weight samples from Health Connect",
+                        label = "Importar peso",
+                        subtitle = "Importar pesagens do Health Connect",
                         checked = switchState[AppSettings.HEALTH_IMPORT_WEIGHT]
                             ?: boolValue(AppSettings.HEALTH_IMPORT_WEIGHT),
                         reducedMotion = reducedMotion,
@@ -347,7 +347,7 @@ fun DataSettingsScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Manual entries always take priority over imported data.",
+                        "Os registos manuais têm sempre prioridade sobre os dados importados.",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 2,
@@ -397,8 +397,8 @@ fun DataSettingsScreen(
                     Text(
                         when {
                             !hevyConnected && hevyApiKey.isBlank() ->
-                                "Nenhuma chave salva. Adicione sua chave para conectar."
-                            !hevyConnected -> "Não conectado. Conecte para ler seus treinos."
+                                "Nenhuma chave guardada. Adiciona a tua chave para ligar."
+                            !hevyConnected -> "Não ligado. Liga a conta para ler os teus treinos."
                             else -> "Conectado"
                         },
                         style = MaterialTheme.typography.bodyStrong,
@@ -488,7 +488,7 @@ fun DataSettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingChoice(
-                        label = "Default range",
+                        label = "Período predefinido",
                         options = listOf("7D", "30D", "90D", "1Y"),
                         values = listOf("7", "30", "90", "365"),
                         selected = value(AppSettings.ANALYTICS_RANGE),
@@ -497,7 +497,7 @@ fun DataSettingsScreen(
                     Spacer(Modifier.height(14.dp))
                     SettingChoice(
                         label = "Default metric",
-                        options = listOf("Intake", "Burn", "Weight", "Steps"),
+                        options = listOf("Intake", "Burn", "Peso", "Passos"),
                         values = listOf("intake", "expenditure", "weight", "steps"),
                         selected = value(AppSettings.ANALYTICS_METRIC),
                         onSelect = { change(AppSettings.ANALYTICS_METRIC, it) },
@@ -510,7 +510,7 @@ fun DataSettingsScreen(
                 Panel(Modifier.fillMaxWidth()) {
                     SettingSwitch(
                         label = "Adaptive macros",
-                        subtitle = "Rebalance carbs and fat using today's Health Connect training signal",
+                        subtitle = "Reajustar hidratos e gordura com o sinal de treino de hoje do Health Connect",
                         checked = switchState[AppSettings.ADAPTIVE_MACROS] ?: boolValue(AppSettings.ADAPTIVE_MACROS),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.ADAPTIVE_MACROS, it) },
@@ -531,7 +531,7 @@ fun DataSettingsScreen(
                                 maxLines = 1,
                             )
                             Text(
-                                "Health Connect, Hevy, history import and more",
+                                "Health Connect, Hevy, importação de histórico e mais",
                                 style = MaterialTheme.typography.caption,
                                 color = MetriqColors.ink2,
                                 maxLines = 2,
@@ -555,7 +555,7 @@ fun DataSettingsScreen(
                                 maxLines = 1,
                             )
                             Text(
-                                "Storage budget, benchmarks and optional on-device models",
+                                "Orçamento de armazenamento, testes e modelos opcionais no dispositivo",
                                 style = MaterialTheme.typography.caption,
                                 color = MetriqColors.ink2,
                                 maxLines = 2,

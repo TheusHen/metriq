@@ -59,7 +59,7 @@ class ModelManager(private val context: Context) {
             !address.startsWith("https://", ignoreCase = true)
         ) {
             return@withContext Result.failure(
-                IllegalArgumentException("Enter a valid http(s) URL for the model file."),
+                IllegalArgumentException("Introduz um URL http(s) válido para o ficheiro do modelo."),
             )
         }
 
@@ -77,7 +77,7 @@ class ModelManager(private val context: Context) {
 
             val code = connection.responseCode
             if (code !in 200..299) {
-                return@withContext Result.failure(IOException("Download failed (HTTP $code)."))
+                return@withContext Result.failure(IOException("Falha no download (HTTP $code)."))
             }
 
             val contentLength = connection.contentLength // -1 when unknown
@@ -120,7 +120,7 @@ class ModelManager(private val context: Context) {
         } catch (e: Exception) {
             tempFile.delete()
             val detail = e.message?.takeIf { it.isNotBlank() } ?: e::class.simpleName.orEmpty()
-            Result.failure(IOException("Download failed: $detail"))
+            Result.failure(IOException("Falha no download: $detail"))
         } finally {
             connection?.disconnect()
         }

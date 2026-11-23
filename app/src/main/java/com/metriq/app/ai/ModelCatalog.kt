@@ -23,7 +23,7 @@ data class ModelSpec(
  */
 object ModelCatalog {
     private const val REFERENCE =
-        "Reference tier only — no file is bundled and no download is guaranteed. Supply your own URL."
+        "Apenas nível de referência — nenhum ficheiro é incluído e nenhum download é garantido. Indica o teu URL."
 
     val all: List<ModelSpec> = listOf(
         ModelSpec(
@@ -38,7 +38,7 @@ object ModelCatalog {
             name = "Whisper tiny (reference tier)",
             sizeMb = 75,
             kind = "STT",
-            description = "Minimal speech-to-text tier for short voice notes. $REFERENCE",
+            description = "Nível mínimo de reconhecimento de voz para notas curtas. $REFERENCE",
         ),
         ModelSpec(
             id = "text-small",
@@ -52,14 +52,14 @@ object ModelCatalog {
             name = "Gemma 3n (reference tier)",
             sizeMb = 600,
             kind = "TEXT",
-            description = "Larger text tier with more headroom for long inputs. $REFERENCE",
+            description = "Nível de texto maior com mais margem para entradas longas. $REFERENCE",
         ),
         ModelSpec(
             id = "vision-small",
             name = "Gemma 3n vision (reference tier)",
             sizeMb = 900,
             kind = "VISION",
-            description = "Multimodal tier for label and photo understanding. $REFERENCE",
+            description = "Nível multimodal para compreensão de etiquetas e fotos. $REFERENCE",
         ),
         ModelSpec(
             id = "text-large",

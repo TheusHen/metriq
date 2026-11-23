@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material.icons.outlined.Fastfood
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.LunchDining
 import androidx.compose.material.icons.outlined.LocalDrink
 import androidx.compose.material.icons.outlined.LocalPizza
@@ -166,7 +167,7 @@ fun EnergyBudget(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Daily target",
+                text = "Meta diária",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 1,
@@ -180,7 +181,7 @@ fun EnergyBudget(
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             ) {
                 Text(
-                    text = if (over) "Over target" else "Holding",
+                    text = if (over) "Acima da meta" else "Holding",
                     style = MaterialTheme.typography.label,
                     color = if (over) MetriqColors.danger else MetriqColors.ink2,
                     maxLines = 1,
@@ -228,11 +229,11 @@ fun EnergyBudget(
             }
         }
         Spacer(Modifier.height(12.dp))
-        MacroRow("Protein", protein.first, protein.second)
+        MacroRow("Proteína", protein.first, protein.second)
         HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
-        MacroRow("Carbs", carbs.first, carbs.second)
+        MacroRow("Hidratos", carbs.first, carbs.second)
         HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
-        MacroRow("Fat", fat.first, fat.second)
+        MacroRow("Gordura", fat.first, fat.second)
     }
 }
 
@@ -446,32 +447,32 @@ fun MetriqNavBar(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 NavTab(
-                    label = "Today",
+                    label = "Hoje",
                     icon = Icons.Outlined.SpaceDashboard,
                     active = current == Screen.DASHBOARD,
                     onClick = { onNavigate(Screen.DASHBOARD) },
                 )
                 NavTab(
-                    label = "Log",
+                    label = "Registar",
                     icon = Icons.Outlined.Restaurant,
                     active = current == Screen.SEARCH,
                     onClick = onOpenLog,
                 )
                 NavTab(
-                    label = "Weight",
+                    label = "Peso",
                     icon = Icons.Outlined.MonitorWeight,
                     active = current == Screen.WEIGHT,
                     onClick = { onNavigate(Screen.WEIGHT) },
                 )
                 NavTab(
-                    label = "Data",
+                    label = "Dados",
                     icon = Icons.AutoMirrored.Outlined.ShowChart,
                     active = current == Screen.ANALYTICS,
                     onClick = { onNavigate(Screen.ANALYTICS) },
                 )
                 NavTab(
-                    label = "More",
-                    icon = Icons.Outlined.MoreHoriz,
+                    label = "Mais",
+                    icon = Icons.Outlined.GridView,
                     active = current == Screen.PROFILE,
                     onClick = { onNavigate(Screen.PROFILE) },
                 )
@@ -515,15 +516,19 @@ fun MetriqButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     primary: Boolean = true,
+    enabled: Boolean = true,
 ) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.heightIn(min = 48.dp),
         shape = RoundedCornerShape(10.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (primary) MetriqColors.accent else MetriqColors.surface2,
             contentColor = if (primary) MetriqColors.accentInk else MetriqColors.ink,
+            disabledContainerColor = MetriqColors.surface1,
+            disabledContentColor = MetriqColors.ink4,
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
     ) {
@@ -549,7 +554,7 @@ fun ScreenHeader(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.Outlined.ChevronLeft,
-                    contentDescription = "Back",
+                    contentDescription = "Voltar",
                     tint = MetriqColors.ink2,
                 )
             }
@@ -712,8 +717,8 @@ fun TrendChart(
 
             if (values.isEmpty()) {
                 drawContext.canvas.nativeCanvas.drawText(
-                    "No data yet",
-                    padLeft + w / 2f - gridPaint.measureText("No data yet") / 2f,
+                    "Ainda sem dados",
+                    padLeft + w / 2f - gridPaint.measureText("Ainda sem dados") / 2f,
                     padTop + h / 2f,
                     gridPaint,
                 )

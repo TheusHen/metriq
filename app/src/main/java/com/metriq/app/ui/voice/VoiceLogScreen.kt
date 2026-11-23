@@ -94,8 +94,8 @@ fun VoiceLogScreen(
     var listening by remember { mutableStateOf(false) }
     var status by remember {
         mutableStateOf(
-            if (available) "Tap the mic or type what you ate, then parse."
-            else "Voice recognition isn't available on this device. Type your phrase below.",
+            if (available) "Toca no microfone ou escreve o que comeste e depois analisa."
+            else "O reconhecimento de voz não está disponível neste dispositivo. Escreve a frase abaixo.",
         )
     }
 
@@ -130,7 +130,7 @@ fun VoiceLogScreen(
 
     fun startListening(permissionChecked: Boolean = false) {
         if (!available) {
-            status = "Voice recognition isn't available on this device. Type your phrase instead."
+            status = "O reconhecimento de voz não está disponível neste dispositivo. Escreve a frase."
             return
         }
         if (!permissionChecked &&
@@ -161,10 +161,10 @@ fun VoiceLogScreen(
                 listening = false
                 status = when (error) {
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                        "Microphone permission is off. Type your phrase instead."
+                        "A permissão do microfone está desligada. Escreve a frase."
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
                         "Didn't catch that. Try again or type it."
-                    else -> "Voice recognition failed. Type your phrase instead."
+                    else -> "O reconhecimento de voz falhou. Escreve a frase."
                 }
             }
 
@@ -176,7 +176,7 @@ fun VoiceLogScreen(
                     phrase = text
                     runParse(text)
                 } else {
-                    status = "Didn't catch that. Type your phrase instead."
+                    status = "Não percebi. Escreve a frase."
                 }
             }
 
@@ -197,7 +197,7 @@ fun VoiceLogScreen(
             recognizer.startListening(intent)
         } catch (_: Exception) {
             listening = false
-            status = "Couldn't start voice recognition. Type your phrase instead."
+            status = "Não foi possível iniciar o reconhecimento de voz. Escreve a frase."
         }
     }
 
@@ -206,14 +206,14 @@ fun VoiceLogScreen(
             if (granted) {
                 startListening(permissionChecked = true)
             } else {
-                status = "Microphone permission denied. Type your phrase instead."
+                status = "Permissão do microfone negada. Escreve a frase."
             }
         }
     }
 
     FramedColumn {
         ScreenHeader(
-            title = "Voice log",
+            title = "Registo por voz",
             subtitle = "On-device phrase parsing",
             onBack = onBack,
         )
@@ -227,7 +227,7 @@ fun VoiceLogScreen(
         ) {
             Spacer(Modifier.height(18.dp))
             Text(
-                text = "Describe what you ate",
+                text = "Descreve o que comeste",
                 style = MaterialTheme.typography.h2,
                 color = MetriqColors.ink,
             )
@@ -303,7 +303,7 @@ fun VoiceLogScreen(
                 val f = food
                 if (p == null || f == null) {
                     Text(
-                        text = "Nothing parsed yet. Speak or type a phrase, then tap Parse to preview it here.",
+                        text = "Ainda nada analisado. Diz ou escreve uma frase e toca em Analisar para ver a pré-visualização.",
                         style = MaterialTheme.typography.body,
                         color = MetriqColors.ink2,
                         modifier = Modifier.padding(vertical = 8.dp),
@@ -391,7 +391,7 @@ fun VoiceLogScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MetriqButton(
-                text = "Save & log",
+                text = "Guardar e registar",
                 primary = true,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {

@@ -100,7 +100,7 @@ fun BarcodeScreen(
         canLookupOnline = false
         pendingIsError = false
         onlineBusy = false
-        pendingMessage = "Checking your library for $code…"
+        pendingMessage = "A verificar a biblioteca para $code…"
         scope.launch {
             val local = withContext(Dispatchers.IO) { AppGraph.store.food.byBarcode(code) }
             withContext(Dispatchers.Main) {
@@ -108,10 +108,10 @@ fun BarcodeScreen(
                     emitDetected(code)
                 } else if (!OpenFoodFactsLookup.isValid(code)) {
                     pendingIsError = true
-                    pendingMessage = "That code is not a standard 8–14 digit food barcode."
+                    pendingMessage = "Esse código não é um código de barras alimentar padrão de 8 a 14 dígitos."
                 } else {
                     canLookupOnline = true
-                    pendingMessage = "Not in your library. Nothing is sent online until you tap below."
+                    pendingMessage = "Não está na biblioteca. Nada é enviado online até tocares abaixo."
                 }
             }
         }
@@ -122,34 +122,34 @@ fun BarcodeScreen(
         onlineBusy = true
         canLookupOnline = false
         pendingIsError = false
-        pendingMessage = "Looking up $code on Open Food Facts…"
+        pendingMessage = "A procurar $code no Open Food Facts…"
         scope.launch {
             val outcome = OpenFoodFactsLookup.lookupAndStore(code, AppGraph.store)
             withContext(Dispatchers.Main) {
                 onlineBusy = false
                 when (outcome) {
                     is LookupOutcome.Success -> {
-                        pendingMessage = "Added ${outcome.product.name} to your library."
+                        pendingMessage = "${outcome.product.name} adicionado à tua biblioteca."
                         emitDetected(code)
                     }
                     LookupOutcome.NotFound -> {
                         pendingIsError = true
                         canLookupOnline = true
-                        pendingMessage = "No product found on Open Food Facts for $code."
+                        pendingMessage = "Nenhum produto encontrado no Open Food Facts para $code."
                     }
                     LookupOutcome.NoNutrition -> {
                         pendingIsError = true
                         canLookupOnline = true
-                        pendingMessage = "Product found, but it has no nutrition data to log."
+                        pendingMessage = "Produto encontrado, mas sem dados nutricionais para registar."
                     }
                     LookupOutcome.InvalidBarcode -> {
                         pendingIsError = true
-                        pendingMessage = "That code is not a standard 8–14 digit food barcode."
+                        pendingMessage = "Esse código não é um código de barras alimentar padrão de 8 a 14 dígitos."
                     }
                     is LookupOutcome.NetworkError -> {
                         pendingIsError = true
                         canLookupOnline = true
-                        pendingMessage = "Could not reach Open Food Facts (${outcome.detail}). Check your connection."
+                        pendingMessage = "Não foi possível contactar o Open Food Facts (${outcome.detail}). Verifica a ligação."
                     }
                     is LookupOutcome.Error -> {
                         pendingIsError = true
@@ -227,7 +227,7 @@ fun BarcodeScreen(
 
     FramedColumn {
         ScreenHeader(
-            title = "Scan barcode",
+            title = "Digitalizar código de barras",
             subtitle = "Camera or manual entry",
             onBack = onClose,
         )
@@ -285,13 +285,13 @@ fun BarcodeScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Point your camera at a barcode, or enter it below. Codes in your library are logged instantly.",
+                    text = "Aponta a câmara para um código de barras ou introduz-o abaixo. Os códigos da biblioteca são registados de imediato.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Online lookup happens only when you tap it.",
+                    text = "A pesquisa online só acontece quando tocas no botão.",
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink3,
                 )
@@ -313,7 +313,7 @@ fun BarcodeScreen(
                     if (canLookupOnline && !onlineBusy) {
                         Spacer(Modifier.height(12.dp))
                         MetriqButton(
-                            text = "Look up online (Open Food Facts)",
+                            text = "Procurar online (Open Food Facts)",
                             onClick = { lookupOnline() },
                             primary = true,
                         )

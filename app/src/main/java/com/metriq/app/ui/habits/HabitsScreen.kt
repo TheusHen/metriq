@@ -44,7 +44,7 @@ fun HabitsScreen(
     var name by remember { mutableStateOf("") }
     val doneCount = habits.count { it.doneToday }
 
-    SubScreen("Habits", onBack) {
+    SubScreen("Hábitos", onBack) {
         Text(
             "Small actions, repeated.",
             style = MaterialTheme.typography.body,
@@ -52,10 +52,10 @@ fun HabitsScreen(
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Today")
+        SectionHeader(title = "Hoje")
         Spacer(Modifier.height(6.dp))
         Text(
-            "$doneCount of ${habits.size} complete today",
+            "$doneCount de ${habits.size} concluídos hoje",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -63,7 +63,7 @@ fun HabitsScreen(
         Panel(Modifier.fillMaxWidth()) {
             if (habits.isEmpty()) {
                 Text(
-                    "No habits yet. Add one below to start a streak.",
+                    "Ainda não há hábitos. Adiciona um abaixo para iniciar uma sequência.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -121,13 +121,13 @@ fun HabitsScreen(
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "Tap a habit to toggle today's completion.",
+            "Toca num hábito para marcar a conclusão de hoje.",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Add a habit")
+        SectionHeader(title = "Adicionar hábito")
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             OutlinedTextField(
@@ -140,7 +140,7 @@ fun HabitsScreen(
             )
             Spacer(Modifier.height(10.dp))
             MetriqButton(
-                text = "Add habit",
+                text = "Adicionar hábito",
                 onClick = {
                     if (name.isNotBlank()) {
                         onAdd(name.trim())

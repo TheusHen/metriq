@@ -61,41 +61,41 @@ object ModelBenchmark {
         val modelId = AppSettings.get(AppSettings.AI_MODEL_ID)
         val selectedInstalled = modelId.isNotBlank() && ModelManager(context).pathFor(modelId).exists()
         val engineNote = if (selectedInstalled) {
-            "Model '$modelId' is installed and selected. No inference runtime is bundled, " +
-                "so parsing still runs on the deterministic engine — no model speed or " +
-                "accuracy is claimed."
+            "O modelo '$modelId' está instalado e selecionado. Não é incluído nenhum motor de " +
+                "inferência, pelo que a análise continua a correr no motor determinístico — " +
+                "não são reivindicadas velocidade ou precisão do modelo."
         } else {
-            "deterministic (no model loaded)"
+            "determinístico (sem modelo carregado)"
         }
 
         val opsPerSec = measureThroughput()
         val headline = String.format(Locale.US, "%.0f", opsPerSec)
 
         listOf(
-            BenchmarkResult("Active engine", 0.0, "", engineNote),
+            BenchmarkResult("Motor ativo", 0.0, "", engineNote),
             BenchmarkResult(
-                label = "Parser throughput",
+                label = "Taxa do analisador",
                 score = opsPerSec,
-                unit = "phrases/sec",
-                note = "Measured locally over ${SAMPLES.size} built-in phrases (~$headline/sec).",
+                unit = "frases/seg",
+                note = "Medido localmente em ${SAMPLES.size} frases incluídas (~$headline/seg).",
             ),
             BenchmarkResult(
-                label = "Free storage",
+                label = "Armazenamento livre",
                 score = free.toDouble(),
                 unit = "MB",
-                note = "Available space on the app files partition (StatFs).",
+                note = "Espaço disponível na partição de ficheiros da app (StatFs).",
             ),
             BenchmarkResult(
-                label = "Memory class",
+                label = "Classe de memória",
                 score = ram.toDouble(),
                 unit = "MB",
-                note = "Per-app heap budget from ActivityManager.getMemoryClass().",
+                note = "Limite de memória por app obtido de ActivityManager.getMemoryClass().",
             ),
             BenchmarkResult(
-                label = "Device profile",
+                label = "Perfil do dispositivo",
                 score = 0.0,
                 unit = score,
-                note = "LOW / MID / HIGH bucket derived from the memory class.",
+                note = "Categoria BAIXO / MÉDIO / ALTO derivada da classe de memória.",
             ),
         )
     }

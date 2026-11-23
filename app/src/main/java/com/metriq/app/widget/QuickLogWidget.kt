@@ -44,14 +44,14 @@ class QuickLogWidget : GlanceAppWidget() {
                             .background(button)
                             .padding(10)
                             .clickable(actionStartActivity(logIntent)),
-                    ) { Text("Log", style = TextStyle(color = ink)) }
+                    ) { Text("Registar", style = TextStyle(color = ink)) }
                     Column(
                         GlanceModifier
                             .defaultWeight()
                             .background(button)
                             .padding(10)
                             .clickable(actionStartActivity(scanIntent)),
-                    ) { Text("Scan", style = TextStyle(color = ink)) }
+                    ) { Text("Digitalizar", style = TextStyle(color = ink)) }
                 }
             }
         }

@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
                     clipboard.setPrimaryClip(ClipData.newPlainText("Metriq crash", report))
                     Toast.makeText(this, "Crash report copied", Toast.LENGTH_SHORT).show()
                 }
-                .setNegativeButton("Close", null)
+                .setNegativeButton("Fechar", null)
                 .show()
         }
         enableEdgeToEdge()
@@ -146,8 +146,8 @@ class MainActivity : ComponentActivity() {
                 val health = AppGraph.healthConnect
                 val healthStatus = when {
                     health == null -> "Unavailable on this device"
-                    !health.isAvailable() -> "Health Connect is not installed"
-                    else -> "Available"
+                    !health.isAvailable() -> "O Health Connect não está instalado"
+                    else -> "Disponível"
                 }
                 val hcLauncher = rememberLauncherForActivityResult(
                     PermissionController.createRequestPermissionResultContract(),
@@ -266,7 +266,7 @@ class MainActivity : ComponentActivity() {
                         onBack = { screen = Screen.SEARCH },
                         onEdit = { label ->
                             foodDraftPrefill = FoodDraft(
-                                name = label.servingSize?.let { "Label food · $it" } ?: "Label food",
+                                name = label.servingSize?.let { "Rotular alimento · $it" } ?: "Rotular alimento",
                                 brand = null,
                                 calories = label.calories ?: 0.0,
                                 protein = label.protein ?: 0.0,
@@ -280,7 +280,7 @@ class MainActivity : ComponentActivity() {
                         onResult = { label: NutritionLabelParser.ParsedLabel ->
                             viewModel.createFood(
                                 FoodDraft(
-                                    name = "Label food",
+                                    name = "Rotular alimento",
                                     brand = null,
                                     calories = label.calories ?: 0.0,
                                     protein = label.protein ?: 0.0,
@@ -567,7 +567,7 @@ class MainActivity : ComponentActivity() {
     private fun formatEpoch(raw: String): String = try {
         Instant.ofEpochMilli(raw.toLong())
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGLISH))
+            .format(DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.forLanguageTag("pt-PT")))
     } catch (_: Exception) {
         raw
     }

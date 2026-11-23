@@ -50,7 +50,7 @@ private enum class MicroStatus(val label: String) {
     LOW("Under 50%"),
     BUILDING("50–80%"),
     ON_TRACK("On track"),
-    HIGH("Over target"),
+    HIGH("Acima da meta"),
 }
 
 private fun statusFor(ratio: Double): MicroStatus = when {
@@ -119,7 +119,7 @@ fun MicronutrientsScreen(
         }
     }
 
-    SubScreen("Nutrients", onBack) {
+    SubScreen("Nutrientes", onBack) {
         Text(
             "Micronutrients",
             style = MaterialTheme.typography.h2,
@@ -127,7 +127,7 @@ fun MicronutrientsScreen(
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Daily intake against reference values for your profile.",
+            "Ingestão diária face aos valores de referência do teu perfil.",
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
@@ -136,17 +136,17 @@ fun MicronutrientsScreen(
         Panel(Modifier.fillMaxWidth()) {
             SectionHeader(
                 title = "Targets",
-                action = if (editing) "Done" else "Edit targets",
+                action = if (editing) "Concluído" else "Editar metas",
                 onAction = { toggleEdit() },
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = if (editing) {
-                    "Set a personal daily amount per nutrient. Defaults follow DRI for your profile."
+                    "Define uma quantidade diária personalizada por nutriente. Os valores predefinidos seguem as DRIs para o teu perfil."
                 } else if (customTargets.isEmpty()) {
-                    "Using DRI defaults for your profile."
+                    "A usar os valores de referência predefinidos."
                 } else {
-                    "${customTargets.size} custom target${if (customTargets.size == 1) "" else "s"} set."
+                    "${customTargets.size} meta personalizada${if (customTargets.size == 1) "" else "s"} set."
                 },
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
@@ -236,7 +236,7 @@ fun MicronutrientsScreen(
                         )
                         Text(
                             text = if (amount == null) {
-                                "No data"
+                                "Sem dados"
                             } else {
                                 "/ ${pretty(target)} ${def.unit}"
                             },
@@ -272,7 +272,7 @@ fun MicronutrientsScreen(
                 } else {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "No data logged for this nutrient",
+                        "Sem dados registados para este nutriente",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )

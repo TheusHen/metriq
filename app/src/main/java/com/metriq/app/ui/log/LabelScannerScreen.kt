@@ -130,8 +130,8 @@ fun LabelScannerScreen(
             )
             Column(Modifier.fillMaxWidth()) {
                 ScreenHeader(
-                    title = "Scan nutrition label",
-                    subtitle = "Fill the label inside the frame",
+                    title = "Digitalizar etiqueta nutricional",
+                    subtitle = "Enquadra a etiqueta na moldura",
                     onBack = onBack,
                 )
             }
@@ -183,13 +183,13 @@ fun LabelScannerScreen(
                         Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
                             MetriqButton(
-                                text = "Edit",
+                                text = "Editar",
                                 onClick = { onEdit(label) },
                                 modifier = Modifier.weight(1f),
                                 primary = false,
                             )
                             MetriqButton(
-                                text = "Save & log",
+                                text = "Guardar e registar",
                                 onClick = { onResult(label) },
                                 modifier = Modifier.weight(1f),
                                 primary = true,
@@ -214,7 +214,7 @@ fun LabelScannerScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "Hold the nutrition facts panel steady inside the frame. Values are filled in automatically.",
+                            "Mantém o painel nutricional imóvel dentro da moldura. Os valores são preenchidos automaticamente.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MetriqColors.ink2,
                         )

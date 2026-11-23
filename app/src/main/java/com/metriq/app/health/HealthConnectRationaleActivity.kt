@@ -15,8 +15,8 @@ class HealthConnectRationaleActivity : ComponentActivity() {
         setContent {
             MetriqTheme {
                 Text(
-                    "Metriq reads steps, weight and calories from Health Connect to improve " +
-                        "your expenditure estimate. Data stays on this device.",
+                    "O Metriq lê passos, peso e calorias do Health Connect para melhorar " +
+                        "a estimativa de gasto. Os dados ficam neste dispositivo.",
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = androidx.compose.ui.Modifier.padding(24.dp),
                 )

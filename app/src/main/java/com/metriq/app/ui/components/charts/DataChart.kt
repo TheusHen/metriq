@@ -176,33 +176,33 @@ private fun ChartSurface(
                 textAlign = Paint.Align.LEFT
             }
 
-            // Four faint gridlines with compact y ticks.
-            for (i in 0..3) {
-                val y = t + h * i / 3f
-                drawLine(
-                    color = MetriqColors.border.copy(alpha = 0.55f),
-                    start = Offset(l, y),
-                    end = Offset(l + w, y),
-                    strokeWidth = 1.dp.toPx(),
-                )
-                val tick = scale.second - (scale.second - scale.first) * i / 3.0
-                drawContext.canvas.nativeCanvas.drawText(
-                    AnalyticsFormat.axis(tick),
-                    l - 6.dp.toPx(),
-                    y + 3.5.dp.toPx(),
-                    inkPaint.apply { textAlign = Paint.Align.RIGHT },
-                )
-            }
-
             if (points.isEmpty()) {
                 inkPaint.textAlign = Paint.Align.CENTER
                 drawContext.canvas.nativeCanvas.drawText(
-                    "No data in this range",
+                    "Sem dados neste período",
                     l + w / 2f,
                     t + h / 2f,
                     inkPaint,
                 )
             } else {
+                // Four faint gridlines with compact y ticks.
+                for (i in 0..3) {
+                    val y = t + h * i / 3f
+                    drawLine(
+                        color = MetriqColors.border.copy(alpha = 0.55f),
+                        start = Offset(l, y),
+                        end = Offset(l + w, y),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    val tick = scale.second - (scale.second - scale.first) * i / 3.0
+                    drawContext.canvas.nativeCanvas.drawText(
+                        AnalyticsFormat.axis(tick),
+                        l - 6.dp.toPx(),
+                        y + 3.5.dp.toPx(),
+                        inkPaint.apply { textAlign = Paint.Align.RIGHT },
+                    )
+                }
+
                 // Four to six x labels, never rotated, centred on their tick.
                 val indices = xLabelIndices(points.size, geom.totalWidth)
                 inkPaint.textAlign = Paint.Align.CENTER

@@ -119,6 +119,21 @@ jobs:
             adb exec-out screencap -p > screen-narrow-home.png
             adb shell wm density reset || true
             adb shell wm size reset || true
+
+            # Dynamic type: verify the dense screens at 130% and 200% font scale.
+            for scale in 1.3 2.0; do
+              adb shell settings put system font_scale $scale || true
+              adb shell am force-stop com.metriq.app || true
+              adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
+              sleep 12
+              adb exec-out screencap -p > screen-font-${scale}-home.png
+              adb shell am force-stop com.metriq.app || true
+              adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen analytics || true
+              sleep 12
+              adb exec-out screencap -p > screen-font-${scale}-analytics.png
+            done
+            adb shell settings put system font_scale 1.0 || true
+            adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity || true
             sleep 12
             echo "=== LOGCAT (threadtime) ==="

@@ -48,9 +48,9 @@ class DailyMacroWidget : GlanceAppWidget() {
                     .padding(12)
                     .clickable(actionStartActivity<MainActivity>()),
             ) {
-                Text("TODAY", style = labelStyle)
+                Text("HOJE", style = labelStyle)
                 Text("$kcal kcal", style = valueStyle)
-                Text("of daily budget", style = labelStyle)
+                Text("do orçamento diário", style = labelStyle)
                 Row(GlanceModifier.fillMaxWidth().padding(top = 8)) {
                     Text("P $p g  ", style = TextStyle(color = ColorProvider(Color.parseColor("#FF9B82"))))
                     Text("C $c g  ", style = TextStyle(color = ColorProvider(Color.parseColor("#F5C96B"))))

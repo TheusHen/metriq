@@ -24,19 +24,26 @@ object FoodSearchEngine {
     private const val USER_AGENT = "Metriq/0.1 (Android food search; open data)"
     private const val MIN_ONLINE_LENGTH = 3
 
-    suspend fun search(query: String): List<FoodHit> = withContext(Dispatchers.IO) {
-        val store = runCatching { AppGraph.store }.getOrNull() ?: return@withContext emptyList()
+    /** Hits plus whether the live lookup was attempted and failed, so the UI can offer a retry. */
+    data class Outcome(val hits: List<FoodHit>, val onlineFailed: Boolean)
+
+    suspend fun search(query: String): List<FoodHit> = searchWithOutcome(query).hits
+
+    suspend fun searchWithOutcome(query: String): Outcome = withContext(Dispatchers.IO) {
+        val store = runCatching { AppGraph.store }.getOrNull()
+            ?: return@withContext Outcome(emptyList(), onlineFailed = false)
 
         // 1) local pack + 2) previously cached online hits.
         val local = store.food.searchAll(query)
         val term = query.trim()
-        if (term.length < MIN_ONLINE_LENGTH) return@withContext local
+        if (term.length < MIN_ONLINE_LENGTH) return@withContext Outcome(local, onlineFailed = false)
 
         // 3) live Open Food Facts search, best effort: offline means local only.
         val online = fetchOnline(term)
-        if (online.isEmpty()) return@withContext local
+            ?: return@withContext Outcome(local, onlineFailed = true)
+        if (online.isEmpty()) return@withContext Outcome(local, onlineFailed = false)
         store.food.cacheOnline(online)
-        store.food.searchAll(query)
+        Outcome(store.food.searchAll(query), onlineFailed = false)
     }
 
     private fun buildUrl(term: String): String = buildList {
@@ -48,7 +55,8 @@ object FoodSearchEngine {
         "$key=${URLEncoder.encode(value, "UTF-8")}"
     }
 
-    private fun fetchOnline(term: String): List<FoodHit> {
+    /** Null means the request failed; an empty list means the service had no matches. */
+    private fun fetchOnline(term: String): List<FoodHit>? {
         var connection: HttpURLConnection? = null
         val body = try {
             connection = (URL(buildUrl(term)).openConnection() as HttpURLConnection).apply {
@@ -61,12 +69,12 @@ object FoodSearchEngine {
             }
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_OK -> connection.inputStream.bufferedReader().use { it.readText() }
-                else -> return emptyList()
+                else -> return null
             }
         } catch (_: IOException) {
-            return emptyList() // no network: caller keeps local results
+            return null // no network: caller keeps local results and can offer a retry
         } catch (_: Exception) {
-            return emptyList()
+            return null
         } finally {
             connection?.disconnect()
         }

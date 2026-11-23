@@ -123,12 +123,12 @@ fun AiModelsScreen(
             outcome.fold(
                 onSuccess = {
                     refreshInstalled()
-                    notice = "Installed '$id'. It is not the active engine until you select it."
+                    notice = "'$id' instalado. Não é o motor ativo até o selecionares."
                     downloadingId = null
                     progress = null
                 },
                 onFailure = {
-                    notice = it.message ?: "Download failed."
+                    notice = it.message ?: "Falha no download."
                     progress = null
                 },
             )
@@ -144,7 +144,7 @@ fun AiModelsScreen(
 
     fun selectModel(id: String) {
         onSettingChange(AppSettings.AI_MODEL_ID, id)
-        notice = "'$id' selected. Re-run the benchmark to refresh the active-engine status."
+        notice = "'$id' selecionado. Volta a executar o teste para atualizar o estado do motor ativo."
         scope.launch { results = ModelBenchmark.run(context) }
     }
 
@@ -170,7 +170,7 @@ fun AiModelsScreen(
 
         // ------------------------------------------------------------------ Storage budget
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Storage budget")
+        SectionHeader(title = "Orçamento de armazenamento")
         Spacer(Modifier.height(8.dp))
         Panel {
             val labels = listOf("Off", "250", "500", "1,000+")
@@ -186,7 +186,7 @@ fun AiModelsScreen(
                 text = if (budgetMb == 0) {
                     "Off — deterministic engine only, no model files."
                 } else {
-                    "Up to $budgetMb MB reserved for optional model files you download."
+                    "Até $budgetMb MB reservados para ficheiros de modelos opcionais que descarregues."
                 },
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
@@ -197,7 +197,7 @@ fun AiModelsScreen(
 
         // ------------------------------------------------------------------ Device profile
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Device profile")
+        SectionHeader(title = "Perfil do dispositivo")
         Spacer(Modifier.height(8.dp))
         Panel {
             Text("MEASURED SIGNALS", style = MaterialTheme.typography.label, color = MetriqColors.ink3)
@@ -224,7 +224,7 @@ fun AiModelsScreen(
             }
             when {
                 budgetMb == 0 -> Text(
-                    text = "Set a storage budget above to see which reference tier fits this device.",
+                    text = "Define acima um orçamento de armazenamento para ver que nível se adapta a este dispositivo.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     maxLines = 3,
@@ -232,7 +232,7 @@ fun AiModelsScreen(
                 )
                 recommendation == null -> Text(
                     text = "No reference tier fits this device's memory or free storage. " +
-                        "The deterministic engine remains active.",
+                        "O motor determinístico continua ativo.",
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     maxLines = 3,
@@ -321,18 +321,16 @@ fun AiModelsScreen(
         // ------------------------------------------------------------------ Privacy note
         Spacer(Modifier.height(18.dp))
         Panel {
-            Text("PRIVACY", style = MaterialTheme.typography.label, color = MetriqColors.ink3)
+            Text("PRIVACIDADE", style = MaterialTheme.typography.label, color = MetriqColors.ink3)
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Models are opt-in downloads you supply yourself — no binaries ship with " +
-                    "Metriq and no download URL is bundled. Everything runs on-device; nothing " +
-                    "is uploaded. The deterministic engine is active by default. A model only " +
-                    "becomes the active engine after you install it and select it, and Metriq " +
-                    "does not claim model accuracy or speed it cannot measure.",
+                text = "Os modelos são downloads opcionais que indicas tu — nenhum binário vem com " +
+                    "o Metriq e nenhum URL é incluído. Tudo corre no dispositivo; nada é " +
+                    "enviado. O motor determinístico está ativo por predefinição. Um modelo só " +
+                    "se torna ativo depois de o instalares e selecionares, e o Metriq não " +
+                    "afirma precisão ou velocidade que não consiga medir.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink2,
-                maxLines = 8,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -500,7 +498,7 @@ private fun CatalogItem(
                     primary = true,
                 )
                 MetriqButton(
-                    text = "Cancel",
+                    text = "Cancelar",
                     onClick = onCancel,
                     modifier = Modifier.weight(1f),
                     primary = false,
@@ -508,7 +506,7 @@ private fun CatalogItem(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Downloads the file you provide into private app storage. No URL is bundled.",
+                text = "Descarrega o ficheiro que indicas para o armazenamento privado da app. Nenhum URL é incluído.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 2,
@@ -539,7 +537,7 @@ private fun ResultRow(result: BenchmarkResult) {
             )
         }
         val big: String? = when {
-            result.label == "Device profile" -> result.unit
+            result.label == "Perfil do dispositivo" -> result.unit
             result.unit.isBlank() -> null
             else -> formatScore(result.score)
         }
@@ -553,7 +551,7 @@ private fun ResultRow(result: BenchmarkResult) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (result.label != "Device profile" && result.unit.isNotBlank()) {
+                if (result.label != "Perfil do dispositivo" && result.unit.isNotBlank()) {
                     Text(
                         text = result.unit,
                         style = MaterialTheme.typography.caption,

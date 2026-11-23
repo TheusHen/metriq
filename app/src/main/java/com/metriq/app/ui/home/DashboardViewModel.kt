@@ -254,7 +254,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun quickAdd(kcal: Double, proteinG: Double, fatG: Double, carbG: Double) {
         if (kcal <= 0.0) return
         val id = AppGraph.store.food.insertCustomFood(
-            name = "Quick add", brand = null, calories = kcal, protein = proteinG,
+            name = "Adição rápida", brand = null, calories = kcal, protein = proteinG,
             fat = fatG, carbs = carbG, fiber = null, sugar = null, sodium = null,
             servingLabel = "1 serving", servingGrams = 100.0,
         )
@@ -431,7 +431,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         return DashboardState(
-            dateLabel = today.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.ENGLISH)),
+            dateLabel = today.format(DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.forLanguageTag("pt-PT"))),
             week = buildWeek(intake, weightEntries),
             kcalConsumed = consumedKcal,
             kcalTarget = macros.kcal,
@@ -444,8 +444,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             trendKg = trendSeries.lastOrNull() ?: lastKg,
             trendChangePerWeek = changePerWeek,
             trendSeries = trendSeries,
-            trendStartLabel = start.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
-            trendEndLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
+            trendStartLabel = start.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("pt-PT"))),
+            trendEndLabel = today.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("pt-PT"))),
             expenditureKcal = Math.round(expenditure.kcal).toInt(),
             expenditureConfidence = expenditure.confidence.name.lowercase(Locale.ENGLISH),
             goalLabel = profile.goal.name.lowercase(Locale.ENGLISH)

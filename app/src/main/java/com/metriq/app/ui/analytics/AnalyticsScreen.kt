@@ -4,21 +4,30 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,17 +40,18 @@ import com.metriq.app.ui.components.SectionHeader
 import com.metriq.app.ui.components.charts.DataChart
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.app.ui.theme.caption
+import com.metriq.app.ui.theme.h2
 import com.metriq.app.ui.theme.label
 import com.metriq.app.ui.theme.number24
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val RANGES = listOf(7, 30, 90, 365, 0)
-private val RANGE_LABELS = listOf("7D", "30D", "90D", "1Y", "All")
+private val RANGE_LABELS = listOf("7D", "30D", "90D", "1A", "Tudo")
 private val GRANULARITIES = listOf("day", "week", "month")
-private val GRANULARITY_LABELS = listOf("Day", "Week", "Month")
+private val GRANULARITY_LABELS = listOf("Dia", "Semana", "Mês")
 private val CHART_TYPES = listOf("line", "bar")
-private val CHART_TYPE_LABELS = listOf("Line", "Bars")
+private val CHART_TYPE_LABELS = listOf("Linha", "Barras")
 
 /**
  * Responsive analytics view: centred 720 dp column, 20 dp gutters, two columns from
@@ -55,6 +65,7 @@ fun AnalyticsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val reducedMotion = AppSettings.bool(AppSettings.REDUCED_MOTION)
+    var filtersOpen by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -71,16 +82,16 @@ fun AnalyticsScreen(
                 .imePadding(),
         ) {
             ScreenHeader(
-                title = "Analytics",
-                subtitle = "From your own logged data",
+                title = "Análise",
+                subtitle = "A partir dos teus registos",
                 onBack = onBack,
                 trailing = {
-                    MetriqButton(text = "Export", onClick = onExport, primary = false)
+                    MetriqButton(text = "Exportar", onClick = onExport, primary = false)
                 },
             )
             state.etaText?.let { text ->
                 Text(
-                    text = "Goal ETA · $text",
+                    text = "Objetivo · $text",
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -97,7 +108,7 @@ fun AnalyticsScreen(
                 if (maxWidth >= 600.dp) {
                     Row(scroll, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Column(Modifier.weight(1f)) {
-                            Filters(state, viewModel)
+                            QuickFilters(state, viewModel) { filtersOpen = true }
                             Spacer(Modifier.height(16.dp))
                             ChartPanel(state, viewModel, reducedMotion)
                             Spacer(Modifier.height(16.dp))
@@ -117,7 +128,7 @@ fun AnalyticsScreen(
                     }
                 } else {
                     Column(scroll) {
-                        Filters(state, viewModel)
+                        QuickFilters(state, viewModel) { filtersOpen = true }
                         Spacer(Modifier.height(16.dp))
                         ChartPanel(state, viewModel, reducedMotion)
                         Spacer(Modifier.height(16.dp))
@@ -136,25 +147,55 @@ fun AnalyticsScreen(
                 }
             }
         }
+        if (filtersOpen) {
+            FilterSheet(state, viewModel) { filtersOpen = false }
+        }
     }
 }
 
 @Composable
-private fun Filters(state: AnalyticsState, viewModel: AnalyticsViewModel) {
+private fun QuickFilters(
+    state: AnalyticsState,
+    viewModel: AnalyticsViewModel,
+    onOpenFilters: () -> Unit,
+) {
     Panel {
-        SectionHeader("Metric")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Métrica",
+                style = MaterialTheme.typography.label,
+                color = MetriqColors.ink3,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "Filtros",
+                style = MaterialTheme.typography.label,
+                color = MetriqColors.ink2,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onOpenFilters)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+        }
         Spacer(Modifier.height(10.dp))
-        ChipRow {
-            state.metrics.forEach { (id, label) ->
-                FilterPill(label, selected = state.metricId == id, onClick = { viewModel.setMetric(id) })
+        FadingChipRow {
+            items(state.metrics, key = { it.first }) { (id, label) ->
+                FilterPill(
+                    label = label,
+                    selected = state.metricId == id,
+                    onClick = { viewModel.setMetric(id) },
+                )
             }
         }
-        Spacer(Modifier.height(16.dp))
-
-        SectionHeader("Range")
-        Spacer(Modifier.height(10.dp))
-        ChipRow {
-            RANGES.forEachIndexed { index, days ->
+        Spacer(Modifier.height(14.dp))
+        Text(
+            text = "Período",
+            style = MaterialTheme.typography.label,
+            color = MetriqColors.ink3,
+        )
+        Spacer(Modifier.height(8.dp))
+        FadingChipRow {
+            itemsIndexed(RANGES, key = { _, days -> days }) { index, days ->
                 FilterPill(
                     label = RANGE_LABELS[index],
                     selected = state.rangeDays == days,
@@ -162,64 +203,115 @@ private fun Filters(state: AnalyticsState, viewModel: AnalyticsViewModel) {
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
+    }
+}
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("GRANULARITY", style = MaterialTheme.typography.caption, color = MetriqColors.ink3)
-                Spacer(Modifier.height(8.dp))
-                ChipRow {
-                    GRANULARITIES.forEachIndexed { index, value ->
-                        FilterPill(
-                            label = GRANULARITY_LABELS[index],
-                            selected = state.granularity == value,
-                            onClick = { viewModel.setGranularity(value) },
-                        )
-                    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(
+    state: AnalyticsState,
+    viewModel: AnalyticsViewModel,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MetriqColors.surface1,
+        contentColor = MetriqColors.ink,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = MetriqColors.border) },
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text("Filtros", style = MaterialTheme.typography.h2, color = MetriqColors.ink)
+            Spacer(Modifier.height(18.dp))
+
+            SheetGroup("Granularidade") {
+                GRANULARITIES.forEachIndexed { index, value ->
+                    FilterPill(
+                        label = GRANULARITY_LABELS[index],
+                        selected = state.granularity == value,
+                        onClick = { viewModel.setGranularity(value) },
+                    )
                 }
             }
-            Column(Modifier.weight(1f)) {
-                Text("CHART", style = MaterialTheme.typography.caption, color = MetriqColors.ink3)
-                Spacer(Modifier.height(8.dp))
-                ChipRow {
-                    CHART_TYPES.forEachIndexed { index, value ->
-                        FilterPill(
-                            label = CHART_TYPE_LABELS[index],
-                            selected = state.chartType == value,
-                            onClick = { viewModel.setChartType(value) },
-                        )
-                    }
+            Spacer(Modifier.height(18.dp))
+
+            SheetGroup("Gráfico") {
+                CHART_TYPES.forEachIndexed { index, value ->
+                    FilterPill(
+                        label = CHART_TYPE_LABELS[index],
+                        selected = state.chartType == value,
+                        onClick = { viewModel.setChartType(value) },
+                    )
                 }
             }
-        }
-        Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
 
-        SectionHeader("Compare")
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = "Overlays a second metric on its own scale.",
-            style = MaterialTheme.typography.caption,
-            color = MetriqColors.ink3,
-        )
-        Spacer(Modifier.height(10.dp))
-        ChipRow {
-            FilterPill("None", selected = state.compareId == null, onClick = { viewModel.setCompare(null) })
-            state.metrics.forEach { (id, label) ->
-                FilterPill(label, selected = state.compareId == id, onClick = { viewModel.setCompare(id) })
+            Text(
+                text = "Comparar",
+                style = MaterialTheme.typography.label,
+                color = MetriqColors.ink3,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Sobreponho uma segunda métrica, na escala dela.",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+            )
+            Spacer(Modifier.height(10.dp))
+            FadingChipRow {
+                item {
+                    FilterPill(
+                        label = "Nenhuma",
+                        selected = state.compareId == null,
+                        onClick = { viewModel.setCompare(null) },
+                    )
+                }
+                items(state.metrics, key = { it.first }) { (id, label) ->
+                    FilterPill(
+                        label = label,
+                        selected = state.compareId == id,
+                        onClick = { viewModel.setCompare(id) },
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ChipRow(content: @Composable RowScope.() -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        content = content,
-    )
+private fun SheetGroup(title: String, content: @Composable RowScope.() -> Unit) {
+    Text(title, style = MaterialTheme.typography.label, color = MetriqColors.ink3)
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = content)
+}
+
+/** Horizontal chip rail with a soft edge so the cut never looks like a clipped word. */
+@Composable
+private fun FadingChipRow(content: LazyListScope.() -> Unit) {
+    Box(Modifier.fillMaxWidth()) {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 28.dp),
+            content = content,
+        )
+        Box(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(28.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, MetriqColors.surface1),
+                    ),
+                ),
+        )
+    }
 }
 
 @Composable
@@ -266,8 +358,8 @@ private fun ChartPanel(state: AnalyticsState, viewModel: AnalyticsViewModel, red
         Spacer(Modifier.height(12.dp))
         val pattern = remember(state.granularity) {
             DateTimeFormatter.ofPattern(
-                if (state.granularity == "month") "MMM ''yy" else "MMM d",
-                Locale.ENGLISH,
+                if (state.granularity == "month") "MMM ''yy" else "d MMM",
+                Locale.forLanguageTag("pt-PT"),
             )
         }
         DataChart(
@@ -293,9 +385,9 @@ private fun ChartPanel(state: AnalyticsState, viewModel: AnalyticsViewModel, red
         Spacer(Modifier.height(6.dp))
         Text(
             text = if (state.points.isEmpty()) {
-                "No logged data for this range."
+                "Sem registos neste período."
             } else {
-                "Tap or drag across the chart to inspect a point."
+                "Toca ou arrasta no gráfico para ver um ponto."
             },
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
@@ -321,7 +413,7 @@ private fun LegendKey(label: String, color: Color) {
 @Composable
 private fun StatsPanel(state: AnalyticsState) {
     Panel {
-        SectionHeader("Overview")
+        SectionHeader("Visão geral")
         Spacer(Modifier.height(12.dp))
         state.stats.chunked(2).forEach { pair ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -374,7 +466,7 @@ private fun MacroSplitPanel(split: List<Triple<String, Double, Color>>) {
         SectionHeader("Macro split")
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Logged grams across the current range.",
+            text = "Gramas registadas no período atual.",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -438,11 +530,11 @@ private fun MacroSplitPanel(split: List<Triple<String, Double, Color>>) {
 @Composable
 private fun ContributorsPanel(state: AnalyticsState) {
     Panel {
-        SectionHeader("Top contributors", action = AnalyticsFormat.label(state.metricId))
+        SectionHeader("Principais contributos", action = AnalyticsFormat.label(state.metricId))
         Spacer(Modifier.height(4.dp))
         if (state.topContributors.isEmpty()) {
             Text(
-                text = "No food data for this metric in this range.",
+                text = "Sem dados alimentares para esta métrica neste período.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -480,7 +572,7 @@ private fun AveragesPanel(state: AnalyticsState) {
         Spacer(Modifier.height(8.dp))
         if (state.averages.isEmpty()) {
             Text(
-                text = "No data in this range.",
+                text = "Sem dados neste período.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -519,10 +611,10 @@ private fun AveragesPanel(state: AnalyticsState) {
 @Composable
 private fun TimingPanel(state: AnalyticsState) {
     Panel {
-        SectionHeader("Timing", action = "kcal / 4 h")
+        SectionHeader("Horários", action = "kcal / 4 h")
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Calories logged by time of day.",
+            text = "Calorias registadas por hora do dia.",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -530,7 +622,7 @@ private fun TimingPanel(state: AnalyticsState) {
         val timing = state.timing
         if (timing.isEmpty()) {
             Text(
-                text = "No meal timing data in this range.",
+                text = "Sem dados de horários de refeições neste período.",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -577,7 +669,7 @@ private fun TimingPanel(state: AnalyticsState) {
             text = if (peak > 0.0 && peakHour != null) {
                 "Peak ${peakHour.toString().padStart(2, '0')}:00 · ${AnalyticsFormat.cell(peak)} kcal"
             } else {
-                "No calories logged in this range."
+                "Sem calorias registadas neste período."
             },
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
@@ -588,7 +680,7 @@ private fun TimingPanel(state: AnalyticsState) {
 @Composable
 private fun DataTablePanel(state: AnalyticsState, onSelect: (Int?) -> Unit) {
     Panel {
-        SectionHeader("Data")
+        SectionHeader("Dados")
         Spacer(Modifier.height(4.dp))
         Text(
             text = "${state.rows.size} ${if (state.rows.size == 1) "point" else "points"} · Δ vs previous",
