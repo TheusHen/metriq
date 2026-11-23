@@ -77,6 +77,9 @@ fun DataSettingsScreen(
     onBack: () -> Unit,
     onOpenAiModels: () -> Unit = {},
     onOpenIntegrations: () -> Unit = {},
+    onOpenBackup: () -> Unit = {},
+    onOpenFoodPacks: () -> Unit = {},
+    onRequestNotifications: () -> Unit = {},
     hevyConnected: Boolean = false,
     hevyAutoSync: Boolean = false,
     hevyLastSync: String? = null,
@@ -104,6 +107,8 @@ fun DataSettingsScreen(
         AppSettings.HEALTH_IMPORT_STEPS,
         AppSettings.HEALTH_IMPORT_WEIGHT,
         AppSettings.ADAPTIVE_MACROS,
+        AppSettings.HEALTH_EXPORT_NUTRITION,
+        AppSettings.NOTIFICATIONS_ENABLED,
     )
     val switchState = remember {
         mutableStateMapOf<String, Boolean>().apply {
@@ -270,6 +275,36 @@ fun DataSettingsScreen(
                     Spacer(Modifier.height(Spacing.md))
                     Hairline()
                     Spacer(Modifier.height(Spacing.md))
+                    SettingSwitch(
+                        label = stringResource(R.string.settings_daily_reminders),
+                        subtitle = stringResource(R.string.settings_daily_reminders_info),
+                        checked = switchState[AppSettings.NOTIFICATIONS_ENABLED]
+                            ?: boolValue(AppSettings.NOTIFICATIONS_ENABLED),
+                        reducedMotion = reducedMotion,
+                        onChange = { enabled ->
+                            setSwitch(AppSettings.NOTIFICATIONS_ENABLED, enabled)
+                            if (enabled) onRequestNotifications()
+                        },
+                    )
+                    Spacer(Modifier.height(Spacing.md))
+                    Hairline()
+                    Spacer(Modifier.height(Spacing.md))
+                    SettingsNavRow(
+                        label = stringResource(R.string.settings_backup),
+                        subtitle = stringResource(R.string.settings_backup_info),
+                        onClick = onOpenBackup,
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    Hairline()
+                    Spacer(Modifier.height(Spacing.sm))
+                    SettingsNavRow(
+                        label = stringResource(R.string.settings_food_packs),
+                        subtitle = stringResource(R.string.settings_food_packs_info),
+                        onClick = onOpenFoodPacks,
+                    )
+                    Spacer(Modifier.height(Spacing.md))
+                    Hairline()
+                    Spacer(Modifier.height(Spacing.md))
                     Text(
                         "Metriq 0.1.0",
                         style = MaterialTheme.typography.label,
@@ -347,6 +382,14 @@ fun DataSettingsScreen(
                             ?: boolValue(AppSettings.HEALTH_IMPORT_WEIGHT),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.HEALTH_IMPORT_WEIGHT, it) },
+                    )
+                    SettingSwitch(
+                        label = stringResource(R.string.settings_export_nutrition),
+                        subtitle = stringResource(R.string.settings_export_nutrition_info),
+                        checked = switchState[AppSettings.HEALTH_EXPORT_NUTRITION]
+                            ?: boolValue(AppSettings.HEALTH_EXPORT_NUTRITION),
+                        reducedMotion = reducedMotion,
+                        onChange = { setSwitch(AppSettings.HEALTH_EXPORT_NUTRITION, it) },
                     )
                     Spacer(Modifier.height(Spacing.xs))
                     Text(
@@ -569,6 +612,31 @@ fun DataSettingsScreen(
                 }
             }
         }
+    }
+}
+
+/** Simple row that navigates to one of the data tools. */
+@Composable
+private fun SettingsNavRow(
+    label: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyStrong, color = MetriqColors.ink, maxLines = 1)
+            Spacer(Modifier.height(Spacing.xs))
+            Text(subtitle, style = MaterialTheme.typography.caption, color = MetriqColors.ink3, maxLines = 2)
+        }
+        Spacer(Modifier.width(Spacing.md))
+        Text("›", style = MaterialTheme.typography.h2, color = MetriqColors.accent)
     }
 }
 

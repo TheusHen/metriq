@@ -3,6 +3,7 @@ package com.metriq.data
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class MaterializationTest {
@@ -47,5 +48,18 @@ class MaterializationTest {
 
         assertEquals(999L, store.food.materialize(synthetic.copy(id = 999L)))
         assertEquals(1L, store.food.count())
+    }
+
+    @Test
+    fun `logging a synthetic food id directly is rejected`() {
+        val store = newTestStore()
+
+        assertFailsWith<IllegalArgumentException> {
+            store.logs.add("2026-02-06", 9, -42L, 100.0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.logs.add("2026-02-06", 9, 0L, 100.0)
+        }
+        assertTrue(store.logs.forDate("2026-02-06").isEmpty())
     }
 }

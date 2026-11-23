@@ -1,7 +1,8 @@
 package com.metriq.app.widget
 
 import android.content.Context
-import android.graphics.Color
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.actionStartActivity
@@ -22,10 +23,29 @@ import com.metriq.app.AppGraph
 import com.metriq.app.MainActivity
 import java.time.LocalDate
 
-private val ink = ColorProvider(Color.parseColor("#F3F5F6"))
-private val muted = ColorProvider(Color.parseColor("#9AA1AB"))
-private val accent = ColorProvider(Color.parseColor("#C6F26E"))
-private val surface = ColorProvider(Color.parseColor("#15181C"))
+// Glance's supported color API is ColorProvider(Color), not a @ColorRes integer. The
+// suppression is scoped to these constants only: lint's ResourceType check cannot see that
+// the Int-backed Color value class is already an ARGB color, not a resource id.
+@Suppress("ResourceType")
+private val ink = ColorProvider(Color(0xFFF3F5F6.toInt()))
+
+@Suppress("ResourceType")
+private val muted = ColorProvider(Color(0xFF9AA1AB.toInt()))
+
+@Suppress("ResourceType")
+private val accent = ColorProvider(Color(0xFFC6F26E.toInt()))
+
+@Suppress("ResourceType")
+private val surface = ColorProvider(Color(0xFF15181C.toInt()))
+
+@Suppress("ResourceType")
+private val proteinTint = ColorProvider(Color(0xFFFF9B82.toInt()))
+
+@Suppress("ResourceType")
+private val carbTint = ColorProvider(Color(0xFFF5C96B.toInt()))
+
+@Suppress("ResourceType")
+private val fatTint = ColorProvider(Color(0xFF7AB8FF.toInt()))
 
 private val labelStyle = TextStyle(color = muted)
 private val valueStyle = TextStyle(color = ink, fontWeight = FontWeight.Bold)
@@ -45,16 +65,16 @@ class DailyMacroWidget : GlanceAppWidget() {
                 GlanceModifier
                     .fillMaxWidth()
                     .background(surface)
-                    .padding(12)
+                    .padding(12.dp)
                     .clickable(actionStartActivity<MainActivity>()),
             ) {
                 Text("HOJE", style = labelStyle)
                 Text("$kcal kcal", style = valueStyle)
                 Text("do orçamento diário", style = labelStyle)
-                Row(GlanceModifier.fillMaxWidth().padding(top = 8)) {
-                    Text("P $p g  ", style = TextStyle(color = ColorProvider(Color.parseColor("#FF9B82"))))
-                    Text("C $c g  ", style = TextStyle(color = ColorProvider(Color.parseColor("#F5C96B"))))
-                    Text("F $f g", style = TextStyle(color = ColorProvider(Color.parseColor("#7AB8FF"))))
+                Row(GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text("P $p g  ", style = TextStyle(color = proteinTint))
+                    Text("C $c g  ", style = TextStyle(color = carbTint))
+                    Text("F $f g", style = TextStyle(color = fatTint))
                 }
                 Text("METRIQ", style = accentStyle)
             }

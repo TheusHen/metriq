@@ -41,6 +41,9 @@ class GoalEngineTest {
         diet = input.diet,
     )
 
+    private fun hasCode(warnings: List<DomainWarning>, code: WarningCode) =
+        warnings.any { it.code == code }
+
     @Test
     fun `same kcal returns the suggested plan unchanged`() {
         val input = adult()
@@ -52,7 +55,8 @@ class GoalEngineTest {
         assertFalse(result.didClamp)
         assertEquals(result.suggestedKcal, result.appliedKcal)
         assertEquals(suggested, result.plan)
-        assertTrue(result.summary.contains("mantida em"))
+        assertEquals(WarningCode.SUMMARY_GOAL_UNCHANGED, result.summary.code)
+        assertEquals(result.suggestedKcal.toString(), result.summary.params["kcal"])
         assertTrue(result.warnings == suggested.warnings)
     }
 
@@ -68,8 +72,9 @@ class GoalEngineTest {
         )
 
         assertEquals(suggested.dailyKcal.roundToInt(), result.appliedKcal)
-        assertTrue(result.warnings.contains("Motivo informado: férias"))
-        assertTrue(result.plan.warnings.contains("Motivo informado: férias"))
+        val reason = DomainWarning(WarningCode.GOAL_REASON, mapOf("reason" to "férias"))
+        assertTrue(result.warnings.contains(reason))
+        assertTrue(result.plan.warnings.contains(reason))
         assertEquals(suggested.copy(warnings = result.warnings), result.plan)
     }
 
@@ -77,14 +82,14 @@ class GoalEngineTest {
     fun `same kcal for a minor still carries the safety advisory`() {
         val input = minor()
         // The dashboard builds its suggested plan with no warnings, so the
-        // safety text must come from GoalEngine itself (and only once).
+        // safety code must come from GoalEngine itself (and only once).
         val suggested = OnboardingPlanner.plan(input).copy(warnings = emptyList())
         val result = GoalEngine.recalculate(
             suggested, GoalOverride(suggested.dailyKcal.roundToInt()), profile(input), true,
         )
 
         assertFalse(result.didClamp)
-        assertEquals(1, result.warnings.count { it.contains("profissional de saúde") })
+        assertEquals(1, result.warnings.count { it.code == WarningCode.NOT_MEDICAL_ADVICE })
     }
 
     @Test
@@ -96,9 +101,12 @@ class GoalEngineTest {
         assertFalse(result.didClamp)
         assertEquals(100, result.appliedKcal)
         assertEquals(100.0, result.plan.dailyKcal, 0.0001)
-        assertTrue(result.warnings.any { it.contains("piso estimado") })
-        assertTrue(result.warnings.any { it.contains("profissional") })
-        assertTrue(result.summary.contains("para 100"))
+        assertTrue(hasCode(result.warnings, WarningCode.KCAL_BELOW_FLOOR))
+        val floorWarning = result.warnings.first { it.code == WarningCode.KCAL_BELOW_FLOOR }
+        assertTrue(floorWarning.params["floorKcal"]!!.toInt() > 100)
+        assertEquals("100", floorWarning.params["appliedKcal"])
+        assertEquals(WarningCode.SUMMARY_GOAL_ADJUSTED, result.summary.code)
+        assertEquals("100", result.summary.params["toKcal"])
     }
 
     @Test
@@ -110,8 +118,9 @@ class GoalEngineTest {
         assertFalse(result.didClamp)
         assertEquals(1_000, result.appliedKcal)
         assertEquals(1_000.0, result.plan.dailyKcal, 0.0001)
-        assertTrue(result.warnings.any { it.contains("Deficit acima de 10%") })
-        assertTrue(result.warnings.any { it.contains("profissional de saúde") })
+        val warning = result.warnings.first { it.code == WarningCode.MINOR_DEFICIT_ABOVE_LIMIT }
+        assertEquals("10", warning.params["limitPercent"])
+        assertTrue(hasCode(result.warnings, WarningCode.NOT_MEDICAL_ADVICE))
     }
 
     @Test
@@ -123,8 +132,8 @@ class GoalEngineTest {
         val total = result.plan.proteinG * 4.0 + result.plan.fatG * 9.0 + result.plan.carbG * 4.0
         assertEquals(100.0, total, 2.0)
         assertTrue(result.plan.proteinG >= 0 && result.plan.fatG >= 0 && result.plan.carbG >= 0)
-        assertTrue(result.warnings.any { it.contains("reduzidas") })
-        assertTrue(result.plan.warnings.any { it.contains("reduzidas") })
+        assertTrue(hasCode(result.warnings, WarningCode.MACRO_FLOORS_RELAXED))
+        assertTrue(hasCode(result.plan.warnings, WarningCode.MACRO_FLOORS_RELAXED))
     }
 
     @Test
@@ -188,8 +197,8 @@ class GoalEngineTest {
 
         assertEquals(0, result.appliedKcal)
         assertTrue(result.didClamp)
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,5") })
+        val rate = result.warnings.first { it.code == WarningCode.RATE_ABOVE_REFERENCE }
+        assertEquals("0.5", rate.params["referenceKgPerWeek"])
     }
 
     @Test
@@ -205,8 +214,8 @@ class GoalEngineTest {
 
         assertTrue(result.didClamp)
         assertEquals(0, result.appliedKcal)
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,25") })
+        val rate = result.warnings.first { it.code == WarningCode.RATE_ABOVE_REFERENCE }
+        assertEquals("0.25", rate.params["referenceKgPerWeek"])
     }
 
     @Test
@@ -224,9 +233,11 @@ class GoalEngineTest {
         assertEquals(0, result.appliedKcal)
         assertTrue(result.plan.dailyKcal.isFinite())
         assertTrue(result.plan.proteinG >= 0 && result.plan.fatG >= 0 && result.plan.carbG >= 0)
-        assertTrue(result.warnings.any { it.contains("peso-alvo e prazo juntos") })
-        assertTrue(result.warnings.any { it.contains("teste") })
-        assertTrue(result.summary.isNotBlank())
+        assertTrue(hasCode(result.warnings, WarningCode.TARGET_AND_WEEKS_REQUIRED))
+        assertTrue(hasCode(result.warnings, WarningCode.NEGATIVE_KCAL_CLAMPED))
+        assertTrue(hasCode(result.warnings, WarningCode.GOAL_REASON))
+        assertEquals("teste", result.warnings.first { it.code == WarningCode.GOAL_REASON }.params["reason"])
+        assertEquals("0", result.summary.params["toKcal"])
     }
 
     @Test
@@ -253,23 +264,21 @@ class GoalEngineTest {
 
         assertFalse(result.didClamp)
         assertEquals(requested, result.appliedKcal)
-        assertTrue(result.warnings.any { it.contains("cetogênica") })
+        assertTrue(hasCode(result.warnings, WarningCode.KETO_NOT_RECOMMENDED_FOR_MINORS))
         assertTrue(result.plan.carbG <= MacroPlanner.KETO_MAX_CARB_G.toInt() + 1)
     }
 
     @Test
-    fun `summary is a short pt BR sentence with formatted numbers`() {
+    fun `summary is a structured code with plain numeric params`() {
         val input = adult()
         val suggested = OnboardingPlanner.plan(input)
         val result = GoalEngine.recalculate(suggested, GoalOverride(1_500), profile(input), false)
 
-        assertTrue(result.summary.contains("Meta ajustada de"))
-        assertTrue(result.summary.contains("para"))
-        assertTrue(result.summary.contains("kcal/dia"))
-        assertTrue(result.summary.contains("—"))
-        assertTrue(result.summary.contains("proteína"))
-        assertTrue(result.summary.contains("carboidrato"))
-        assertTrue(result.summary.length < 160)
+        assertEquals(WarningCode.SUMMARY_GOAL_ADJUSTED, result.summary.code)
+        assertEquals(suggested.dailyKcal.roundToInt().toString(), result.summary.params["fromKcal"])
+        assertEquals("1500", result.summary.params["toKcal"])
+        assertTrue(result.summary.params["proteinChange"] in listOf("MAINTAINED", "REDUCED"))
+        assertTrue(result.summary.params["carbChange"] in listOf("REDUCED", "INCREASED", "MAINTAINED"))
     }
 
     @Test
@@ -284,7 +293,7 @@ class GoalEngineTest {
         assertEquals(result.suggestedKcal + 300, result.appliedKcal)
         assertTrue(result.plan.carbG > suggested.carbG)
         assertEquals(suggested.proteinG, result.plan.proteinG)
-        assertTrue(result.summary.contains("carboidrato aumentado"))
+        assertEquals("INCREASED", result.summary.params["carbChange"])
     }
 
     @Test
@@ -309,7 +318,7 @@ class GoalEngineTest {
 
         assertFalse(result.didClamp)
         assertEquals(900, result.appliedKcal)
-        assertTrue(result.warnings.any { it.contains("Deficit acima de 10%") })
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ABOVE_LIMIT))
         assertTrue(result.plan.isMinor)
     }
 
@@ -322,8 +331,8 @@ class GoalEngineTest {
         assertFalse(result.didClamp)
         assertEquals(900, result.appliedKcal)
         assertEquals(900.0, result.plan.dailyKcal, 0.0001)
-        assertTrue(result.warnings.any { it.contains("piso estimado") })
-        assertTrue(result.summary.contains("para 900"))
+        assertTrue(hasCode(result.warnings, WarningCode.KCAL_BELOW_FLOOR))
+        assertEquals("900", result.summary.params["toKcal"])
     }
 
     @Test
@@ -336,7 +345,7 @@ class GoalEngineTest {
         assertFalse(result.didClamp)
         assertEquals(requested, result.appliedKcal)
         assertEquals(requested.toDouble(), result.plan.dailyKcal, 0.0001)
-        assertTrue(result.warnings.any { it.contains("Deficit acima de 10%") })
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ABOVE_LIMIT))
     }
 
     @Test
@@ -354,7 +363,8 @@ class GoalEngineTest {
         assertEquals(659, result.appliedKcal)
         assertEquals(659.0, result.plan.dailyKcal, 0.001)
         assertFalse(result.didClamp)
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,5") })
+        assertTrue(hasCode(result.warnings, WarningCode.RATE_ABOVE_REFERENCE))
+        assertEquals("0.5", result.warnings.first { it.code == WarningCode.RATE_ABOVE_REFERENCE }
+            .params["referenceKgPerWeek"])
     }
 }

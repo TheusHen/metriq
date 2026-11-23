@@ -26,6 +26,9 @@ object AppSettings {
     const val HEVY_LAST_ERROR = "hevy_last_error"
     const val HEVY_WORKOUTS_JSON = "hevy_workouts_json"
     const val GOAL_OVERRIDE_JSON = "goal_override_json"
+    const val HEALTH_EXPORT_NUTRITION = "health_export_nutrition" // opt-in: meals to Health Connect
+    const val NOTIFICATIONS_ENABLED = "notifications_enabled"    // opt-in: daily local reminders
+    const val FOOD_PACK_BASE_URL = "foodPack.baseUrl"            // manual override, read-only metadata elsewhere
 
     val defaults = mapOf(
         UNIT_SYSTEM to "kg",
@@ -49,6 +52,9 @@ object AppSettings {
         HEVY_LAST_ERROR to "",
         HEVY_WORKOUTS_JSON to "",
         GOAL_OVERRIDE_JSON to "",
+        HEALTH_EXPORT_NUTRITION to "false",
+        NOTIFICATIONS_ENABLED to "false",
+        FOOD_PACK_BASE_URL to "",
     )
 
     fun get(key: String): String = AppGraph.store.settings.get(key) ?: defaults[key].orEmpty()

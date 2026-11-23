@@ -1,15 +1,17 @@
 # Algorithms
 
-All formulas are implemented in `core-domain` with an explicit `algorithm_version` on
-derived values. Every change to a formula requires a migration that recomputes history.
+All formulas are implemented in `core-domain` as pure JVM functions (no Android APIs,
+no clock, no I/O). Derived values do **not** carry an `algorithm_version` field — that
+field does not exist. If a published equation changes, the change must be handled as an
+explicit data migration by the layer that persists derived values.
 
 ## BMR (kcal/day)
 
 ```
 weight form:      Mifflin-St Jeor (1990)
-                  10 * kg + 6.25 * cm - 5 * age + (5 male / -161 female)
+                   10 * kg + 6.25 * cm - 5 * age + (5 male / -161 female)
 composition form: Katch-McArdle
-                  370 + 21.6 * FFM
+                   370 + 21.6 * FFM
 ```
 
 Age enters Mifflin-St Jeor linearly (-5 kcal/year) and there is **no discontinuity at
@@ -17,9 +19,23 @@ age 60**. Katch-McArdle depends only on fat-free mass; fat mass and age are acce
 the API for source compatibility but do not enter the equation.
 
 Corrections: `x0.95` in deficit, `x0.97` when more than 10% below peak weight,
-`x0.92` when both. `Bmr.forProfile(profile, peakKg = null, inDeficit = false)` accepts an
-optional historical peak; when null (or invalid) the current weight is used as the peak.
-Initial expenditure = corrected BMR x activity factor.
+`x0.92` when both. `Bmr.forProfile(profile, peakKg = null, inDeficit = false)` accepts
+an optional historical peak; when null (or invalid) the current weight is used as the
+peak, so `isBelowPeak` is false. Initial expenditure = corrected BMR x activity factor.
+
+**When `inDeficit` is applied.** The parameter defaults to `false` and nothing in
+`core-domain` computes it on its own: callers that leave it out never get the 5%
+deficit correction. `Bmr.isInDeficit(weights, today, days = 14)` is the provided helper —
+it keeps the weigh-ins in `[today - (days - 1), today]`, ignores non-finite values, needs
+at least two finite readings, and returns true when the newest reading is at least
+0.05 kg below the oldest. The dashboard computes it from the weight history and passes
+the result into `Bmr.forProfile`; if it returns false (stable or rising weight, or too
+few readings) the deficit correction is not applied. A separate `belowPeak` condition
+uses the historical peak and is independent of `isInDeficit`.
+
+Minors do not use these corrections in onboarding: `OnboardingPlanner` applies the
+Schofield resting-energy equation directly and uses a pediatric default aggressiveness
+of `CONSERVATIVE` for a cut goal.
 
 ## Weight trend
 
@@ -83,7 +99,49 @@ survival floor if the target is that small. The result is flagged with `floorsRe
 and a warning in the returned plan; int macros still sum back to the target within ~2 kcal
 and are never negative.
 
+## Domain messages (warnings and narrative text)
+
+`core-domain` contains no translated or locale-formatted text. Every user-facing message
+is a stable [WarningCode] plus a `Map<String, String>` of plain values:
+
+```kotlin
+enum class WarningCode { /* descriptive UPPER_SNAKE names */ }
+data class DomainWarning(
+    val code: WarningCode,
+    val params: Map<String, String> = emptyMap(),
+)
+```
+
+`DomainWarning.of(code, "rateKgPerWeek" to 1.25, ...)` stringifies numbers with
+`toString()` — e.g. `1.25`, `0.5`, `175` — with no `Locale` or `NumberFormat`. The app
+layer maps codes to translated strings and formats numeric params with the user's
+locale; that is the only place language and separators belong.
+
+Where they appear:
+
+- `PlanResult.warnings` and `RecalculatedPlan.warnings` are `List<DomainWarning>`.
+- `PlanResult.explanation`, `RecalculatedPlan.summary` and `MacroAdaptation.reason` are
+  single `DomainWarning` values, also identified by a `WarningCode`.
+- Codes are grouped as input/advisory warnings (`AGE_OUTSIDE_TYPICAL_RANGE`,
+  `RATE_ABOVE_REFERENCE`, `KCAL_BELOW_FLOOR`, ...), narrative codes
+  (`PLAN_EXPLANATION`, `SUMMARY_GOAL_UNCHANGED`, `SUMMARY_GOAL_ADJUSTED`) and training
+  adaptation codes (`CARB_REALLOCATED`, `NO_FAT_MARGIN`, ...).
+
+The authoritative, exhaustive code-and-param list is the KDoc on `WarningCode` in
+`core-domain/src/main/kotlin/com/metriq/core/Warning.kt`. Adding a code is a source-level
+API change: the app's code-to-string map must be updated in the same change.
+
+## Nutrition label parsing
+
+`NutritionLabelParser` handles English and Portuguese labels, row-style tables,
+thousands separators (`1,000` / `1.000`) and values printed on the line after the label.
+Energy parsing prefers an explicit `kcal` number; a bare `Calories N` is treated as kcal
+by label convention. If only `kJ` is printed, the value is divided by 4.184 and the
+result's `energySource` is `EnergySource.KJ_CONVERTED` instead of the default
+`EnergySource.KCAL`, so the app can tell the user the value was converted.
+
 ## Validation
 
-`core-domain` tests cover equations, gap handling, missing-day pauses, clamps and macro
-allocation. The simulation harness described in the plan is the next validation step.
+`core-domain` tests cover equations, gap handling, missing-day pauses, clamps, macro
+allocation, warning-code/param output, deficit detection and label-parser edge cases.
+The simulation harness described in the plan is the next validation step.

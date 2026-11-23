@@ -1,6 +1,8 @@
 package com.metriq.app.ui.onboarding
 
+import com.metriq.core.DomainWarning
 import com.metriq.core.PlanResult
+import com.metriq.core.WarningCode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -19,7 +21,7 @@ class OnboardingGoalTest {
         carbG = 200,
         isMinor = false,
         warnings = emptyList(),
-        explanation = "",
+        explanation = DomainWarning(WarningCode.PLAN_EXPLANATION),
     )
 
     @Test

@@ -86,6 +86,12 @@ WHERE recipeItem.recipeId = ?;
 insertRecipeItem:
 INSERT INTO recipeItem(recipeId, foodId, grams) VALUES (?, ?, ?);
 
+deleteRecipeItems:
+DELETE FROM recipeItem WHERE recipeId = ?;
+
+deleteRecipe:
+DELETE FROM recipe WHERE id = ?;
+
 selectProgram:
 SELECT * FROM program ORDER BY id DESC LIMIT 1;
 

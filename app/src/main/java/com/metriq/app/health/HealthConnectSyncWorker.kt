@@ -3,8 +3,10 @@ package com.metriq.app.health
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.metriq.app.AppGraph
@@ -12,6 +14,7 @@ import com.metriq.app.DailyTraining
 import com.metriq.app.TrainingHistory
 import com.metriq.data.DataType
 import java.time.LocalDate
+import java.util.concurrent.TimeUnit
 
 class HealthConnectSyncWorker(
     context: Context,
@@ -24,7 +27,7 @@ class HealthConnectSyncWorker(
             return Result.success()
         }
         val hc = AppGraph.healthConnect ?: return failed("Health Connect não disponível")
-        if (!hc.isAvailable() || !hc.hasAllPermissions()) return failed("Permissões do Health Connect ausentes")
+        if (!hc.isAvailable() || !hc.hasReadPermissions()) return failed("Permissões do Health Connect ausentes")
 
         val today = LocalDate.now()
         val settings = AppGraph.store.settings
@@ -65,6 +68,15 @@ class HealthConnectSyncWorker(
         settings.set("health_exercise_sessions", sessions.toString())
         TrainingHistory.record(DailyTraining(today, active, minutes, sessions))
 
+        // Opt-in export of TODAY's food logs. Disabled by default; writeNutrition logs a clear
+        // reason for a refusal (missing permission, SecurityException or an API error).
+        if (settings.get(HealthConnectManager.EXPORT_NUTRITION_KEY)?.toBooleanStrictOrNull() == true) {
+            val logs = runCatching { AppGraph.store.logs.forDate(today.toString()) }
+                .getOrElse { return failed("Falha ao ler refeições: ${describe(it)}") }
+                .map { MetriqNutritionRecord.from(it) }
+            hc.writeNutrition(logs)
+        }
+
         settings.set("health_last_sync", System.currentTimeMillis().toString())
         // Even a settings-only sync (no new step/weight rows) changed derived health
         // data, so wake the dashboard/health cards including their goal recalculation.
@@ -89,6 +101,17 @@ class HealthConnectSyncWorker(
                 ExistingWorkPolicy.REPLACE,
                 OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
                     .setInputData(Data.Builder().putBoolean("manual", manual).build())
+                    .build(),
+            )
+        }
+
+        /** Daily auto-sync with a 6h flex window. The worker itself honours HEALTH_AUTO_SYNC. */
+        fun enqueuePeriodic(context: Context) {
+            WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
+                "${UNIQUE_WORK_NAME}_periodic",
+                ExistingPeriodicWorkPolicy.KEEP,
+                PeriodicWorkRequestBuilder<HealthConnectSyncWorker>(1, TimeUnit.DAYS, 6, TimeUnit.HOURS)
+                    .setInputData(Data.Builder().putBoolean("manual", false).build())
                     .build(),
             )
         }

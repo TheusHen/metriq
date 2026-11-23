@@ -51,8 +51,9 @@ You say **what you want to achieve and by when**. Metriq figures out the rest: y
 - Hourly food log, custom foods, simple recipes, quick add and voice logging.
 - Profile, weekly check-in, CSV export and a **Data** screen with 10 metrics, filters and scrubbing.
 - Micronutrients with DRI (including female values), body measurements, progress photos, cycle tracking, habits with streaks, steps and water.
-- Health Connect (read) and Hevy (read), with backfill and WorkManager sync.
-- Three Glance widgets, light/dark theme, Geist + Space Grotesk typography, reduced motion and EN/PT-BR/ES translations.
+- Health Connect read **and opt-in meal/nutrient write**, periodic background sync, Hevy (read), historical backfill and daily reminders.
+- Full local JSON backup/restore of every table, and an in-app manager to download, update and remove offline food packs.
+- Three Glance widgets, light/dark theme, Geist + Space Grotesk typography, reduced motion and full EN/PT-BR/ES translations (including all domain warnings).
 
 ## Privacy by design
 
@@ -63,7 +64,7 @@ You say **what you want to achieve and by when**. Metriq figures out the rest: y
 | Telemetry | ❌ |
 | Health data | ✅ on-device, encrypted where applicable |
 | Hevy API key | ✅ `EncryptedSharedPreferences` + Keystore |
-| Backup | ✅ CSV exported by you |
+| Backup | ✅ full local JSON export / restore, no cloud |
 | License | AGPL-3.0 |
 
 The app declares INTERNET only for opt-in integrations (Hevy, online food search, model downloads). The core works fully offline.
@@ -73,7 +74,7 @@ The app declares INTERNET only for opt-in integrations (Hevy, online food search
 Requirements: **JDK 21**, Android SDK platform 36 + build-tools 36.0.0.
 
 ```powershell
-.\gradlew.bat test assembleDebug
+.\gradlew.bat test lint assembleDebug
 python -m pytest metriq-foodpacks/tests -q
 ```
 
@@ -84,16 +85,18 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
 | Module | Contents |
 |---|---|
 | `core-domain` | BMR, trend, expenditure, goals, macros, DRI, label parser — pure Kotlin on the JVM |
-| `core-data` | SQLDelight, FTS5, repositories, change notifier |
+| `core-data` | SQLDelight, LIKE-based search, repositories, change notifier |
 | `app` | Compose, CameraX/ML Kit, Health Connect, Glance, WorkManager |
 
-CI runs JVM and food-pack pipeline tests, captures screens on an emulator, and **fails** on real crash/ANR signals in logcat.
+Food search uses `LIKE` over the food table: Android's system SQLite does not always ship the FTS5 extension (e.g. Samsung/One UI), so the app avoids FTS5 to keep search working on all supported devices.
+
+CI runs JVM and food-pack pipeline tests, Android lint, captures screens on an emulator, and **fails** on real crash/ANR signals in logcat.
 
 ## Project status
 
 - **Version:** 0.1.0 — under active development.
 - **Validated:** 373 JVM test executions (0 failures) + 24 Python pipeline tests; independent numeric probes confirm BMR, expenditure with sparse weigh-ins, and macro energy sums.
-- **Not done yet:** food-pack downloader UI, cloud photo analysis (on-device only), Health Connect writes, and a physical-device run (CI uses an emulator).
+- **Not done yet:** cloud photo analysis (recognition is on-device only) and a physical-device run (CI uses an emulator). Food-pack downloads and Health Connect meal writes are opt-in.
 
 ## Contributing
 

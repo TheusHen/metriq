@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -59,6 +60,9 @@ import com.metriq.app.ui.steps.StepsScreen
 import com.metriq.app.ui.theme.MetriqTheme
 import com.metriq.app.ui.weight.WeightScreen
 import androidx.health.connect.client.PermissionController
+import com.metriq.app.notifications.ReminderNotifications
+import com.metriq.app.ui.settings.BackupScreen
+import com.metriq.app.ui.settings.FoodPackScreen
 import com.metriq.core.NutritionLabelParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -191,6 +195,20 @@ class MainActivity : ComponentActivity() {
                 }
                 val photoPick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                     if (uri != null) viewModel.addPhoto(context, uri)
+                }
+                // API 33+ runtime permission for the daily-reminder opt-in. A denial
+                // switches the stored preference back off so the UI cannot lie.
+                val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted ->
+                    if (!granted) {
+                        viewModel.setSetting(AppSettings.NOTIFICATIONS_ENABLED, "false")
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.settings_notifications_denied),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 }
 
                 // System back unwinds the same chain as the header back buttons.
@@ -457,6 +475,15 @@ class MainActivity : ComponentActivity() {
                         onBack = { screen = Screen.PROFILE },
                         onOpenAiModels = { screen = Screen.AI_MODELS },
                         onOpenIntegrations = { screen = Screen.INTEGRATIONS },
+                        onOpenBackup = { screen = Screen.BACKUP },
+                        onOpenFoodPacks = { screen = Screen.FOOD_PACKS },
+                        onRequestNotifications = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                !ReminderNotifications.isPermissionGranted(context)
+                            ) {
+                                notificationPermissionLauncher.launch(ReminderNotifications.PERMISSION)
+                            }
+                        },
                         hevyConnected = AppSettings.bool(AppSettings.HEVY_CONNECTED) &&
                             AppGraph.hevyRepository.hasKey(),
                         hevyAutoSync = AppSettings.bool(AppSettings.HEVY_AUTO_SYNC),
@@ -531,6 +558,17 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onOpenHevy = { screen = Screen.SETTINGS },
+                        onOpenFoodPacks = { screen = Screen.FOOD_PACKS },
+                    )
+
+                    Screen.BACKUP -> BackupScreen(
+                        onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.FOOD_PACKS -> FoodPackScreen(
+                        baseUrl = AppSettings.get(AppSettings.FOOD_PACK_BASE_URL),
+                        onBaseUrlChange = { viewModel.setSetting(AppSettings.FOOD_PACK_BASE_URL, it) },
+                        onBack = { screen = Screen.SETTINGS },
                     )
                 }
                 if (showGoalEditor) {

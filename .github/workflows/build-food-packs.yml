@@ -1,12 +1,19 @@
 name: build food packs
+
 on:
   schedule:
     - cron: '0 3 1 * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   packs:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: metriq-foodpacks
     env:
       USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
     steps:
@@ -22,7 +29,7 @@ jobs:
         continue-on-error: true
         run: python scripts/download_off.py --out data/off.csv.gz
       - name: Process OFF
-        if: hashFiles('data/off.csv.gz') != ''
+        if: hashFiles('metriq-foodpacks/data/off.csv.gz') != ''
         run: python scripts/process_off.py --input data/off.csv.gz --out packs/off-global.tsv
       - name: Download USDA
         if: env.USDA_API_KEY != ''
@@ -32,12 +39,21 @@ jobs:
           python scripts/download_usda.py --api-key "$USDA_API_KEY" --out data/usda.zip
           unzip -o data/usda.zip -d data/usda
       - name: Process USDA
-        if: hashFiles('data/usda/food.csv') != ''
+        if: hashFiles('metriq-foodpacks/data/usda/food.csv') != ''
         run: python scripts/process_usda.py --input data/usda --out packs/usda.tsv
       - name: Manifest
         run: python scripts/generate_manifest.py --packs packs --out packs/manifest.json
       - name: Release
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "packs-$(date +%Y-%m)" packs/*.tsv packs/manifest.json --generate-notes
+        run: |
+          TAG="packs-$(date +%Y-%m)"
+          # Re-running in the same month should replace this release, not fail.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+          fi
+          gh release create "$TAG" \
+            --title "Metriq food packs $TAG" \
+            --generate-notes \
+            packs/*.tsv \
+            packs/manifest.json

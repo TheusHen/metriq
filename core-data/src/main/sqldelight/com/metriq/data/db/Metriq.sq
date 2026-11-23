@@ -49,6 +49,9 @@ CREATE TABLE food (
 
 CREATE UNIQUE INDEX food_barcode ON food(barcode) WHERE barcode IS NOT NULL;
 
+-- Expression index: search uses lower(name), so a plain name index would be useless.
+CREATE INDEX food_name_lower ON food(lower(name));
+
 
 CREATE TABLE logEntry (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,6 +94,8 @@ CREATE TABLE bodyMeasurement (
   valueCm REAL NOT NULL
 );
 
+CREATE INDEX bodyMeasurement_date ON bodyMeasurement(date);
+
 CREATE TABLE progressPhoto (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL,
@@ -98,6 +103,8 @@ CREATE TABLE progressPhoto (
   pose TEXT,
   note TEXT
 );
+
+CREATE INDEX progressPhoto_date ON progressPhoto(date);
 
 CREATE TABLE habit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +120,8 @@ CREATE TABLE habitLog (
   done INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (habitId, date)
 );
+
+CREATE INDEX habitLog_date ON habitLog(date);
 
 CREATE TABLE stepEntry (
   date TEXT PRIMARY KEY,
@@ -229,12 +238,21 @@ insertCustomFood:
 INSERT INTO food(source, sourceId, barcode, name, brand, category, iconId, calories, protein, fat, carbs, fiber, sugar, sodium, servingLabel, servingGrams, verified, isCustom)
 VALUES ('custom', NULL, NULL, ?, ?, 'custom', NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1);
 
+-- isCustom guard: a seed/online row must never be overwritten by the custom-food editor.
+updateCustomFood:
+UPDATE food SET name = ?, brand = ?, calories = ?, protein = ?, fat = ?, carbs = ?,
+  fiber = ?, sugar = ?, sodium = ?, servingLabel = ?, servingGrams = ?
+WHERE id = ? AND isCustom = 1;
+
 -- log
 insertLogEntry:
 INSERT INTO logEntry(date, hour, foodId, grams, servings, createdAt) VALUES (?, ?, ?, ?, ?, ?);
 
 deleteLogEntry:
 DELETE FROM logEntry WHERE id = ?;
+
+updateLogGrams:
+UPDATE logEntry SET grams = ? WHERE id = ?;
 
 logsForDate:
 SELECT logEntry.id AS id, logEntry.date AS date, logEntry.hour AS hour,

@@ -20,7 +20,8 @@ data class MacroAdaptation(
     val intensity: TrainingIntensity,
     val carbDeltaG: Int,
     val fatDeltaG: Int,
-    val reason: String,
+    /** Locale-neutral explanation code plus plain params; no hardcoded language. */
+    val reason: DomainWarning,
 )
 
 /**
@@ -114,13 +115,13 @@ object MacroEngine {
         val intensity = load?.intensity ?: TrainingIntensity.REST
 
         if (!enabled) {
-            return unchanged(base, intensity, "Adaptação desativada; macros mantidos.")
+            return unchanged(base, intensity, WarningCode.MACRO_ADAPTATION_DISABLED)
         }
         if (load == null || load.intensity == TrainingIntensity.REST) {
-            return unchanged(base, intensity, "Sem sinal de treino hoje; macros mantidos.")
+            return unchanged(base, intensity, WarningCode.NO_TRAINING_SIGNAL)
         }
         if (profile.diet == DietStyle.KETO) {
-            return unchanged(base, intensity, "Dieta cetogênica: carboidrato mantido, sem ajuste por treino.")
+            return unchanged(base, intensity, WarningCode.KETO_NO_CARB_ADJUSTMENT)
         }
 
         var desiredCarbBumpG = when (intensity) {
@@ -152,13 +153,13 @@ object MacroEngine {
         val intensity = signal?.intensity ?: TrainingIntensity.REST
 
         if (!enabled) {
-            return unchanged(base, intensity, "Adaptação desativada; sinal de treino ignorado, macros mantidos.")
+            return unchanged(base, intensity, WarningCode.MACRO_SIGNAL_ADAPTATION_DISABLED)
         }
         if (signal == null || intensity == TrainingIntensity.REST) {
-            return unchanged(base, intensity, "Sem sinal de treino hoje; macros mantidos.")
+            return unchanged(base, intensity, WarningCode.NO_TRAINING_SIGNAL)
         }
         if (profile.diet == DietStyle.KETO) {
-            return unchanged(base, intensity, "Dieta cetogênica: carboidrato mantido, sem ajuste por treino.")
+            return unchanged(base, intensity, WarningCode.KETO_NO_CARB_ADJUSTMENT)
         }
 
         val volume = if (signal.volumeKg.isFinite()) signal.volumeKg.coerceAtLeast(0.0) else 0.0
@@ -194,13 +195,11 @@ object MacroEngine {
             TrainingEngine.weeklyLoad(recentSignals) > OVERREACH_WEEKLY_LOAD
         if (overreaching) desiredCarbBumpG /= 2
 
-        val signalDetail = buildString {
-            append(" Sinal de treino: ").append(minutes).append(" min")
-            if (muscles > 0) append(", ").append(muscles).append(" grupamentos")
-            if (volume > 0.0) append(", ").append(volume.toLong()).append(" kg de volume")
-            append(".")
-        }
-        return buildAdaptation(base, profile, intensity, desiredCarbBumpG, overreaching, signalDetail)
+        val signalParams = LinkedHashMap<String, Any?>()
+        signalParams["minutes"] = minutes
+        signalParams["muscles"] = muscles
+        signalParams["volumeKg"] = volume
+        return buildAdaptation(base, profile, intensity, desiredCarbBumpG, overreaching, signalParams)
     }
 
     private fun buildAdaptation(
@@ -209,7 +208,7 @@ object MacroEngine {
         intensity: TrainingIntensity,
         desiredCarbBumpG: Int,
         overreaching: Boolean,
-        reasonSuffix: String = "",
+        extraParams: Map<String, Any?> = emptyMap(),
     ): MacroAdaptation {
         val weight = if (profile.weightKg.isFinite()) profile.weightKg.coerceAtLeast(0.0) else 0.0
         val fatFloorG = ceil(FAT_FLOOR_PER_KG * weight).toInt()
@@ -218,7 +217,7 @@ object MacroEngine {
         val carbBumpG = min(desiredCarbBumpG, maxCarbGFromFat).coerceAtLeast(0)
 
         if (carbBumpG == 0) {
-            return unchanged(base, intensity, "Sem margem de gordura para realocar; carboidrato mantido.")
+            return unchanged(base, intensity, WarningCode.NO_FAT_MARGIN)
         }
 
         val fatToRemoveG = round(carbBumpG * KCAL_PER_CARB_G / KCAL_PER_FAT_G)
@@ -240,26 +239,22 @@ object MacroEngine {
         val carbDeltaG = newCarbG - base.carbG
         val fatDeltaG = newFatG - base.fatG
 
-        val label = when (intensity) {
-            TrainingIntensity.LIGHT -> "Treino leve"
-            TrainingIntensity.MODERATE -> "Treino moderado"
-            TrainingIntensity.HARD -> "Treino pesado"
-            TrainingIntensity.REST -> "Sem treino"
-        }
-        val reason = buildString {
-            append(label)
-            append(": +").append(carbDeltaG).append(" g de carboidrato, ")
-            append(fatDeltaG).append(" g de gordura.")
-            if (overreaching) append(" Carga semanal alta: aumento reduzido.")
-            append(reasonSuffix)
-        }
+        val reasonParams = LinkedHashMap<String, Any?>()
+        reasonParams["intensity"] = intensity.name
+        reasonParams["carbDeltaG"] = carbDeltaG
+        reasonParams["fatDeltaG"] = fatDeltaG
+        reasonParams["overreaching"] = overreaching
+        reasonParams.putAll(extraParams)
 
-        return MacroAdaptation(targets, intensity, carbDeltaG, fatDeltaG, reason)
+        return MacroAdaptation(
+            targets, intensity, carbDeltaG, fatDeltaG,
+            DomainWarning.of(WarningCode.CARB_REALLOCATED, reasonParams),
+        )
     }
 
     private fun unchanged(
         base: MacroTargets,
         intensity: TrainingIntensity,
-        reason: String,
-    ): MacroAdaptation = MacroAdaptation(base, intensity, 0, 0, reason)
+        code: WarningCode,
+    ): MacroAdaptation = MacroAdaptation(base, intensity, 0, 0, DomainWarning(code))
 }

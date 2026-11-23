@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metriq.app.AppSettings
 import com.metriq.app.R
 import com.metriq.app.health.HealthConnectManager
+import com.metriq.app.ui.common.warningText
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.app.ui.theme.Metrics
 import com.metriq.app.ui.theme.Spacing
@@ -984,7 +985,7 @@ private fun PlanStep(state: OnboardingState, viewModel: OnboardingViewModel) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = plan.explanation,
+            text = warningText(plan.explanation),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
@@ -999,7 +1000,7 @@ private fun PlanStep(state: OnboardingState, viewModel: OnboardingViewModel) {
             Spacer(Modifier.height(8.dp))
             plan.warnings.forEach { warning ->
                 Text(
-                    text = stringResource(R.string.onboarding_warning_prefix, warning),
+                    text = stringResource(R.string.onboarding_warning_prefix, warningText(warning)),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     modifier = Modifier.padding(vertical = 4.dp),

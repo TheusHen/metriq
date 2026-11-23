@@ -22,23 +22,33 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.metriq.app.AppGraph
 import com.metriq.app.R
 import com.metriq.app.Screen
+import com.metriq.app.util.parseDoubleLoose
 import com.metriq.core.TrainingIntensity
+import com.metriq.app.ui.common.warningText
 import com.metriq.app.ui.components.EnergyBudget
 import com.metriq.app.ui.components.FoodRow
 import com.metriq.app.ui.components.MetriqButton
@@ -59,10 +69,28 @@ import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.h2
 import com.metriq.app.ui.theme.label
 import com.metriq.app.ui.theme.number24
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
+
+/** Fallback used when the host does not supply a ViewModel-backed edit callback. */
+private fun writeLogGrams(id: Long, grams: Double) {
+    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        // The repository notifies FOOD_LOG; DashboardViewModel then rebuilds the state.
+        AppGraph.store.logs.updateGrams(id, grams)
+    }
+}
+
+private fun gramsInput(value: Double): String = if (value % 1.0 == 0.0) {
+    value.toLong().toString()
+} else {
+    String.format(Locale.ENGLISH, "%.2f", value).trimEnd('0').trimEnd('.')
+}
 
 @Composable
 fun HomeScreen(
@@ -73,6 +101,7 @@ fun HomeScreen(
     onDeleteLog: (Long) -> Unit,
     onAcceptCheckin: () -> Unit,
     onEditGoal: () -> Unit = {},
+    onEditLog: (Long, Double) -> Unit = ::writeLogGrams,
 ) {
     Scaffold(
         containerColor = MetriqColors.bg,
@@ -119,7 +148,7 @@ fun HomeScreen(
                                 AdaptationSection(state)
                                 TrainingSection(state)
                                 WeekSection(state)
-                                FoodLogSection(state, onAddFood, onDeleteLog)
+                                FoodLogSection(state, onAddFood, onDeleteLog, onEditLog)
                             }
                             Column(
                                 Modifier.weight(1f),
@@ -136,7 +165,7 @@ fun HomeScreen(
                         AdaptationSection(state)
                         TrainingSection(state)
                         WeekSection(state)
-                        FoodLogSection(state, onAddFood, onDeleteLog)
+                        FoodLogSection(state, onAddFood, onDeleteLog, onEditLog)
                         TrendSection(state)
                         ExpenditureSection(state)
                         HealthSection(state)
@@ -223,7 +252,7 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
                         maxLines = 2,
                     )
                     Text(
-                        text = recalculation.summary,
+                        text = warningText(recalculation.summary),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 3,
@@ -231,7 +260,7 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
                     recalculation.warnings.forEach { warning ->
                         Spacer(Modifier.height(Spacing.xs))
                         Text(
-                            text = warning,
+                            text = warningText(warning),
                             style = MaterialTheme.typography.caption,
                             color = MetriqColors.ink2,
                             maxLines = 3,
@@ -275,7 +304,7 @@ private fun AdaptationSection(state: DashboardState) {
         }
         Spacer(Modifier.height(Spacing.sm))
         Text(
-            text = adaptation.reason,
+            text = warningText(adaptation.reason),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
             maxLines = 2,
@@ -323,7 +352,12 @@ private fun FoodLogSection(
     state: DashboardState,
     onAddFood: () -> Unit,
     onDeleteLog: (Long) -> Unit,
+    onEditLog: (Long, Double) -> Unit,
 ) {
+    var editingId by remember { mutableStateOf<Long?>(null) }
+    var gramsText by remember { mutableStateOf("") }
+    var invalidGrams by remember { mutableStateOf(false) }
+
     Column(Modifier.fillMaxWidth()) {
         SectionHeader(
             title = stringResource(R.string.home_food_log),
@@ -362,6 +396,19 @@ private fun FoodLogSection(
                         onClick = onAddFood,
                         modifier = Modifier.weight(1f),
                     )
+                    Text(
+                        stringResource(R.string.edit),
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.accent,
+                        modifier = Modifier
+                            .clickable {
+                                editingId = item.id
+                                gramsText = gramsInput(item.grams)
+                                invalidGrams = false
+                            }
+                            .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
+                    )
+                    Spacer(Modifier.width(Spacing.xs))
                     IconButton(
                         onClick = { onDeleteLog(item.id) },
                         modifier = Modifier.size(32.dp),
@@ -378,6 +425,51 @@ private fun FoodLogSection(
                     HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
                 }
             }
+        }
+        if (editingId != null) {
+            AlertDialog(
+                onDismissRequest = { editingId = null },
+                title = { Text(stringResource(R.string.edit_log_title)) },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = gramsText,
+                            onValueChange = { gramsText = it; invalidGrams = false },
+                            label = { Text(stringResource(R.string.grams)) },
+                            singleLine = true,
+                            isError = invalidGrams,
+                            shape = RoundedCornerShape(Radius.sm),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (invalidGrams) {
+                            Spacer(Modifier.height(Spacing.xs))
+                            Text(
+                                stringResource(R.string.edit_grams_invalid),
+                                style = MaterialTheme.typography.caption,
+                                color = MetriqColors.danger,
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val grams = parseDoubleLoose(gramsText)
+                        if (grams == null || grams <= 0.0) {
+                            invalidGrams = true
+                        } else {
+                            editingId?.let { onEditLog(it, grams) }
+                            editingId = null
+                        }
+                    }) {
+                        Text(stringResource(R.string.save))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { editingId = null }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+            )
         }
     }
 }

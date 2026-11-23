@@ -2,7 +2,8 @@ package com.metriq.app.widget
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
@@ -20,10 +21,20 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.metriq.app.MainActivity
 
-private val ink = ColorProvider(Color.parseColor("#F3F5F6"))
-private val accent = ColorProvider(Color.parseColor("#C6F26E"))
-private val surface = ColorProvider(Color.parseColor("#15181C"))
-private val button = ColorProvider(Color.parseColor("#1E2228"))
+// Glance's supported color API is ColorProvider(Color), not a @ColorRes integer. The
+// suppression is scoped to these constants only: lint's ResourceType check cannot see that
+// the Int-backed Color value class is already an ARGB color, not a resource id.
+@Suppress("ResourceType")
+private val ink = ColorProvider(Color(0xFFF3F5F6.toInt()))
+
+@Suppress("ResourceType")
+private val accent = ColorProvider(Color(0xFFC6F26E.toInt()))
+
+@Suppress("ResourceType")
+private val surface = ColorProvider(Color(0xFF15181C.toInt()))
+
+@Suppress("ResourceType")
+private val button = ColorProvider(Color(0xFF1E2228.toInt()))
 
 class QuickLogWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -34,22 +45,22 @@ class QuickLogWidget : GlanceAppWidget() {
                 GlanceModifier
                     .fillMaxWidth()
                     .background(surface)
-                    .padding(10),
+                    .padding(10.dp),
             ) {
                 Text("METRIQ", style = TextStyle(color = accent))
-                Row(GlanceModifier.fillMaxWidth().padding(top = 8)) {
+                Row(GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
                     Column(
                         GlanceModifier
                             .defaultWeight()
                             .background(button)
-                            .padding(10)
+                            .padding(10.dp)
                             .clickable(actionStartActivity(logIntent)),
                     ) { Text("Registar", style = TextStyle(color = ink)) }
                     Column(
                         GlanceModifier
                             .defaultWeight()
                             .background(button)
-                            .padding(10)
+                            .padding(10.dp)
                             .clickable(actionStartActivity(scanIntent)),
                     ) { Text("Digitalizar", style = TextStyle(color = ink)) }
                 }

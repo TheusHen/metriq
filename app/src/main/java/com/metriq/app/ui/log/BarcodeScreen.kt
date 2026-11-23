@@ -5,7 +5,9 @@ import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -66,6 +68,33 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+
+/**
+ * The opt-in marker sits on the method that actually reads [ImageProxy.image], so the
+ * screen itself (and its callers) carry no opt-in requirement.
+ */
+private class BarcodeAnalyzer(
+    private val consumed: AtomicBoolean,
+    private val context: android.content.Context,
+    private val onDecoded: (String) -> Unit,
+) : ImageAnalysis.Analyzer {
+    @ExperimentalGetImage
+    override fun analyze(proxy: ImageProxy) {
+        val media = proxy.image
+        if (media == null || consumed.get()) {
+            proxy.close()
+            return
+        }
+        val image = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
+        BarcodeScanning.getClient().process(image)
+            .addOnSuccessListener { results ->
+                results.firstOrNull()?.rawValue?.let { value ->
+                    ContextCompat.getMainExecutor(context).execute { onDecoded(value) }
+                }
+            }
+            .addOnCompleteListener { proxy.close() }
+    }
+}
 
 @Composable
 fun BarcodeScreen(
@@ -195,25 +224,12 @@ fun BarcodeScreen(
                         val analyzer = ImageAnalysis.Builder()
                             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
-                        analyzer.setAnalyzer(executor) { proxy ->
-                            val media = proxy.image
-                            if (media == null || consumed.get()) {
-                                proxy.close()
-                                return@setAnalyzer
-                            }
-                            val image = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
-                            BarcodeScanning.getClient().process(image)
-                                .addOnSuccessListener { results ->
-                                    results.firstOrNull()?.rawValue?.let { value ->
-                                        ContextCompat.getMainExecutor(context).execute {
-                                            if (consumed.compareAndSet(false, true)) {
-                                                decide(value.trim())
-                                            }
-                                        }
-                                    }
-                                }
-                                .addOnCompleteListener { proxy.close() }
-                        }
+                        analyzer.setAnalyzer(
+                            executor,
+                            BarcodeAnalyzer(consumed, context) { value ->
+                                if (consumed.compareAndSet(false, true)) decide(value.trim())
+                            },
+                        )
                         provider?.unbindAll()
                         provider?.bindToLifecycle(
                             lifecycleOwner,

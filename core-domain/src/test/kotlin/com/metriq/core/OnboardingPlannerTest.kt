@@ -44,6 +44,9 @@ class OnboardingPlannerTest {
         weeks = weeks,
     )
 
+    private fun hasCode(warnings: List<DomainWarning>, code: WarningCode) =
+        warnings.any { it.code == code }
+
     @Test
     fun `adult maintain uses bmr and activity factor with no warnings`() {
         val result = OnboardingPlanner.plan(adult())
@@ -76,8 +79,9 @@ class OnboardingPlannerTest {
         assertEquals(expectedBmr, result.bmr, 0.001)
         assertFalse(result.bmr == Bmr.forProfile(Profile(Sex.MALE, 15, 165.0, 60.0)))
         assertEquals(expectedBmr * ActivityLevel.MODERATE.factor, result.tdee, 0.001)
-        assertTrue(result.warnings.any { it.contains("deficit de ate 10%") })
-        assertTrue(result.warnings.contains("Este cálculo não substitui orientação de um responsável ou profissional de saúde."))
+        assertEquals("10", result.warnings.first { it.code == WarningCode.MINOR_DEFICIT_ADVISORY }
+            .params["maxDeficitPercent"])
+        assertTrue(hasCode(result.warnings, WarningCode.NOT_MEDICAL_ADVICE))
     }
 
     @Test
@@ -86,7 +90,7 @@ class OnboardingPlannerTest {
         assertEquals(0.0, result.dailyKcal, 0.0001)
         val total = result.proteinG * 4.0 + result.fatG * 9.0 + result.carbG * 4.0
         assertEquals(0.0, total, 2.0)
-        assertTrue(result.warnings.any { it.contains("reduzidas") })
+        assertTrue(hasCode(result.warnings, WarningCode.MACRO_FLOORS_RELAXED))
     }
 
     @Test
@@ -96,8 +100,8 @@ class OnboardingPlannerTest {
 
         assertEquals(expected, result.dailyKcal, 0.001)
         assertTrue(result.dailyKcal < result.tdee * 0.90)
-        assertTrue(result.warnings.any { it.contains("deficit de ate 10%") })
-        assertFalse(result.warnings.any { it.contains("déficit limitado") })
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ADVISORY))
+        assertFalse(hasCode(result.warnings, WarningCode.KCAL_BELOW_FLOOR))
     }
 
     @Test
@@ -105,19 +109,19 @@ class OnboardingPlannerTest {
         val result = OnboardingPlanner.plan(minor(GoalType.CUT, targetWeightKg = 40.0, weeks = 1))
 
         assertEquals(0.0, result.dailyKcal, 0.001)
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("deficit de ate 10%") })
-        assertTrue(result.warnings.any { it.contains("calorias negativas") })
+        assertTrue(hasCode(result.warnings, WarningCode.RATE_ABOVE_REFERENCE))
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ADVISORY))
+        assertTrue(hasCode(result.warnings, WarningCode.NEGATIVE_KCAL_CLAMPED))
     }
 
     @Test
     fun `minor rate above reference keeps the requested weeks and warns`() {
         val result = OnboardingPlanner.plan(minor(GoalType.CUT, targetWeightKg = 55.0, weeks = 2))
 
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,25") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
-        assertTrue(result.explanation.contains("2 semanas"))
+        assertTrue(hasCode(result.warnings, WarningCode.RATE_ABOVE_REFERENCE))
+        assertEquals("0.25", result.warnings.first { it.code == WarningCode.RATE_ABOVE_REFERENCE }
+            .params["referenceKgPerWeek"])
+        assertEquals("2", result.explanation.params["weeks"])
     }
 
     @Test
@@ -125,20 +129,19 @@ class OnboardingPlannerTest {
         val input = adult(GoalType.CUT).copy(weightKg = 90.0, targetWeightKg = 88.0, weeks = 2)
         val result = OnboardingPlanner.plan(input)
 
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,5") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
+        assertTrue(hasCode(result.warnings, WarningCode.RATE_ABOVE_REFERENCE))
+        assertEquals("0.5", result.warnings.first { it.code == WarningCode.RATE_ABOVE_REFERENCE }
+            .params["referenceKgPerWeek"])
         assertEquals(result.tdee - 1.0 * Expenditure.KCAL_PER_KG / 7.0, result.dailyKcal, 0.001)
-        assertTrue(result.explanation.contains("2 semanas"))
+        assertEquals("2", result.explanation.params["weeks"])
     }
 
     @Test
     fun `rate warning is advisory and keeps an unreachable deadline`() {
         val result = OnboardingPlanner.plan(adult(GoalType.CUT).copy(weightKg = 95.0, targetWeightKg = 80.0, weeks = 3))
 
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
-        assertTrue(result.explanation.contains("3 semanas"))
+        assertTrue(hasCode(result.warnings, WarningCode.RATE_ABOVE_REFERENCE))
+        assertEquals("3", result.explanation.params["weeks"])
     }
 
     @Test
@@ -150,10 +153,10 @@ class OnboardingPlannerTest {
 
         assertEquals(Bmr.forProfile(profile), result.bmr, 0.001)
         assertEquals(result.bmr * ActivityLevel.MODERATE.factor, result.tdee, 0.001)
-        assertTrue(result.warnings.any { it.contains("Altura fora da faixa usual") })
-        assertTrue(result.warnings.any { it.contains("Peso fora da faixa usual") })
-        assertTrue(result.warnings.any { it.contains("Gordura corporal fora da faixa usual") })
-        assertTrue(result.warnings.none { it.contains("Altura inválido") })
+        assertTrue(hasCode(result.warnings, WarningCode.HEIGHT_OUTSIDE_TYPICAL_RANGE))
+        assertTrue(hasCode(result.warnings, WarningCode.WEIGHT_OUTSIDE_TYPICAL_RANGE))
+        assertTrue(hasCode(result.warnings, WarningCode.BODY_FAT_OUTSIDE_TYPICAL_RANGE))
+        assertTrue(result.warnings.none { it.code == WarningCode.HEIGHT_INVALID_FALLBACK })
     }
 
     @Test
@@ -168,17 +171,19 @@ class OnboardingPlannerTest {
         assertEquals(expected.proteinG, fallback.proteinG)
         assertTrue(fallback.tdee.isFinite())
         assertTrue(fallback.dailyKcal.isFinite())
-        assertTrue(fallback.warnings.any { it.startsWith("Altura inválido") })
-        assertTrue(fallback.warnings.any { it.startsWith("Peso inválido") })
-        assertTrue(fallback.warnings.any { it.startsWith("Gordura corporal inválido") })
+        assertEquals("175", fallback.warnings.first { it.code == WarningCode.HEIGHT_INVALID_FALLBACK }
+            .params["fallback"])
+        assertEquals("75", fallback.warnings.first { it.code == WarningCode.WEIGHT_INVALID_FALLBACK }
+            .params["fallback"])
+        assertTrue(hasCode(fallback.warnings, WarningCode.BODY_FAT_INVALID))
     }
 
     @Test
     fun `minor keto diet is honored with an advisory, not forced balanced`() {
         val result = OnboardingPlanner.plan(minor(GoalType.MAINTAIN).copy(diet = DietStyle.KETO))
 
-        assertTrue(result.warnings.any { it.contains("cetogênica") })
-        assertTrue(result.warnings.any { it.contains("menores") })
+        assertTrue(hasCode(result.warnings, WarningCode.KETO_NOT_RECOMMENDED_FOR_MINORS))
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ADVISORY))
         assertTrue(result.carbG <= MacroPlanner.KETO_MAX_CARB_G.toInt() + 1)
     }
 
@@ -212,19 +217,25 @@ class OnboardingPlannerTest {
         assertTrue(result.fatG >= 0)
         assertTrue(result.bmr >= 0.0)
         assertTrue(result.tdee >= 0.0)
-        assertTrue(result.warnings.any { it.contains("carboidratos zerados") })
+        assertTrue(hasCode(result.warnings, WarningCode.INSUFFICIENT_KCAL_FOR_FLOORS))
     }
 
     @Test
-    fun `explanation is a short portuguese paragraph with the key figures`() {
+    fun `explanation is a structured code with plain numeric params`() {
         val result = OnboardingPlanner.plan(adult())
 
-        assertTrue(result.explanation.contains("78 kg"))
-        assertTrue(result.explanation.contains("178 cm"))
-        assertTrue(result.explanation.contains("34 anos"))
-        assertTrue(result.explanation.contains("gasto estimado"))
-        assertTrue(result.explanation.contains("proteína"))
-        assertTrue(result.explanation.length < 400)
+        assertEquals(WarningCode.PLAN_EXPLANATION, result.explanation.code)
+        assertEquals("ONBOARDING", result.explanation.params["mode"])
+        assertEquals("78", result.explanation.params["weightKg"])
+        assertEquals("178", result.explanation.params["heightCm"])
+        assertEquals("34", result.explanation.params["age"])
+        assertEquals("MODERATE", result.explanation.params["activity"])
+        assertEquals("MAINTAIN", result.explanation.params["goal"])
+        assertTrue(result.explanation.params["tdee"]!!.toDouble() > 0.0)
+        assertEquals(result.proteinG.toString(), result.explanation.params["proteinG"])
+        assertEquals(result.fatG.toString(), result.explanation.params["fatG"])
+        assertEquals(result.carbG.toString(), result.explanation.params["carbG"])
+        assertEquals("false", result.explanation.params["isMinor"])
     }
 
     @Test
@@ -248,7 +259,7 @@ class OnboardingPlannerTest {
         assertEquals(17.686 * 60.0 + 658.2, result.bmr, 0.001)
         assertEquals(result.bmr * ActivityLevel.MODERATE.factor, result.tdee, 0.001)
         assertEquals(result.tdee * 0.90, result.dailyKcal, 0.001)
-        assertTrue(result.warnings.any { it.contains("Menor de 18") })
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ADVISORY))
     }
 
     @Test
@@ -258,7 +269,9 @@ class OnboardingPlannerTest {
 
         assertTrue(result.isMinor)
         assertEquals(13.384 * 50.0 + 692.6, result.bmr, 0.001)
-        assertTrue(result.warnings.any { it.contains("Idade abaixo da faixa validada") })
+        assertEquals("8", result.warnings.first { it.code == WarningCode.AGE_BELOW_PEDIATRIC_VALIDATION }
+            .params["age"])
+        assertFalse(hasCode(result.warnings, WarningCode.AGE_OUTSIDE_TYPICAL_RANGE))
     }
 
     @Test
@@ -286,9 +299,9 @@ class OnboardingPlannerTest {
         assertTrue(result.isMinor)
         assertEquals(17.686 * 60.0 + 658.2, result.bmr, 0.001)
         assertEquals(result.bmr * ActivityLevel.MODERATE.factor, result.tdee, 0.001)
-        assertTrue(result.warnings.any { it.contains("Menor de 18") })
-        assertTrue(result.warnings.none { it.contains("faixa validada") })
-        assertTrue(result.explanation.contains("12 anos"))
+        assertTrue(hasCode(result.warnings, WarningCode.MINOR_DEFICIT_ADVISORY))
+        assertFalse(hasCode(result.warnings, WarningCode.AGE_BELOW_PEDIATRIC_VALIDATION))
+        assertEquals("12", result.explanation.params["age"])
     }
 
     @Test
@@ -300,7 +313,7 @@ class OnboardingPlannerTest {
         assertFalse(result.isMinor)
         assertEquals(Bmr.forProfile(profile), result.bmr, 0.001)
         assertEquals(result.bmr * ActivityLevel.MODERATE.factor, result.tdee, 0.001)
-        assertTrue(result.warnings.any { it.contains("Idade fora da faixa usual") })
+        assertTrue(hasCode(result.warnings, WarningCode.AGE_OUTSIDE_TYPICAL_RANGE))
     }
 
     @Test
@@ -310,7 +323,7 @@ class OnboardingPlannerTest {
 
         assertEquals(Bmr.forProfile(profile), result.bmr, 0.001)
         assertEquals(result.tdee, result.dailyKcal, 0.001)
-        assertTrue(result.warnings.any { it.contains("Peso fora da faixa usual") })
+        assertTrue(hasCode(result.warnings, WarningCode.WEIGHT_OUTSIDE_TYPICAL_RANGE))
     }
 
     @Test
@@ -320,7 +333,7 @@ class OnboardingPlannerTest {
 
         assertEquals(Bmr.forProfile(profile), result.bmr, 0.001)
         assertEquals(result.tdee, result.dailyKcal, 0.001)
-        assertTrue(result.warnings.any { it.contains("Peso fora da faixa usual") })
+        assertTrue(hasCode(result.warnings, WarningCode.WEIGHT_OUTSIDE_TYPICAL_RANGE))
     }
 
     @Test
@@ -329,11 +342,11 @@ class OnboardingPlannerTest {
             adult(GoalType.CUT).copy(weightKg = 78.0, targetWeightKg = 20.0, weeks = 4),
         )
 
-        assertTrue(result.warnings.any { it.contains("Peso-alvo fora da faixa usual") })
-        assertTrue(result.explanation.contains("20 kg"))
-        assertTrue(result.explanation.contains("4 semanas"))
+        assertTrue(hasCode(result.warnings, WarningCode.TARGET_WEIGHT_OUTSIDE_TYPICAL_RANGE))
+        assertEquals("20", result.explanation.params["targetKg"])
+        assertEquals("4", result.explanation.params["weeks"])
         assertEquals(0.0, result.dailyKcal, 0.001)
-        assertTrue(result.warnings.any { it.contains("calorias negativas") })
+        assertTrue(hasCode(result.warnings, WarningCode.NEGATIVE_KCAL_CLAMPED))
     }
 
     @Test
@@ -342,10 +355,10 @@ class OnboardingPlannerTest {
             adult(GoalType.CUT).copy(weightKg = 90.0, targetWeightKg = 86.0, weeks = 2),
         )
 
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,5") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
+        assertTrue(hasCode(result.warnings, WarningCode.RATE_ABOVE_REFERENCE))
+        assertEquals("0.5", result.warnings.first { it.code == WarningCode.RATE_ABOVE_REFERENCE }
+            .params["referenceKgPerWeek"])
         assertEquals(result.tdee - 2.0 * Expenditure.KCAL_PER_KG / 7.0, result.dailyKcal, 0.001)
-        assertTrue(result.explanation.contains("2 semanas"))
+        assertEquals("2", result.explanation.params["weeks"])
     }
 }

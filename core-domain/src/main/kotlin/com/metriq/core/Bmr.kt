@@ -1,5 +1,7 @@
 package com.metriq.core
 
+import java.time.LocalDate
+
 /**
  * Basal metabolic rate. Two published equations, plus the deficit / below-peak
  * corrections. All results are kcal/day.
@@ -36,6 +38,28 @@ object Bmr {
     }
 
     fun isBelowPeak(currentKg: Double, peakKg: Double): Boolean = currentKg < peakKg * 0.9
+
+    private const val MIN_DECLINE_KG = 0.05
+
+    /**
+     * True when recent weigh-ins show a real decline: the newest reading in the window
+     * is at least [MIN_DECLINE_KG] below the oldest. Non-finite readings and weigh-ins
+     * outside `[today - (days - 1), today]` are ignored; at least two finite readings
+     * are required. This is the value callers should pass to [forProfile]'s `inDeficit`.
+     */
+    fun isInDeficit(
+        weights: Map<LocalDate, Double>,
+        today: LocalDate,
+        days: Int = 14,
+    ): Boolean {
+        if (days < 2) return false
+        val from = today.minusDays(days - 1L)
+        val inWindow = weights.entries
+            .filter { (date, kg) -> !date.isBefore(from) && !date.isAfter(today) && kg.isFinite() }
+            .sortedBy { it.key }
+        if (inWindow.size < 2) return false
+        return inWindow.last().value < inWindow.first().value - MIN_DECLINE_KG
+    }
 
     /**
      * Best available estimate for a profile. [peakKg] may be supplied from the real

@@ -17,6 +17,7 @@ import com.metriq.core.Aggressiveness
 import com.metriq.core.Bmr
 import com.metriq.core.CaloriePlan
 import com.metriq.core.Confidence
+import com.metriq.core.DomainWarning
 import com.metriq.core.Expenditure
 import com.metriq.core.ExpenditureResult
 import com.metriq.core.GoalEngine
@@ -30,6 +31,7 @@ import com.metriq.core.TrainingEngine
 import com.metriq.core.TrainingLoad
 import com.metriq.core.TrainingSignal
 import com.metriq.core.TrendWeight
+import com.metriq.core.WarningCode
 import com.metriq.core.WeightEntry
 import com.metriq.app.ui.log.FoodDraft
 import com.metriq.data.FoodHit
@@ -104,7 +106,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // Only the newest requested snapshot may be published; older IO builds are discarded.
     private var buildSequence = 0
 
-    fun previewGoalWarnings(goal: GoalOverride): List<String> {
+    fun previewGoalWarnings(goal: GoalOverride): List<DomainWarning> {
         val plan = previewPlan ?: return emptyList()
         val profile = previewProfile ?: return emptyList()
         return GoalEngine.recalculate(plan, goal, profile, profile.age < 18).warnings
@@ -133,6 +135,31 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteLog(id: Long) {
         AppGraph.store.logs.delete(id)
+        refresh()
+    }
+
+    fun updateLogGrams(id: Long, grams: Double) {
+        AppGraph.store.logs.updateGrams(id, grams)
+        refresh()
+    }
+
+    fun updateCustomFood(id: Long, draft: FoodDraft) {
+        val existing = AppGraph.store.food.byId(id)
+        AppGraph.store.food.updateCustomFood(
+            id = id,
+            name = draft.name,
+            brand = draft.brand,
+            calories = draft.calories,
+            protein = draft.protein,
+            fat = draft.fat,
+            carbs = draft.carbs,
+            // The editor does not expose these; keep the stored values intact.
+            fiber = existing?.fiber,
+            sugar = existing?.sugar,
+            sodium = existing?.sodium,
+            servingLabel = draft.servingLabel,
+            servingGrams = draft.servingGrams,
+        )
         refresh()
     }
 
@@ -229,6 +256,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addRecipe(draft: RecipeDraft) {
         AppGraph.store.recipe.add(draft)
+        refresh()
+    }
+
+    fun deleteRecipe(id: Long) {
+        AppGraph.store.recipe.delete(id)
         refresh()
     }
 
@@ -336,7 +368,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         // The historical peak is what makes the below-peak BMR correction fire. Without
         // it forProfile sees only the current weight and never discounts the estimate.
         val peakKg = weightEntries.maxOfOrNull { it.kg } ?: profile.weightKg
-        val bmr = Bmr.forProfile(effectiveProfile, peakKg)
+        val bmr = Bmr.forProfile(effectiveProfile, peakKg, Bmr.isInDeficit(weightMap, today))
         // Measured output only feeds expenditure confidence; it never changes kcal.
         val observedActiveKcal = AppGraph.store.settings.get("health_active_calories")?.toDoubleOrNull()
         // Hold the last estimate when logging pauses, as required by algorithms.md.
@@ -409,7 +441,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             carbG = baseMacros.carbG,
             isMinor = isMinor,
             warnings = emptyList(),
-            explanation = "",
+            explanation = DomainWarning(WarningCode.PLAN_EXPLANATION),
         )
         previewPlan = suggestedPlan
         previewProfile = effectiveProfile

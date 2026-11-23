@@ -1,7 +1,8 @@
 package com.metriq.app.widget
 
 import android.content.Context
-import android.graphics.Color
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.actionStartActivity
@@ -20,10 +21,20 @@ import androidx.glance.unit.ColorProvider
 import com.metriq.app.AppGraph
 import com.metriq.app.MainActivity
 
-private val ink = ColorProvider(Color.parseColor("#F3F5F6"))
-private val muted = ColorProvider(Color.parseColor("#9AA1AB"))
-private val accent = ColorProvider(Color.parseColor("#C6F26E"))
-private val surface = ColorProvider(Color.parseColor("#15181C"))
+// Glance's supported color API is ColorProvider(Color), not a @ColorRes integer. The
+// suppression is scoped to these constants only: lint's ResourceType check cannot see that
+// the Int-backed Color value class is already an ARGB color, not a resource id.
+@Suppress("ResourceType")
+private val ink = ColorProvider(Color(0xFFF3F5F6.toInt()))
+
+@Suppress("ResourceType")
+private val muted = ColorProvider(Color(0xFF9AA1AB.toInt()))
+
+@Suppress("ResourceType")
+private val accent = ColorProvider(Color(0xFFC6F26E.toInt()))
+
+@Suppress("ResourceType")
+private val surface = ColorProvider(Color(0xFF15181C.toInt()))
 
 class WeightWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -35,7 +46,7 @@ class WeightWidget : GlanceAppWidget() {
                 GlanceModifier
                     .fillMaxWidth()
                     .background(surface)
-                    .padding(12)
+                    .padding(12.dp)
                     .clickable(actionStartActivity<MainActivity>()),
             ) {
                 Text("TENDÊNCIA DE PESO", style = TextStyle(color = muted))

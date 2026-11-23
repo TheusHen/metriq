@@ -168,19 +168,19 @@ class TrainingEngineTest {
         val disabled = MacroEngine.adaptWithSignal(base, profile, signal(TrainingIntensity.HARD), emptyList(), false)
         assertEquals(base, disabled.targets)
         assertEquals(0, disabled.carbDeltaG)
-        assertTrue(disabled.reason.contains("sinal de treino", ignoreCase = true))
+        assertEquals(WarningCode.MACRO_SIGNAL_ADAPTATION_DISABLED, disabled.reason.code)
 
         val missing = MacroEngine.adaptWithSignal(base, profile, null, emptyList(), true)
         assertEquals(base, missing.targets)
         assertEquals(TrainingIntensity.REST, missing.intensity)
-        assertTrue(missing.reason.contains("sinal de treino", ignoreCase = true))
+        assertEquals(WarningCode.NO_TRAINING_SIGNAL, missing.reason.code)
 
         val rest = MacroEngine.adaptWithSignal(
             base, profile, signal(TrainingIntensity.REST, kcal = 0.0, minutes = 0, volume = 0.0), emptyList(), true,
         )
         assertEquals(base, rest.targets)
         assertEquals(0, rest.carbDeltaG)
-        assertTrue(rest.reason.contains("sinal de treino", ignoreCase = true))
+        assertEquals(WarningCode.NO_TRAINING_SIGNAL, rest.reason.code)
     }
 
     @Test
@@ -191,7 +191,7 @@ class TrainingEngineTest {
         assertEquals(base, result.targets)
         assertEquals(0, result.carbDeltaG)
         assertEquals(0, result.fatDeltaG)
-        assertTrue(result.reason.contains("cetog", ignoreCase = true))
+        assertEquals(WarningCode.KETO_NO_CARB_ADJUSTMENT, result.reason.code)
     }
 
     @Test
@@ -206,9 +206,10 @@ class TrainingEngineTest {
         assertTrue(hard.carbDeltaG > moderate.carbDeltaG)
         assertTrue(hard.carbDeltaG > 0)
         assertTrue(hard.fatDeltaG < 0)
-        assertTrue(hard.reason.contains("pesado", ignoreCase = true))
-        assertTrue(hard.reason.contains("carboidrato"))
-        assertTrue(hard.reason.contains("gordura"))
+        assertEquals(WarningCode.CARB_REALLOCATED, hard.reason.code)
+        assertEquals("HARD", hard.reason.params["intensity"])
+        assertEquals(hard.carbDeltaG.toString(), hard.reason.params["carbDeltaG"])
+        assertEquals(hard.fatDeltaG.toString(), hard.reason.params["fatDeltaG"])
         assertEquals(base.proteinG, hard.targets.proteinG)
         assertTrue(hard.targets.fatG >= 40)
         val macroKcal = hard.targets.proteinG * 4.0 + hard.targets.fatG * 9.0 + hard.targets.carbG * 4.0
@@ -225,7 +226,7 @@ class TrainingEngineTest {
 
         assertTrue(fatigued.carbDeltaG > 0)
         assertEquals(fresh.carbDeltaG / 2, fatigued.carbDeltaG)
-        assertTrue(fatigued.reason.contains("reduzido", ignoreCase = true))
+        assertEquals("true", fatigued.reason.params["overreaching"])
     }
 
     @Test
@@ -236,6 +237,6 @@ class TrainingEngineTest {
         assertEquals(atFloor, result.targets)
         assertEquals(0, result.carbDeltaG)
         assertTrue(result.targets.fatG >= 40)
-        assertFalse(result.reason.contains("+0 g"))
+        assertEquals(WarningCode.NO_FAT_MARGIN, result.reason.code)
     }
 }

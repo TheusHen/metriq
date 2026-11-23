@@ -97,4 +97,107 @@ class NutritionLabelParserTest {
         val label = parser.parse(text)
         assertEquals(230.0, label.calories!!)
     }
+
+    @Test
+    fun `parses a brazilian table with row labels and serving info`() {
+        val text = """
+            INFORMAÇÃO NUTRICIONAL
+            Porção 100 g
+            Valor energético 230 kcal
+            Gorduras totais 8g
+            Carboidratos 30g
+            Proteínas 5g
+            Sódio 400mg
+        """.trimIndent()
+        val label = parser.parse(text)
+
+        assertEquals("100 g", label.servingSize)
+        assertEquals(230.0, label.calories!!, 0.001)
+        assertEquals(8.0, label.totalFat!!, 0.001)
+        assertEquals(30.0, label.totalCarbs!!, 0.001)
+        assertEquals(5.0, label.protein!!, 0.001)
+        assertEquals(400.0, label.sodium!!, 0.001)
+        assertEquals(EnergySource.KCAL, label.energySource)
+    }
+
+    @Test
+    fun `explicit kcal wins when a dual kj kcal label is present`() {
+        val label = parser.parse("Energia 1000 kJ / 239 kcal\nGorduras totais 8g")
+
+        assertEquals(239.0, label.calories!!, 0.001)
+        assertEquals(EnergySource.KCAL, label.energySource)
+    }
+
+    @Test
+    fun `kj only energy is converted and marked in the result`() {
+        val label = parser.parse("Energia 1000 kJ\nProteínas 5g")
+
+        assertEquals(1000.0 / 4.184, label.calories!!, 0.001)
+        assertEquals(EnergySource.KJ_CONVERTED, label.energySource)
+        assertEquals(5.0, label.protein!!, 0.001)
+    }
+
+    @Test
+    fun `values on the line after the label survive ocr noise`() {
+        val text = """
+            Valor energético
+              · 230 kcal
+            Gorduras totais
+              · 8 g
+            Carboidratos
+              · 30 g
+            Proteínas
+              · 5 g
+        """.trimIndent()
+        val label = parser.parse(text)
+
+        assertEquals(230.0, label.calories!!, 0.001)
+        assertEquals(8.0, label.totalFat!!, 0.001)
+        assertEquals(30.0, label.totalCarbs!!, 0.001)
+        assertEquals(5.0, label.protein!!, 0.001)
+    }
+
+    @Test
+    fun `parses a us label with thousands separated calories and sodium`() {
+        val text = """
+            Nutrition Facts
+            Serving Size: 1 package
+            Calories 2,000
+            Total Fat 100 g
+            Sodium 1,000 mg
+            Total Carbohydrate 300 g
+            Protein 20 g
+        """.trimIndent()
+        val label = parser.parse(text)
+
+        assertEquals("1 package", label.servingSize)
+        assertEquals(2000.0, label.calories!!, 0.001)
+        assertEquals(1000.0, label.sodium!!, 0.001)
+        assertEquals(20.0, label.protein!!, 0.001)
+        assertEquals(EnergySource.KCAL, label.energySource)
+    }
+
+    @Test
+    fun `energy keyword without a unit is treated as kcal`() {
+        val label = parser.parse("Energia 180\nProteínas 4g")
+
+        assertEquals(180.0, label.calories!!, 0.001)
+        assertEquals(EnergySource.KCAL, label.energySource)
+    }
+
+    @Test
+    fun `kj with a thousands separator converts to one thousand kcal`() {
+        val label = parser.parse("Energia 4.184 kJ")
+
+        assertEquals(1000.0, label.calories!!, 0.001)
+        assertEquals(EnergySource.KJ_CONVERTED, label.energySource)
+    }
+
+    @Test
+    fun `energy source defaults to kcal when no energy value is found`() {
+        val label = parser.parse("Total Fat 8g")
+
+        assertEquals(null, label.calories)
+        assertEquals(EnergySource.KCAL, label.energySource)
+    }
 }

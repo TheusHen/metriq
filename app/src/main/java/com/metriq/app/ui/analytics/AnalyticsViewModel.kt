@@ -336,7 +336,7 @@ class AnalyticsViewModel : ViewModel() {
         val profile = baseProfile.copy(weightKg = weightEntries.lastOrNull()?.kg ?: baseProfile.weightKg)
         // Same peak correction as the dashboard, so both screens agree on expenditure.
         val peakKg = weightEntries.maxOfOrNull { it.kg } ?: baseProfile.weightKg
-        val bmr = Bmr.forProfile(profile, peakKg)
+        val bmr = Bmr.forProfile(profile, peakKg, Bmr.isInDeficit(weightMap, today))
         // Measured output affects confidence only, never the kcal value.
         val observedActiveKcal = store.settings.get("health_active_calories")?.toDoubleOrNull()
 

@@ -64,7 +64,18 @@ class MacroEngineTest {
         assertEquals(TrainingIntensity.HARD, result.intensity)
         assertEquals(0, result.carbDeltaG)
         assertEquals(0, result.fatDeltaG)
-        assertTrue(result.reason.contains("desativada", ignoreCase = true))
+        assertEquals(WarningCode.MACRO_ADAPTATION_DISABLED, result.reason.code)
+    }
+
+    @Test
+    fun `disabled signal flag keeps base macros`() {
+        val signal = TrainingSignal(
+            activeKcal = 600.0, steps = null, sessions = 1, volumeKg = 1000.0,
+            durationMinutes = 30, muscles = setOf("CHEST", "BACK"), intensity = TrainingIntensity.HARD,
+        )
+        val result = MacroEngine.adaptWithSignal(base, profile, signal, emptyList(), false)
+        assertEquals(base, result.targets)
+        assertEquals(WarningCode.MACRO_SIGNAL_ADAPTATION_DISABLED, result.reason.code)
     }
 
     @Test
@@ -72,7 +83,7 @@ class MacroEngineTest {
         val nullResult = MacroEngine.adapt(base, profile, null, emptyList(), true)
         assertEquals(base, nullResult.targets)
         assertEquals(TrainingIntensity.REST, nullResult.intensity)
-        assertTrue(nullResult.reason.contains("Sem sinal de treino"))
+        assertEquals(WarningCode.NO_TRAINING_SIGNAL, nullResult.reason.code)
 
         val restResult = MacroEngine.adapt(base, profile, load(TrainingIntensity.REST), emptyList(), true)
         assertEquals(base, restResult.targets)
@@ -91,19 +102,23 @@ class MacroEngineTest {
         assertTrue(moderate.carbDeltaG in 1..25)
         assertTrue(moderate.fatDeltaG < 0)
         assertEquals(moderate.fatDeltaG, moderate.targets.fatG - base.fatG)
-        assertTrue(moderate.reason.contains("moderado", ignoreCase = true))
+        assertEquals(WarningCode.CARB_REALLOCATED, moderate.reason.code)
+        assertEquals("MODERATE", moderate.reason.params["intensity"])
+        assertEquals(moderate.carbDeltaG.toString(), moderate.reason.params["carbDeltaG"])
+        assertEquals(moderate.fatDeltaG.toString(), moderate.reason.params["fatDeltaG"])
     }
 
     @Test
-    fun `hard produces the largest carb bump with a Portuguese reason`() {
+    fun `hard produces the largest carb bump with a structured reason`() {
         val hard = MacroEngine.adapt(base, profile, load(TrainingIntensity.HARD), emptyList(), true)
         val moderate = MacroEngine.adapt(base, profile, load(TrainingIntensity.MODERATE), emptyList(), true)
         assertTrue(hard.carbDeltaG > moderate.carbDeltaG)
         assertTrue(hard.carbDeltaG in 1..60)
         assertTrue(hard.fatDeltaG < 0)
-        assertTrue(hard.reason.contains("pesado", ignoreCase = true))
-        assertTrue(hard.reason.contains("carboidrato"))
-        assertTrue(hard.reason.contains("gordura"))
+        assertEquals(WarningCode.CARB_REALLOCATED, hard.reason.code)
+        assertEquals("HARD", hard.reason.params["intensity"])
+        assertEquals(hard.carbDeltaG.toString(), hard.reason.params["carbDeltaG"])
+        assertEquals(hard.fatDeltaG.toString(), hard.reason.params["fatDeltaG"])
     }
 
     @Test
@@ -114,7 +129,7 @@ class MacroEngineTest {
         assertEquals(0, result.carbDeltaG)
         assertEquals(0, result.fatDeltaG)
         assertEquals(TrainingIntensity.HARD, result.intensity)
-        assertTrue(result.reason.contains("cetog", ignoreCase = true))
+        assertEquals(WarningCode.KETO_NO_CARB_ADJUSTMENT, result.reason.code)
     }
 
     @Test
@@ -130,6 +145,7 @@ class MacroEngineTest {
         val noRoom = MacroEngine.adapt(atFloor, profile, load(TrainingIntensity.HARD), emptyList(), true)
         assertEquals(atFloor, noRoom.targets)
         assertEquals(0, noRoom.carbDeltaG)
+        assertEquals(WarningCode.NO_FAT_MARGIN, noRoom.reason.code)
     }
 
     @Test
@@ -147,7 +163,7 @@ class MacroEngineTest {
     }
 
     @Test
-    fun `weekly overreach halves the hard bump`() {
+    fun `weekly overreach halves the hard bump and is reported in the reason`() {
         val hardWeek = List(7) { load(TrainingIntensity.HARD) }
         assertTrue(MacroEngine.weeklyLoad(hardWeek) > 0.8)
 
@@ -156,6 +172,20 @@ class MacroEngineTest {
         assertTrue(fatigued.carbDeltaG > 0)
         assertTrue(fatigued.carbDeltaG < fresh.carbDeltaG)
         assertEquals(fresh.carbDeltaG / 2, fatigued.carbDeltaG)
-        assertTrue(fatigued.reason.contains("reduzido", ignoreCase = true))
+        assertEquals("true", fatigued.reason.params["overreaching"])
+    }
+
+    @Test
+    fun `rich signal reason carries duration muscle coverage and volume`() {
+        val signal = TrainingSignal(
+            activeKcal = 600.0, steps = null, sessions = 1, volumeKg = 1600.0,
+            durationMinutes = 75, muscles = setOf("CHEST", "BACK", "LEGS"), intensity = TrainingIntensity.HARD,
+        )
+        val result = MacroEngine.adaptWithSignal(base, profile, signal, emptyList(), true)
+
+        assertEquals(WarningCode.CARB_REALLOCATED, result.reason.code)
+        assertEquals("75", result.reason.params["minutes"])
+        assertEquals("3", result.reason.params["muscles"])
+        assertEquals("1600", result.reason.params["volumeKg"])
     }
 }

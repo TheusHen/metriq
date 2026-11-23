@@ -140,6 +140,32 @@ class MigrationTest {
     }
 
     @Test
+    fun `index migration adds date and food name indexes without touching existing rows`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createLegacySchema(driver)
+        driver.execute(null, "INSERT INTO settings(key, value) VALUES ('theme', 'light')", 0)
+        driver.execute(
+            null,
+            "INSERT INTO bodyMeasurement(date, site, valueCm) VALUES ('2026-04-01', 'waist', 80.0)",
+            0,
+        )
+
+        MetriqSchema.migrate(driver, 1L, MetriqSchema.version).value
+        // Running twice must be harmless (CREATE ... IF NOT EXISTS).
+        MetriqSchema.migrate(driver, MetriqSchema.version - 1, MetriqSchema.version).value
+
+        listOf("bodyMeasurement_date", "progressPhoto_date", "habitLog_date", "food_name_lower")
+            .forEach { assertTrue(objectExists(driver, it), "Missing index $it") }
+        assertEquals("light", MetriqDatabase(driver).metriqQueries.settingValue("theme").executeAsOne())
+        assertEquals(1L, driver.executeQuery(
+            null,
+            "SELECT COUNT(*) FROM bodyMeasurement",
+            { cursor -> QueryResult.Value(cursor.getLong(0) ?: -1L) },
+            0,
+        ).value)
+    }
+
+    @Test
     fun `migration is idempotent`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         createLegacySchema(driver)

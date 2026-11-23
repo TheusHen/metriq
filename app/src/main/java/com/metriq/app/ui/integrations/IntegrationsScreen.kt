@@ -55,6 +55,7 @@ fun IntegrationsScreen(
     onBack: () -> Unit,
     onImportHistory: () -> Unit,
     onOpenHevy: () -> Unit,
+    onOpenFoodPacks: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Literal `integration_<id>` keys, read straight from the local settings table.
@@ -142,6 +143,34 @@ fun IntegrationsScreen(
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
             )
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clickable(onClick = onOpenFoodPacks),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_food_packs),
+                        style = MaterialTheme.typography.bodyStrong,
+                        color = MetriqColors.ink,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        stringResource(R.string.settings_food_packs_info),
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.ink3,
+                        maxLines = 2,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text("›", style = MaterialTheme.typography.bodyStrong, color = MetriqColors.accent)
+            }
         }
     }
 }

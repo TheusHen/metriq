@@ -38,6 +38,15 @@ class RecipeRepository(
         return id
     }
 
+    /** Removes the items first so foreign keys never see an orphaned recipe row. */
+    fun delete(recipeId: Long) {
+        db.transaction {
+            db.evolutionQueries.deleteRecipeItems(recipeId)
+            db.evolutionQueries.deleteRecipe(recipeId)
+        }
+        notifier.notify(DataType.RECIPE)
+    }
+
     private fun lastInsertedId(driver: SqlDriver): Long = driver.executeQuery(
         null,
         "SELECT last_insert_rowid()",

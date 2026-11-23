@@ -105,6 +105,21 @@ class FoodRepository(
                 }
             }
     }
+    /**
+     * Adds the rows of a validated food pack (no deletions). [afterInsert] runs
+     * inside the same transaction, so pack metadata cannot be recorded unless every
+     * row was committed. Shared by the bundled seed and the downloadable packs.
+     */
+    fun importPackTsv(tsv: String, afterInsert: (() -> Unit)? = null): Int {
+        val before = count()
+        db.transaction {
+            seedRows(tsv)
+            afterInsert?.invoke()
+        }
+        notifier?.notify(DataType.FOOD_LOG)
+        return (count() - before).toInt()
+    }
+
     /** Kept for source compatibility; search no longer depends on a separate index. */
     fun rebuildIndex() = Unit
 
@@ -130,6 +145,32 @@ class FoodRepository(
         }
         notifier?.notify(DataType.FOOD_LOG)
         return id
+    }
+
+    /**
+     * Edits a user-created food in place. The SQL guards on `isCustom = 1`, so a seed or
+     * online row can never be overwritten through this path. Logging rows keep pointing
+     * at the same id, which is why an update (not delete + insert) is required.
+     */
+    fun updateCustomFood(
+        id: Long,
+        name: String,
+        brand: String?,
+        calories: Double,
+        protein: Double,
+        fat: Double,
+        carbs: Double,
+        fiber: Double?,
+        sugar: Double?,
+        sodium: Double?,
+        servingLabel: String?,
+        servingGrams: Double?,
+    ) {
+        db.metriqQueries.updateCustomFood(
+            name, brand, calories, protein, fat, carbs, fiber, sugar, sodium,
+            servingLabel, servingGrams, id,
+        )
+        notifier?.notify(DataType.FOOD_LOG)
     }
 
     /**

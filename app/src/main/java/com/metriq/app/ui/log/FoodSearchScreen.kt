@@ -58,12 +58,16 @@ import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.h2
 import com.metriq.app.ui.theme.label
+import com.metriq.data.DataType
 import com.metriq.data.FoodHit
+import com.metriq.data.db.Food
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /** One food aggregated from real log history: how often it was logged and when last. */
 private data class RecentEntry(val food: FoodHit, val count: Int, val lastDate: String)
@@ -153,39 +157,63 @@ fun FoodSearchScreen(
     var quickAddOpen by remember { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<FoodHit>() }
     var onlineResults by remember { mutableStateOf<List<FoodHit>>(emptyList()) }
+    // Local search is a full-table scan, so it shares the debounced IO path with the
+    // online lookup. Composition never scans the database on a keystroke.
+    var localResults by remember { mutableStateOf<List<FoodHit>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var searchFailed by remember { mutableStateOf(false) }
     var retryTick by remember { mutableStateOf(0) }
+    var editingFood by remember { mutableStateOf<Food?>(null) }
+    var customIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
+    // The editor writes on IO and the repository notifies after the commit. Refreshing
+    // from that event avoids re-running the search before the new values are visible.
+    LaunchedEffect(Unit) {
+        AppGraph.store.notifier.events.collect { event ->
+            if (event.type == DataType.FOOD_LOG) retryTick += 1
+        }
+    }
 
     LaunchedEffect(query, retryTick) {
         val term = query.trim()
-        if (term.length < 3) {
-            onlineResults = emptyList()
-            searchFailed = false
-            searching = false
-            return@LaunchedEffect
+        delay(280) // debounce: no scan and no network on every keystroke
+        searching = term.length >= 3
+        val (local, outcome) = withContext(Dispatchers.IO) {
+            val found = if (term.isBlank()) {
+                AppGraph.store.food.commonFoods(40)
+            } else {
+                AppGraph.store.food.search(term)
+            }
+            val remote = if (term.length >= 3) {
+                runCatching { com.metriq.app.food.FoodSearchEngine.searchWithOutcome(term) }
+                    .getOrElse { com.metriq.app.food.FoodSearchEngine.Outcome(emptyList(), true) }
+            } else {
+                com.metriq.app.food.FoodSearchEngine.Outcome(emptyList(), false)
+            }
+            found to remote
         }
-        delay(280) // debounce: don't hit the network on every keystroke
-        searching = true
-        val outcome = runCatching { com.metriq.app.food.FoodSearchEngine.searchWithOutcome(term) }
-            .getOrElse { com.metriq.app.food.FoodSearchEngine.Outcome(emptyList(), true) }
+        localResults = local
         onlineResults = outcome.hits
         searchFailed = outcome.onlineFailed
         searching = false
     }
 
-    val results = remember(query, onlineResults) {
-        if (query.isBlank()) {
-            AppGraph.store.food.commonFoods(40)
-        } else {
-            val local = AppGraph.store.food.search(query)
-            val seen = local.map { it.id }.toHashSet()
-            local + onlineResults.filter { it.id !in seen }
-        }
+    val results = remember(localResults, onlineResults) {
+        val seen = localResults.map { it.id }.toHashSet()
+        localResults + onlineResults.filter { it.id !in seen }
     }
     val favorites = remember { AppGraph.store.food.favorites(6) }
     val picks = remember(results) { results.take(3) }
     val recent = remember { recentFromLogs() }
+    // Only user-created rows get an Edit action. Resolve this off the main thread and
+    // recompute whenever the result set changes (including after an edit).
+    LaunchedEffect(results, favorites, recent, retryTick) {
+        customIds = withContext(Dispatchers.IO) {
+            (results + favorites + recent.map { it.food })
+                .mapNotNull { hit -> AppGraph.store.food.byId(hit.id)?.takeIf { it.isCustom == 1L }?.id }
+                .toSet()
+        }
+    }
     // Preview must scale each hit to its serving, exactly like the logger does.
     val selectedKcal = selected.previewKcal()
 
@@ -219,6 +247,10 @@ fun FoodSearchScreen(
     fun toggle(food: FoodHit) {
         val existing = selected.firstOrNull { it.id == food.id }
         if (existing != null) selected.remove(existing) else selected.add(food)
+    }
+
+    fun requestEdit(hit: FoodHit) {
+        if (hit.id in customIds) editingFood = AppGraph.store.food.byId(hit.id)
     }
 
     val logLabel = if (selected.isEmpty()) {
@@ -356,7 +388,7 @@ fun FoodSearchScreen(
                 if (picks.isNotEmpty()) {
                     SectionHeader(title = stringResource(R.string.search_suggestions, mealScope))
                     Spacer(Modifier.height(8.dp))
-                    ResultRows(picks, selected, ::toggle)
+                    ResultRows(picks, selected, ::toggle, customIds, ::requestEdit)
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -379,7 +411,7 @@ fun FoodSearchScreen(
                         )
                     }
                 } else if (results.isNotEmpty()) {
-                    ResultRows(results, selected, ::toggle)
+                    ResultRows(results, selected, ::toggle, customIds, ::requestEdit)
                 }
                 Spacer(Modifier.height(12.dp))
             }
@@ -434,6 +466,14 @@ fun FoodSearchScreen(
                 )
             }
         }
+    }
+
+    val editing = editingFood
+    if (editing != null) {
+        EditCustomFoodDialog(
+            food = editing,
+            onDismiss = { editingFood = null },
+        )
     }
 }
 
@@ -693,23 +733,37 @@ private fun ResultRows(
     foods: List<FoodHit>,
     selected: List<FoodHit>,
     onToggle: (FoodHit) -> Unit,
+    customIds: Set<Long> = emptySet(),
+    onEdit: (FoodHit) -> Unit = {},
 ) {
     foods.forEachIndexed { index, food ->
         val isSelected = selected.any { it.id == food.id }
-        FoodRow(
-            name = food.name,
-            meta = macroMeta(food.calories, food.protein, food.carbs, food.fat),
-            icon = foodCategoryKey(food.name, food.category),
-            onClick = { onToggle(food) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (isSelected) Modifier.background(
-                        MetriqColors.surface2,
-                        RoundedCornerShape(8.dp),
-                    ) else Modifier,
-                ),
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            FoodRow(
+                name = food.name,
+                meta = macroMeta(food.calories, food.protein, food.carbs, food.fat),
+                icon = foodCategoryKey(food.name, food.category),
+                onClick = { onToggle(food) },
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (isSelected) Modifier.background(
+                            MetriqColors.surface2,
+                            RoundedCornerShape(8.dp),
+                        ) else Modifier,
+                    ),
+            )
+            if (food.id in customIds) {
+                Text(
+                    stringResource(R.string.edit),
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.accent,
+                    modifier = Modifier
+                        .clickable { onEdit(food) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+        }
         if (index < foods.lastIndex) {
             HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
         }

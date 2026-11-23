@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.metriq.app.ui.common.warningText
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.formatCount
 import com.metriq.app.ui.theme.MetriqColors
@@ -38,6 +39,7 @@ import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.bodyStrong
 import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.h2
+import com.metriq.core.DomainWarning
 import com.metriq.core.GoalOverride
 
 /**
@@ -50,7 +52,7 @@ fun GoalEditorSheet(
     suggestedKcal: Int,
     current: GoalOverride?,
     isMinor: Boolean,
-    previewWarnings: (GoalOverride) -> List<String> = { emptyList() },
+    previewWarnings: (GoalOverride) -> List<DomainWarning> = { emptyList() },
     onDismiss: () -> Unit,
     onApply: (GoalOverride) -> Unit,
     onReset: () -> Unit,
@@ -174,7 +176,7 @@ fun GoalEditorSheet(
             warnings.forEach { warning ->
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = warning,
+                    text = warningText(warning),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     maxLines = 3,

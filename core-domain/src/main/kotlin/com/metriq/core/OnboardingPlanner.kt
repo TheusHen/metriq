@@ -1,7 +1,5 @@
 package com.metriq.core
 
-import java.text.NumberFormat
-import java.util.Locale
 import kotlin.math.abs
 
 data class OnboardingInput(
@@ -25,8 +23,8 @@ data class PlanResult(
     val fatG: Int,
     val carbG: Int,
     val isMinor: Boolean,
-    val warnings: List<String>,
-    val explanation: String,
+    val warnings: List<DomainWarning>,
+    val explanation: DomainWarning = DomainWarning(WarningCode.PLAN_EXPLANATION),
 )
 
 /**
@@ -34,6 +32,9 @@ data class PlanResult(
  * dashboard (Bmr.forProfile -> activity factor -> CaloriePlan.target -> MacroPlanner.plan).
  * Minors use a pediatric resting-energy equation. Every user-entered value is used
  * exactly as provided; unusual values only produce advisory warnings.
+ *
+ * All user-facing output is a [WarningCode] with plain params; no locale or language is
+ * applied here.
  */
 object OnboardingPlanner {
 
@@ -58,6 +59,7 @@ object OnboardingPlanner {
     private const val REFERENCE_MINOR_RATE_KG_PER_WEEK = 0.25
 
     private const val FAT_FLOOR_PER_KG = 0.5
+    private const val MINOR_MAX_DEFICIT_PERCENT = 10
 
     /**
      * Schofield (1985) weight-only resting-energy equations for ages 10-18, as published
@@ -77,35 +79,42 @@ object OnboardingPlanner {
     }
 
     fun plan(input: OnboardingInput): PlanResult {
-        val warnings = ArrayList<String>()
+        val warnings = ArrayList<DomainWarning>()
 
-        // Age is accepted exactly as entered; only advisory text changes.
+        // Age is accepted exactly as entered; only advisory codes change.
         val age = input.age
         if (age < AGE_VALIDATED_MIN) {
-            warnings += "Idade abaixo da faixa validada das equações pediátricas; interprete o resultado com cautela."
+            warnings += DomainWarning.of(WarningCode.AGE_BELOW_PEDIATRIC_VALIDATION, "age" to age)
         } else if (age > AGE_USUAL_MAX) {
-            warnings += "Idade fora da faixa usual; confira os dados antes de usar o plano."
+            warnings += DomainWarning.of(
+                WarningCode.AGE_OUTSIDE_TYPICAL_RANGE,
+                "age" to age, "min" to AGE_VALIDATED_MIN, "max" to AGE_USUAL_MAX,
+            )
         }
 
         val heightCm = positiveOrFallback(
-            input.heightCm, DEFAULT_HEIGHT_CM, "Altura", warnings,
-            TYPICAL_HEIGHT_MIN_CM, TYPICAL_HEIGHT_MAX_CM,
+            input.heightCm, DEFAULT_HEIGHT_CM,
+            WarningCode.HEIGHT_INVALID_FALLBACK, WarningCode.HEIGHT_OUTSIDE_TYPICAL_RANGE,
+            warnings, TYPICAL_HEIGHT_MIN_CM, TYPICAL_HEIGHT_MAX_CM,
         )
         val weightKg = positiveOrFallback(
-            input.weightKg, DEFAULT_WEIGHT_KG, "Peso", warnings,
-            TYPICAL_WEIGHT_MIN_KG, TYPICAL_WEIGHT_MAX_KG,
+            input.weightKg, DEFAULT_WEIGHT_KG,
+            WarningCode.WEIGHT_INVALID_FALLBACK, WarningCode.WEIGHT_OUTSIDE_TYPICAL_RANGE,
+            warnings, TYPICAL_WEIGHT_MIN_KG, TYPICAL_WEIGHT_MAX_KG,
         )
         val bodyFatPercent = optionalPositive(
-            input.bodyFatPercent, "Gordura corporal", warnings,
+            input.bodyFatPercent, WarningCode.BODY_FAT_INVALID,
+            WarningCode.BODY_FAT_OUTSIDE_TYPICAL_RANGE, warnings,
             TYPICAL_BODY_FAT_MIN, TYPICAL_BODY_FAT_MAX,
         )
         val targetWeightKg = optionalPositive(
-            input.targetWeightKg, "Peso-alvo", warnings,
+            input.targetWeightKg, WarningCode.TARGET_WEIGHT_INVALID,
+            WarningCode.TARGET_WEIGHT_OUTSIDE_TYPICAL_RANGE, warnings,
             TYPICAL_WEIGHT_MIN_KG, TYPICAL_WEIGHT_MAX_KG,
         )
         val weeks = input.weeks?.takeIf { it >= 1 }
         if (input.weeks != null && weeks == null) {
-            warnings += "Prazo inválido ignorado; informe ao menos 1 semana."
+            warnings += DomainWarning.of(WarningCode.WEEKS_INVALID, "minWeeks" to 1)
         }
 
         val isMinor = age < MINOR_AGE
@@ -127,7 +136,7 @@ object OnboardingPlanner {
             // mass and a NaN composition equation; keep the maths finite without changing
             // any user-entered value outside of that sanity path.
             bmr = Bmr.fromBody(weightKg, heightCm, age, input.sex)
-            warnings += "Composição corporal inconsistente; gasto basal estimado sem o percentual de gordura."
+            warnings += DomainWarning(WarningCode.BODY_COMPOSITION_INCONSISTENT_BMR)
         }
         if (!bmr.isFinite()) bmr = 0.0
         bmr = bmr.coerceAtLeast(0.0)
@@ -144,7 +153,7 @@ object OnboardingPlanner {
             val goalMismatch = (input.goal == GoalType.CUT && toLoseKg <= 0.0) ||
                 (input.goal == GoalType.BULK && toLoseKg >= 0.0)
             if (goalMismatch) {
-                warnings += "Peso-alvo incompatível com a meta; objetivo padrão mantido."
+                warnings += DomainWarning.of(WarningCode.TARGET_WEIGHT_GOAL_MISMATCH, "goal" to input.goal.name)
             } else {
                 val neededRate = abs(toLoseKg) / weeks
                 val referenceRate = if (isMinor) {
@@ -153,28 +162,29 @@ object OnboardingPlanner {
                     REFERENCE_ADULT_RATE_KG_PER_WEEK
                 }
                 if (neededRate > referenceRate) {
-                    warnings += "Ritmo solicitado ${number(neededRate, 2)} kg/semana acima do referencial de " +
-                        "${number(referenceRate, 2)} kg/semana; prazo e meta calculados exatamente como informados."
+                    warnings += rateWarning(neededRate, referenceRate)
                 }
                 val weeklyRateKg = toLoseKg / weeks
                 dailyKcal = tdee - weeklyRateKg * Expenditure.KCAL_PER_KG / 7.0
             }
         } else if (targetWeightKg != null || input.weeks != null) {
-            warnings += "Informe peso-alvo e prazo juntos; meta padrão mantida."
+            warnings += DomainWarning(WarningCode.TARGET_AND_WEEKS_REQUIRED)
         }
 
         if (isMinor) {
-            warnings += "Menor de 18 anos: o app sugere deficit de ate 10%, mas voce pode ajustar. " +
-                "Acompanhe com um responsavel/profissional."
-            warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
+            warnings += DomainWarning.of(
+                WarningCode.MINOR_DEFICIT_ADVISORY,
+                "maxDeficitPercent" to MINOR_MAX_DEFICIT_PERCENT,
+            )
+            warnings += DomainWarning(WarningCode.NOT_MEDICAL_ADVICE)
             if (input.diet == DietStyle.KETO) {
-                warnings += "Dietas cetogênicas não são indicadas para menores; acompanhe com um responsável/profissional."
+                warnings += DomainWarning(WarningCode.KETO_NOT_RECOMMENDED_FOR_MINORS)
             }
         }
 
         if (!dailyKcal.isFinite()) dailyKcal = tdee
         if (dailyKcal < 0.0) {
-            warnings += "A meta resultaria em calorias negativas; valor ajustado para 0 kcal/dia."
+            warnings += DomainWarning.of(WarningCode.NEGATIVE_KCAL_CLAMPED, "floorKcal" to 0)
             dailyKcal = 0.0
         }
 
@@ -188,26 +198,34 @@ object OnboardingPlanner {
             diet = input.diet,
         )
         if (macros.floorsRelaxed) {
-            warnings += "Metas de proteína e gordura reduzidas para caber no alvo calórico."
+            warnings += DomainWarning(WarningCode.MACRO_FLOORS_RELAXED)
         }
 
         val proteinFloorG = MacroPlanner.proteinPerKgFatFreeMass(input.goal, ProteinTier.MODERATE) *
             (profile.fatFreeMassKg ?: 0.75 * weightKg)
         if (dailyKcal < proteinFloorG * 4.0 + FAT_FLOOR_PER_KG * weightKg * 9.0) {
-            warnings += "Calorias insuficientes para proteína e gordura mínimas; carboidratos zerados."
+            warnings += DomainWarning.of(
+                WarningCode.INSUFFICIENT_KCAL_FOR_FLOORS,
+                "kcal" to dailyKcal, "proteinFloorG" to proteinFloorG,
+                "fatFloorG" to FAT_FLOOR_PER_KG * weightKg,
+            )
         }
 
-        val explanation = buildString {
-            append("Com base em ${number(weightKg)} kg, ${number(heightCm, 0)} cm, $age anos ")
-            append("e atividade ${activityLabel(input.activityLevel)}, seu gasto estimado é ")
-            append("${number(tdee, 0)} kcal/dia. Meta: ${goalLabel(input.goal)} com ")
-            append("${number(dailyKcal, 0)} kcal/dia, ${macros.proteinG} g de proteína, ")
-            append("${macros.fatG} g de gordura e ${macros.carbG} g de carboidrato.")
-            if (isMinor) append(" Cálculo pediátrico (Schofield), com acompanhamento.")
-            if (plannedWeeks != null && targetWeightKg != null) {
-                append(" Prazo: $plannedWeeks semanas para ${number(targetWeightKg)} kg.")
-            }
-        }
+        val explanationParams = LinkedHashMap<String, Any?>()
+        explanationParams["mode"] = "ONBOARDING"
+        explanationParams["weightKg"] = weightKg
+        explanationParams["heightCm"] = heightCm
+        explanationParams["age"] = age
+        explanationParams["activity"] = input.activityLevel.name
+        explanationParams["tdee"] = tdee
+        explanationParams["goal"] = input.goal.name
+        explanationParams["kcal"] = dailyKcal
+        explanationParams["proteinG"] = macros.proteinG
+        explanationParams["fatG"] = macros.fatG
+        explanationParams["carbG"] = macros.carbG
+        explanationParams["isMinor"] = isMinor
+        if (plannedWeeks != null) explanationParams["weeks"] = plannedWeeks
+        if (targetWeightKg != null) explanationParams["targetKg"] = targetWeightKg
 
         return PlanResult(
             bmr = bmr,
@@ -218,72 +236,60 @@ object OnboardingPlanner {
             carbG = macros.carbG.coerceAtLeast(0),
             isMinor = isMinor,
             warnings = warnings,
-            explanation = explanation,
+            explanation = DomainWarning.of(WarningCode.PLAN_EXPLANATION, explanationParams),
         )
     }
+
+    private fun rateWarning(rate: Double, reference: Double): DomainWarning =
+        DomainWarning.of(
+            WarningCode.RATE_ABOVE_REFERENCE,
+            "rateKgPerWeek" to rate,
+            "referenceKgPerWeek" to reference,
+        )
 
     private fun positiveOrFallback(
         value: Double,
         fallback: Double,
-        field: String,
-        warnings: MutableList<String>,
+        invalidCode: WarningCode,
+        typicalCode: WarningCode,
+        warnings: MutableList<DomainWarning>,
         typicalMin: Double? = null,
         typicalMax: Double? = null,
     ): Double {
         if (!value.isFinite() || value <= 0.0) {
-            warnings += "$field inválido; usando ${number(fallback)} como valor neutro."
+            warnings += DomainWarning.of(invalidCode, "fallback" to fallback)
             return fallback
         }
-        warnIfOutsideTypical(value, field, warnings, typicalMin, typicalMax)
+        warnIfOutsideTypical(value, warnings, typicalCode, typicalMin, typicalMax)
         return value
     }
 
     private fun optionalPositive(
         value: Double?,
-        field: String,
-        warnings: MutableList<String>,
+        invalidCode: WarningCode,
+        typicalCode: WarningCode,
+        warnings: MutableList<DomainWarning>,
         typicalMin: Double? = null,
         typicalMax: Double? = null,
     ): Double? {
         if (value == null) return null
         if (!value.isFinite() || value <= 0.0) {
-            warnings += "$field inválido; ignorado."
+            warnings += DomainWarning(invalidCode)
             return null
         }
-        warnIfOutsideTypical(value, field, warnings, typicalMin, typicalMax)
+        warnIfOutsideTypical(value, warnings, typicalCode, typicalMin, typicalMax)
         return value
     }
 
     private fun warnIfOutsideTypical(
         value: Double,
-        field: String,
-        warnings: MutableList<String>,
+        warnings: MutableList<DomainWarning>,
+        code: WarningCode,
         typicalMin: Double?,
         typicalMax: Double?,
     ) {
         if ((typicalMin != null && value < typicalMin) || (typicalMax != null && value > typicalMax)) {
-            warnings += "$field fora da faixa usual; valor informado mantido."
+            warnings += DomainWarning.of(code, "value" to value, "min" to typicalMin, "max" to typicalMax)
         }
-    }
-
-    private fun number(value: Double, digits: Int = 1): String {
-        val format = NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-BR"))
-        format.minimumFractionDigits = 0
-        format.maximumFractionDigits = digits
-        return format.format(value)
-    }
-
-    private fun activityLabel(level: ActivityLevel): String = when (level) {
-        ActivityLevel.SEDENTARY -> "sedentária"
-        ActivityLevel.LIGHT -> "leve"
-        ActivityLevel.MODERATE -> "moderada"
-        ActivityLevel.HIGH -> "alta"
-        ActivityLevel.ATHLETE -> "de atleta"
-    }
-
-    private fun goalLabel(goal: GoalType): String = when (goal) {
-        GoalType.CUT -> "perder peso"
-        GoalType.MAINTAIN -> "manter o peso"
-        GoalType.BULK -> "ganhar massa"
     }
 }

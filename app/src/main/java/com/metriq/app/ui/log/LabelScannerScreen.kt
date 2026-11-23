@@ -5,7 +5,9 @@ import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -53,6 +55,37 @@ import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.core.NutritionLabelParser
 import java.util.concurrent.Executors
 
+/**
+ * Only this method touches the experimental [ImageProxy.image]; neither the screen nor
+ * its callers need to opt in.
+ */
+private class LabelAnalyzer(
+    private val busy: androidx.compose.runtime.MutableState<Boolean>,
+    private val parser: NutritionLabelParser,
+    private val onParsed: (NutritionLabelParser.ParsedLabel) -> Unit,
+) : ImageAnalysis.Analyzer {
+    @ExperimentalGetImage
+    override fun analyze(proxy: ImageProxy) {
+        val media = proxy.image
+        if (media == null || busy.value) {
+            proxy.close()
+            return
+        }
+        busy.value = true
+        val image = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            .process(image)
+            .addOnSuccessListener { result ->
+                val value = parser.parse(result.text)
+                if (value.confidence > 0.35f) onParsed(value)
+            }
+            .addOnCompleteListener {
+                busy.value = false
+                proxy.close()
+            }
+    }
+}
+
 @Composable
 fun LabelScannerScreen(
     onBack: () -> Unit,
@@ -83,25 +116,10 @@ fun LabelScannerScreen(
                         val analyzer = ImageAnalysis.Builder()
                             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
-                        analyzer.setAnalyzer(executor) { proxy ->
-                            val media = proxy.image
-                            if (media == null || busy.value) {
-                                proxy.close()
-                                return@setAnalyzer
-                            }
-                            busy.value = true
-                            val image = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
-                            TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                                .process(image)
-                                .addOnSuccessListener { result ->
-                                    val value = parser.parse(result.text)
-                                    if (value.confidence > 0.35f) parsed = value
-                                }
-                                .addOnCompleteListener {
-                                    busy.value = false
-                                    proxy.close()
-                                }
-                        }
+                        analyzer.setAnalyzer(
+                            executor,
+                            LabelAnalyzer(busy, parser) { value -> parsed = value },
+                        )
                         provider?.unbindAll()
                         provider?.bindToLifecycle(
                             lifecycleOwner,

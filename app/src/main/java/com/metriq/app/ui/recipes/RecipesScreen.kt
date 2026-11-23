@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.metriq.app.AppGraph
 import com.metriq.app.ui.common.SubScreen
 import com.metriq.app.ui.components.FoodRow
 import com.metriq.app.ui.components.MetriqButton
@@ -39,6 +42,18 @@ import com.metriq.app.ui.theme.*
 import com.metriq.data.RecipeDraft
 import com.metriq.data.db.Food
 import com.metriq.data.db.Recipe
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+/** Fallback used when the host does not supply a ViewModel-backed delete callback. */
+private fun deleteRecipeOnIo(id: Long) {
+    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        // RecipeRepository.delete notifies RECIPE; the dashboard then refreshes.
+        AppGraph.store.recipe.delete(id)
+    }
+}
 
 @Composable
 fun RecipesScreen(
@@ -47,12 +62,14 @@ fun RecipesScreen(
     onAdd: (RecipeDraft) -> Unit,
     onLog: (Long) -> Unit,
     onBack: () -> Unit,
+    onDelete: (Long) -> Unit = ::deleteRecipeOnIo,
 ) {
     var name by remember { mutableStateOf("") }
     var servings by remember { mutableStateOf("1") }
     var grams by remember { mutableStateOf("100") }
     var selectedFood by remember { mutableStateOf<Food?>(null) }
     var items by remember { mutableStateOf<List<Pair<Food, Double>>>(emptyList()) }
+    var pendingDelete by remember { mutableStateOf<Recipe?>(null) }
 
     SubScreen(stringResource(R.string.recipes), onBack) {
         Text(
@@ -98,6 +115,13 @@ fun RecipesScreen(
                                 color = MetriqColors.ink3,
                             )
                         }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.recipe_delete),
+                            style = MaterialTheme.typography.caption,
+                            color = MetriqColors.danger,
+                            modifier = Modifier.clickable { pendingDelete = recipe },
+                        )
                         Spacer(Modifier.width(8.dp))
                         Box(
                             Modifier
@@ -292,6 +316,34 @@ fun RecipesScreen(
                 .alpha(if (name.isNotBlank() && items.isNotEmpty()) 1f else 0.5f),
         )
         Spacer(Modifier.height(12.dp))
+
+        val deleting = pendingDelete
+        if (deleting != null) {
+            AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text(stringResource(R.string.recipe_delete_title)) },
+                text = {
+                    Text(
+                        stringResource(R.string.recipe_delete_message, deleting.name),
+                        style = MaterialTheme.typography.body,
+                        color = MetriqColors.ink2,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onDelete(deleting.id)
+                        pendingDelete = null
+                    }) {
+                        Text(stringResource(R.string.recipe_delete))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDelete = null }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+            )
+        }
     }
 }
 

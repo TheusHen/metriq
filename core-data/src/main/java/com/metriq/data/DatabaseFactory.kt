@@ -32,6 +32,10 @@ class MetriqStore(
     val nutrientTarget = NutrientTargetRepository(db, notifier)
     val recipe = RecipeRepository(db, notifier, driver)
     val program = ProgramRepository(db)
+    val backup = BackupRepository(driver, notifier)
+    // Reassigned by the app at startup to the current-month release tag (with the
+    // user override applied); core-data itself cannot compute that app-owned default.
+    var foodPacks = FoodPackManager(food, settings)
 }
 
 object DatabaseFactory {
@@ -45,6 +49,14 @@ object DatabaseFactory {
             context,
             "metriq.db",
             callback = object : AndroidSqliteDriver.Callback(MetriqSchema) {
+                override fun onConfigure(db: SupportSQLiteDatabase) {
+                    // Enforce REFERENCES declared in Metriq.sq (e.g. logEntry.foodId).
+                    // Deliberately no ON DELETE CASCADE: SQLite cannot add that to an
+                    // existing table without a full rebuild, which is too risky for
+                    // already-installed databases. See the final report for details.
+                    db.setForeignKeyConstraintsEnabled(true)
+                }
+
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                     // Data-preserving, additive steps only; never DROP an existing table.
                     MetriqMigrations.migrate(oldVersion.toLong(), newVersion.toLong()) { db.execSQL(it) }

@@ -43,5 +43,7 @@ class ScreenTest {
         assertEquals(Screen.PROFILE, Screen.SETTINGS.parent)
         assertEquals(Screen.SETTINGS, Screen.AI_MODELS.parent)
         assertEquals(Screen.SETTINGS, Screen.INTEGRATIONS.parent)
+        assertEquals(Screen.SETTINGS, Screen.BACKUP.parent)
+        assertEquals(Screen.SETTINGS, Screen.FOOD_PACKS.parent)
     }
 }

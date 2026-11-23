@@ -16,7 +16,7 @@ import com.metriq.data.db.MetriqDatabase
 object MetriqMigrations {
 
     /** Schema version 1 is the legacy, unversioned database. */
-    const val VERSION = 3L
+    const val VERSION = 4L
 
     /** Maps the version being upgraded FROM to the SQL applied on the way to the next version. */
     private val STEPS: Map<Long, List<String>> = mapOf(
@@ -28,6 +28,14 @@ object MetriqMigrations {
             // first and then add the constraint as an index (additive, data-preserving).
             "DELETE FROM nutrientTarget WHERE id NOT IN (SELECT MIN(id) FROM nutrientTarget GROUP BY nutrient)",
             "CREATE UNIQUE INDEX IF NOT EXISTS nutrientTarget_nutrient ON nutrientTarget(nutrient)",
+        ),
+        3L to listOf(
+            // Purely additive: no table is rewritten and no row is deleted. The same
+            // indexes are declared in Metriq.sq so fresh installs get them too.
+            "CREATE INDEX IF NOT EXISTS bodyMeasurement_date ON bodyMeasurement(date)",
+            "CREATE INDEX IF NOT EXISTS progressPhoto_date ON progressPhoto(date)",
+            "CREATE INDEX IF NOT EXISTS habitLog_date ON habitLog(date)",
+            "CREATE INDEX IF NOT EXISTS food_name_lower ON food(lower(name))",
         ),
     )
 

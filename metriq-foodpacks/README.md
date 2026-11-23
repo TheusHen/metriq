@@ -43,3 +43,23 @@ completa e a validação de tamanho (<2 MB) passarem. `scripts/convert_expanded.
 contém apenas funções puras, testadas sem rede.
 
 Testes: `python -m pytest tests -q`
+
+## Publicação de packs (para o downloader do app)
+
+O workflow `.github/workflows/build-food-packs.yml` cria uma release com tag
+`packs-YYYY-MM` (ex.: `packs-2026-11`) contendo `manifest.json` e todos os
+`packs/*.tsv`. Para o repositório `TheusHen/metriq`, o downloader deve usar:
+
+- Release: `https://github.com/TheusHen/metriq/releases/tag/packs-YYYY-MM`
+- Manifesto: `https://github.com/TheusHen/metriq/releases/download/packs-YYYY-MM/manifest.json`
+- Packs: `https://github.com/TheusHen/metriq/releases/download/packs-YYYY-MM/<file>`
+
+Onde `<file>` vem de cada entrada `packs[].file` do manifesto (por exemplo
+`off-global.tsv` e `usda.tsv`). O manifesto traz `version`, `size`, `count` e
+`sha256` por pack — usar esses campos para validar o download. Não usar
+`/releases/latest`: as releases de APK usam outra tag (`v<versão>-r<run>`).
+
+Nota: o workflow foi movido de `metriq-foodpacks/.github/workflows/build_packs.yml`
+para `.github/workflows/build-food-packs.yml` (raiz do repositório), porque o GitHub
+Actions só executa workflows na pasta `.github/workflows/` da raiz. Os passos usam
+`working-directory: metriq-foodpacks`; os padrões `hashFiles()` são relativos à raiz.

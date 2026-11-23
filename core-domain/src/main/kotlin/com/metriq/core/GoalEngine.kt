@@ -1,7 +1,5 @@
 package com.metriq.core
 
-import java.text.NumberFormat
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -21,9 +19,9 @@ data class RecalculatedPlan(
     val plan: PlanResult,
     val suggestedKcal: Int,
     val appliedKcal: Int,
-    val warnings: List<String>,
+    val warnings: List<DomainWarning>,
     val didClamp: Boolean,
-    val summary: String,
+    val summary: DomainWarning,
 )
 
 /**
@@ -35,7 +33,7 @@ data class RecalculatedPlan(
  * kept), unless [GoalOverride.followExpenditure] asks for a fresh expenditure-based goal.
  * Unsafe rates and floor breaches remain advisory warnings.
  *
- * The function is pure: no clock, I/O or Android APIs.
+ * The function is pure: no clock, I/O, Android APIs or locale/language formatting.
  */
 object GoalEngine {
 
@@ -44,7 +42,7 @@ object GoalEngine {
 
     private const val FAT_FLOOR_PER_KG = 0.5
     private const val ADULT_BMR_FACTOR = 1.10
-    private const val MINOR_MAX_DEFICIT_SHARE = 0.10
+    private const val MINOR_MAX_DEFICIT_PERCENT = 10
     private const val REFERENCE_ADULT_RATE_KG_PER_WEEK = 0.5
     private const val REFERENCE_MINOR_RATE_KG_PER_WEEK = 0.25
     private const val DEFAULT_ACTIVITY_FACTOR = 1.55
@@ -86,22 +84,21 @@ object GoalEngine {
 
         val target = override.targetWeightKg?.let { if (it.isFinite() && it > 0.0) it else null }
         val weeks = override.weeks?.takeIf { it >= 1 }
-        val hasDeadline = target != null && weeks != null
 
-        val warnings = ArrayList<String>(suggested.warnings)
+        val warnings = ArrayList<DomainWarning>(suggested.warnings)
         warnings.addAll(rateWarnings(override, weightKg, minor))
 
         if (override.dailyKcal < 0) {
-            warnings += "Meta negativa ignorada; ajustada para 0 kcal/dia."
+            warnings += DomainWarning.of(WarningCode.NEGATIVE_KCAL_CLAMPED, "floorKcal" to 0)
         }
         if (!profile.weightKg.isFinite() || profile.weightKg <= 0.0) {
-            warnings += "Peso inválido; usando ${number(DEFAULT_WEIGHT_KG)} kg como valor neutro."
+            warnings += DomainWarning.of(WarningCode.WEIGHT_INVALID_FALLBACK, "fallback" to DEFAULT_WEIGHT_KG)
         }
         if (profile.bodyFatPercent != null && bodyFat == null) {
-            warnings += "Gordura corporal inválida; estimativa feita pelo peso corporal."
+            warnings += DomainWarning(WarningCode.BODY_FAT_INVALID_USING_WEIGHT)
         }
         if (profile.bodyFatPercent != null && bodyFat != null && composedFfm != null && composedFfm <= 0.0) {
-            warnings += "Composição corporal inconsistente; estimativa feita pelo peso corporal."
+            warnings += DomainWarning(WarningCode.BODY_COMPOSITION_INCONSISTENT_USING_WEIGHT)
         }
 
         var didClamp = false
@@ -135,24 +132,39 @@ object GoalEngine {
         val appliedKcal = deadlineKcal ?: followKcal ?: requestedKcal
 
         if (minor) {
-            if (warnings.none { it.contains("profissional de saúde") }) {
-                warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
+            if (warnings.none { it.code == WarningCode.NOT_MEDICAL_ADVICE }) {
+                warnings += DomainWarning(WarningCode.NOT_MEDICAL_ADVICE)
             }
             if (profile.diet == DietStyle.KETO) {
-                warnings += "Dietas cetogênicas não são indicadas para menores; acompanhe com um responsável/profissional."
+                warnings += DomainWarning(WarningCode.KETO_NOT_RECOMMENDED_FOR_MINORS)
             }
-            if (appliedKcal < tdee * (1.0 - MINOR_MAX_DEFICIT_SHARE)) {
-                warnings += "Deficit acima de 10% do gasto: acompanhe com responsavel/profissional."
+            if (appliedKcal < tdee * (1.0 - MINOR_MAX_DEFICIT_PERCENT / 100.0)) {
+                warnings += DomainWarning.of(
+                    WarningCode.MINOR_DEFICIT_ABOVE_LIMIT,
+                    "limitPercent" to MINOR_MAX_DEFICIT_PERCENT,
+                    "tdee" to tdee,
+                    "appliedKcal" to appliedKcal,
+                )
             }
         } else if (appliedKcal < floorKcal) {
-            warnings += "Meta abaixo do piso estimado de $floorKcal kcal/dia: " +
-                "o cálculo substitui orientação profissional? Consulte um profissional de saúde."
+            warnings += DomainWarning.of(
+                WarningCode.KCAL_BELOW_FLOOR,
+                "floorKcal" to floorKcal,
+                "appliedKcal" to appliedKcal,
+            )
         }
 
         if (appliedKcal.toDouble() < macroFloorKcal) {
-            warnings += "Calorias insuficientes para proteína e gordura mínimas; carboidratos zerados."
+            warnings += DomainWarning.of(
+                WarningCode.INSUFFICIENT_KCAL_FOR_FLOORS,
+                "kcal" to appliedKcal,
+                "proteinFloorG" to proteinFloorG,
+                "fatFloorG" to fatFloorG,
+            )
         }
-        override.reason?.takeIf { it.isNotBlank() }?.let { warnings += "Motivo informado: ${it.trim()}" }
+        override.reason?.takeIf { it.isNotBlank() }?.let {
+            warnings += DomainWarning.of(WarningCode.GOAL_REASON, "reason" to it.trim())
+        }
 
         if (deadlineKcal == null && followKcal == null && requestedKcal == suggestedKcal) {
             return RecalculatedPlan(
@@ -161,7 +173,7 @@ object GoalEngine {
                 appliedKcal = suggestedKcal,
                 warnings = warnings,
                 didClamp = false,
-                summary = "Meta mantida em ${number(suggestedKcal)} kcal/dia.",
+                summary = DomainWarning.of(WarningCode.SUMMARY_GOAL_UNCHANGED, "kcal" to suggestedKcal),
             )
         }
 
@@ -174,37 +186,44 @@ object GoalEngine {
             diet = profile.diet,
         )
         if (macros.floorsRelaxed) {
-            warnings += "Metas de proteína e gordura reduzidas para caber no alvo calórico."
+            warnings += DomainWarning(WarningCode.MACRO_FLOORS_RELAXED)
         }
 
-        val explanation = buildString {
-            append(suggested.explanation)
-            if (deadlineKcal != null && target != null && weeks != null) {
-                append(" Meta recalculada de ${number(weightKg)} kg para ${number(target)} kg em $weeks semanas: ")
-                append("${number(appliedKcal)} kcal/dia.")
-            } else if (followKcal != null) {
-                append(" Meta recalculada a partir do gasto atual: ${number(appliedKcal)} kcal/dia.")
-            } else {
-                append(" Meta ajustada manualmente para ${number(appliedKcal)} kcal/dia.")
+        val explanationParams = LinkedHashMap<String, Any?>(suggested.explanation.params)
+        when {
+            deadlineKcal != null && target != null && weeks != null -> {
+                explanationParams["mode"] = "DEADLINE"
+                explanationParams["fromKg"] = weightKg
+                explanationParams["toKg"] = target
+                explanationParams["weeks"] = weeks
             }
+            followKcal != null -> explanationParams["mode"] = "FOLLOW_EXPENDITURE"
+            else -> explanationParams["mode"] = "MANUAL"
         }
+        explanationParams["kcal"] = appliedKcal
+
         val planned = suggested.copy(
             dailyKcal = appliedKcal.toDouble(),
             proteinG = macros.proteinG.coerceAtLeast(0),
             fatG = macros.fatG.coerceAtLeast(0),
             carbG = macros.carbG.coerceAtLeast(0),
             warnings = warnings,
-            explanation = explanation,
+            explanation = DomainWarning.of(WarningCode.PLAN_EXPLANATION, explanationParams),
         )
 
-        val proteinPhrase = if (macros.proteinG >= suggested.proteinG) "proteína mantida" else "proteína reduzida"
-        val carbPhrase = when {
-            macros.carbG < suggested.carbG -> "carboidrato reduzido"
-            macros.carbG > suggested.carbG -> "carboidrato aumentado"
-            else -> "carboidrato mantido"
+        val proteinChange = if (macros.proteinG >= suggested.proteinG) "MAINTAINED" else "REDUCED"
+        val carbChange = when {
+            macros.carbG < suggested.carbG -> "REDUCED"
+            macros.carbG > suggested.carbG -> "INCREASED"
+            else -> "MAINTAINED"
         }
-        val summary = "Meta ajustada de ${number(suggestedKcal)} para ${number(appliedKcal)} kcal/dia — " +
-            "$proteinPhrase, $carbPhrase."
+        val summary = DomainWarning.of(
+            WarningCode.SUMMARY_GOAL_ADJUSTED,
+            "fromKcal" to suggestedKcal,
+            "toKcal" to appliedKcal,
+            "proteinChange" to proteinChange,
+            "carbChange" to carbChange,
+        )
 
         return RecalculatedPlan(
             plan = planned,
@@ -216,20 +235,20 @@ object GoalEngine {
         )
     }
 
-    private fun rateWarnings(override: GoalOverride, weightKg: Double, isMinor: Boolean): List<String> {
-        val result = ArrayList<String>()
+    private fun rateWarnings(override: GoalOverride, weightKg: Double, isMinor: Boolean): List<DomainWarning> {
+        val result = ArrayList<DomainWarning>()
         val target = override.targetWeightKg?.let { if (it.isFinite() && it > 0.0) it else null }
         val weeks = override.weeks?.takeIf { it >= 1 }
 
         if (override.targetWeightKg != null && target == null) {
-            result += "Peso-alvo inválido; ajuste de taxa ignorado."
+            result += DomainWarning(WarningCode.TARGET_WEIGHT_INVALID)
         }
         if (override.weeks != null && weeks == null) {
-            result += "Prazo inválido; ajuste de taxa ignorado."
+            result += DomainWarning.of(WarningCode.WEEKS_INVALID, "minWeeks" to 1)
         }
         if (target == null || weeks == null) {
             if (override.targetWeightKg != null || override.weeks != null) {
-                result += "Informe peso-alvo e prazo juntos; ajuste de taxa ignorado."
+                result += DomainWarning(WarningCode.TARGET_AND_WEEKS_REQUIRED)
             }
             return result
         }
@@ -242,20 +261,14 @@ object GoalEngine {
             REFERENCE_ADULT_RATE_KG_PER_WEEK
         }
         if (neededRate > referenceRate) {
-            result += "Ritmo solicitado ${number(neededRate, 2)} kg/semana acima do referencial de " +
-                "${number(referenceRate, 2)} kg/semana; meta calculada com o prazo informado."
+            result += DomainWarning.of(
+                WarningCode.RATE_ABOVE_REFERENCE,
+                "rateKgPerWeek" to neededRate,
+                "referenceKgPerWeek" to referenceRate,
+            )
         }
         return result
     }
-
-    private fun number(value: Double, digits: Int = 0): String {
-        val format = NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-BR"))
-        format.minimumFractionDigits = 0
-        format.maximumFractionDigits = digits
-        return format.format(if (value.isFinite()) value else 0.0)
-    }
-
-    private fun number(value: Int, digits: Int = 0): String = number(value.toDouble(), digits)
 
     private fun safeDouble(value: Double, fallback: Double = 0.0): Double =
         if (value.isFinite()) value.coerceAtLeast(0.0) else fallback

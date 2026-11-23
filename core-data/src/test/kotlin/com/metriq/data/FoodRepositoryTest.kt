@@ -2,6 +2,9 @@ package com.metriq.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.metriq.data.db.MetriqDatabase
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import java.io.File
 import kotlin.test.Test
@@ -107,6 +110,63 @@ class FoodRepositoryTest {
             servingGrams = 60.0,
         )
         assertEquals(id, store.food.search("special").firstOrNull()?.id)
+    }
+
+    @Test
+    fun `updateCustomFood edits the row in place and keeps it searchable`() = runBlocking {
+        val store = emptyStore()
+        val id = store.food.insertCustomFood(
+            name = "Old oats", brand = "Old brand", calories = 100.0, protein = 10.0,
+            fat = 2.0, carbs = 15.0, fiber = 1.0, sugar = 2.0, sodium = 3.0,
+            servingLabel = "1 scoop", servingGrams = 50.0,
+        )
+
+        store.food.updateCustomFood(
+            id = id, name = "New oats", brand = "New brand", calories = 200.0,
+            protein = 20.0, fat = 4.0, carbs = 30.0, fiber = 5.0, sugar = 6.0,
+            sodium = 7.0, servingLabel = "1 cup", servingGrams = 60.0,
+        )
+
+        val row = store.food.byId(id)!!
+        assertEquals("New oats", row.name)
+        assertEquals("New brand", row.brand)
+        assertEquals(200.0, row.calories, 0.0)
+        assertEquals(20.0, row.protein, 0.0)
+        assertEquals(4.0, row.fat, 0.0)
+        assertEquals(30.0, row.carbs, 0.0)
+        assertEquals(5.0, row.fiber!!, 0.0)
+        assertEquals(6.0, row.sugar!!, 0.0)
+        assertEquals(7.0, row.sodium!!, 0.0)
+        assertEquals("1 cup", row.servingLabel)
+        assertEquals(60.0, row.servingGrams!!, 0.0)
+        assertEquals(1L, row.isCustom)
+        assertEquals(1, store.food.count().toInt())
+        assertEquals(id, store.food.search("new oats").firstOrNull()?.id)
+    }
+
+    @Test
+    fun `updateCustomFood notifies watchers and never edits a base food`() = runBlocking {
+        val store = emptyStore()
+        val customId = store.food.insertCustomFood(
+            "Custom", null, 100.0, 10.0, 2.0, 15.0, null, null, null, null, null,
+        )
+        store.db.metriqQueries.insertFood(
+            source = "base", sourceId = "base-1", barcode = null, name = "Base food",
+            brand = null, category = null, iconId = null, calories = 90.0, protein = 1.0,
+            fat = 1.0, carbs = 1.0, fiber = null, sugar = null, sodium = null,
+            servingLabel = null, servingGrams = null, verified = 1L, isCustom = 0L,
+        )
+        val baseId = store.db.metriqQueries.foodByNameBrand("Base food", "").executeAsOne().id
+        val watcher = DataChangeNotifier()
+        val food = FoodRepository(store.db, store.driver, watcher)
+
+        food.updateCustomFood(customId, "Renamed", null, 120.0, 11.0, 3.0, 16.0, null, null, null, null, null)
+        food.updateCustomFood(baseId, "Hacked", null, 999.0, 1.0, 1.0, 1.0, null, null, null, null, null)
+
+        assertEquals("Renamed", food.byId(customId)?.name)
+        assertEquals("Base food", food.byId(baseId)?.name)
+        val event = withTimeout(1000) { watcher.events.first() }
+        assertEquals(DataType.FOOD_LOG, event.type)
     }
 
     @Test

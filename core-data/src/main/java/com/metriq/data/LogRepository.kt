@@ -42,12 +42,25 @@ class LogRepository(private val db: MetriqDatabase, private val notifier: DataCh
         }
 
     fun add(date: String, hour: Int, foodId: Long, grams: Double, servings: Double = 1.0) {
+        // Online/AI hits carry synthetic non-positive ids. They must go through
+        // FoodRepository.materialize() first; otherwise the log is invisible to the
+        // food JOINs (and is rejected outright once foreign keys are enforced).
+        require(foodId > 0) {
+            "foodId must be a real database row id ($foodId); call FoodRepository.materialize(hit) before logging"
+        }
         db.metriqQueries.insertLogEntry(date, hour.toLong(), foodId, grams, servings, System.currentTimeMillis())
         notifier?.notify(DataType.FOOD_LOG)
     }
 
     fun delete(id: Long) {
         db.metriqQueries.deleteLogEntry(id)
+        notifier?.notify(DataType.FOOD_LOG)
+    }
+
+    /** Corrects the amount of an existing log row; macros are recomputed on read. */
+    fun updateGrams(id: Long, grams: Double) {
+        require(grams > 0.0 && grams.isFinite()) { "grams must be a positive, finite number ($grams)" }
+        db.metriqQueries.updateLogGrams(grams, id)
         notifier?.notify(DataType.FOOD_LOG)
     }
 
