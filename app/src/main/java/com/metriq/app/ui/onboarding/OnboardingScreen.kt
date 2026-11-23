@@ -53,6 +53,7 @@ import com.metriq.app.AppSettings
 import com.metriq.app.R
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.app.ui.theme.Metrics
+import com.metriq.app.ui.theme.Spacing
 import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.bodyStrong
 import com.metriq.app.ui.theme.caption
@@ -116,7 +117,7 @@ fun OnboardingScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = Metrics.pageGutter),
             ) {
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(Spacing.lg))
                 Column(Modifier.graphicsLayer { alpha = reveal.value }) {
                     when (state.step) {
                         0 -> WelcomeStep()
@@ -128,7 +129,7 @@ fun OnboardingScreen(
                         else -> PlanStep(state, viewModel)
                     }
                 }
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(Spacing.lg))
             }
 
             HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
@@ -140,14 +141,14 @@ fun OnboardingScreen(
 @Composable
 private fun ProgressHeader(step: Int) {
     Column(Modifier.fillMaxWidth().padding(horizontal = Metrics.pageGutter)) {
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(Spacing.lg))
         Text(
             text = "PASSO ${step + 1} DE ${OnboardingViewModel.TOTAL_STEPS}",
             style = MaterialTheme.typography.label,
             color = MetriqColors.ink3,
             maxLines = 1,
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(Spacing.sm))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             repeat(OnboardingViewModel.TOTAL_STEPS) { index ->
                 val color = when {
@@ -163,7 +164,7 @@ private fun ProgressHeader(step: Int) {
                 )
             }
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(Spacing.lg))
         HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
     }
 }
@@ -298,7 +299,7 @@ private fun ChoiceRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (!description.isNullOrBlank()) {
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(
                         text = description,
                         style = MaterialTheme.typography.caption,
@@ -345,7 +346,7 @@ private fun NumberField(
     var text by remember { mutableStateOf(initial) }
     Column(modifier) {
         FieldLabel(label)
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(Spacing.sm))
         OutlinedTextField(
             value = text,
             onValueChange = { next ->
@@ -358,7 +359,7 @@ private fun NumberField(
             modifier = Modifier.fillMaxWidth(),
         )
         if (helper != null) {
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(Spacing.sm))
             Text(
                 text = helper,
                 style = MaterialTheme.typography.caption,
@@ -383,7 +384,7 @@ private fun MinorBanner() {
             style = MaterialTheme.typography.bodyStrong,
             color = MetriqColors.ink,
         )
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(Spacing.sm))
         Text(
             text = "Abaixo dos 18 adaptamos as contas à tua idade e mostramos avisos. Podes ajustar a meta livremente; no fim um responsável confirma o plano contigo.",
             style = MaterialTheme.typography.body,
@@ -397,9 +398,9 @@ private fun WelcomeStep() {
     Image(
         painter = painterResource(R.drawable.ic_launcher_foreground),
         contentDescription = "Metriq",
-        modifier = Modifier.size(56.dp),
+        modifier = Modifier.size(104.dp),
     )
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(Spacing.md))
     Text(
         text = "Metriq",
         style = MaterialTheme.typography.display,
@@ -407,19 +408,19 @@ private fun WelcomeStep() {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(Spacing.md))
     Text(
         text = "Registo nutricional local",
         style = MaterialTheme.typography.h2,
         color = MetriqColors.ink2,
     )
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(Spacing.lg))
     Text(
         text = "Um registo de refeições e peso que vive no teu dispositivo. Leu-me bem: não há conta, nem servidor, nem recolha de dados de utilização.",
         style = MaterialTheme.typography.body,
         color = MetriqColors.ink2,
     )
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(Spacing.xl))
     WelcomeFact("Sem conta", "Não pedimos email nem palavra-passe.")
     WelcomeFact("Fica no telemóvel", "Os teus registos não saem do dispositivo.")
     WelcomeFact("Sem telemetria", "Não enviamos estatísticas de utilização.")
@@ -430,7 +431,7 @@ private fun WelcomeStep() {
 private fun WelcomeFact(title: String, description: String) {
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Text(text = title, style = MaterialTheme.typography.bodyStrong, color = MetriqColors.ink)
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(Spacing.xs))
         Text(text = description, style = MaterialTheme.typography.caption, color = MetriqColors.ink3)
     }
     HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
@@ -442,7 +443,7 @@ private fun AboutStep(state: OnboardingState, viewModel: OnboardingViewModel) {
     Spacer(Modifier.height(28.dp))
 
     FieldLabel("Sexo")
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(Spacing.sm))
     ChoiceRow(
         title = "Feminino",
         selected = state.sex == Sex.FEMALE,
@@ -540,7 +541,7 @@ private fun GoalStep(state: OnboardingState, viewModel: OnboardingViewModel) {
 
     Spacer(Modifier.height(28.dp))
     FieldLabel("Meta opcional")
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(Spacing.sm))
     Text(
         text = "Se tens um número em mente, a estimativa ganha contexto.",
         style = MaterialTheme.typography.caption,
@@ -687,7 +688,7 @@ private fun PlanStep(state: OnboardingState, viewModel: OnboardingViewModel) {
                     style = MaterialTheme.typography.bodyStrong,
                     color = MetriqColors.ink,
                 )
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = "Um adulto responsável viu este plano e concorda com ele.",
                     style = MaterialTheme.typography.caption,

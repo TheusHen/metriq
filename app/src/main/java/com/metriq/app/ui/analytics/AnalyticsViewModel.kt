@@ -66,7 +66,7 @@ private val METRICS = listOf(
     MetricDef("intake", "Calorias", "kcal", MetriqColors.accent, Aggregation.SUM, 0),
     MetricDef("expenditure", "Gasto", "kcal", MetriqColors.energy, Aggregation.AVERAGE, 0),
     MetricDef("weight", "Peso", "kg", MetriqColors.trend, Aggregation.AVERAGE, 1),
-    MetricDef("steps", "Passos", "steps", MetriqColors.accent, Aggregation.SUM, 0),
+    MetricDef("steps", "Passos", "passos", MetriqColors.accent, Aggregation.SUM, 0),
     MetricDef("water", "Água", "ml", MetriqColors.fat, Aggregation.SUM, 0),
     MetricDef("protein", "Proteína", "g", MetriqColors.protein, Aggregation.SUM, 0),
     MetricDef("carbs", "Hidratos", "g", MetriqColors.carbs, Aggregation.SUM, 0),
@@ -425,19 +425,19 @@ class AnalyticsViewModel : ViewModel() {
                 AnalyticsFormat.unit(metricId),
             ),
             AnalyticsStat(
-                "Best day",
+                "Melhor dia",
                 best?.let { formatted(metricId, it.value) } ?: "—",
                 best?.let { AnalyticsFormat.date(it.date) } ?: "sem dados",
             ),
             AnalyticsStat(
-                "7-day change",
+                "Variação em 7 dias",
                 change?.let { AnalyticsFormat.signed(metricId, it) } ?: "—",
                 baseline?.let { base ->
                     latest?.let { end ->
-                        "from ${formatted(metricId, base.value)} on ${AnalyticsFormat.date(base.date)}" +
+                        "de ${formatted(metricId, base.value)} em ${AnalyticsFormat.date(base.date)}" +
                             " → ${AnalyticsFormat.date(end.date)}"
                     }
-                } ?: "no 7-day baseline",
+                } ?: "sem base de 7 dias",
             ),
         )
 

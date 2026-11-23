@@ -53,6 +53,7 @@ import com.metriq.app.ui.components.ScreenHeader
 import com.metriq.app.ui.components.SectionHeader
 import com.metriq.app.ui.components.Segmented
 import com.metriq.app.ui.theme.MetriqColors
+import com.metriq.app.ui.theme.Spacing
 import com.metriq.app.ui.theme.bodyStrong
 import com.metriq.app.ui.theme.h2
 import com.metriq.app.ui.theme.caption
@@ -166,7 +167,7 @@ fun DataSettingsScreen(
         ) {
             ScreenHeader(
                 title = "Definições",
-                subtitle = "Stored on this device",
+                subtitle = "Guardado neste dispositivo",
                 onBack = onBack,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
@@ -180,7 +181,7 @@ fun DataSettingsScreen(
                 // Fixed-height slot keeps the caption from shifting layout when it appears.
                 Box(Modifier.fillMaxWidth().height(18.dp)) {
                     Text(
-                        "Saved locally",
+                        "Guardado localmente",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.accent,
                         maxLines = 1,
@@ -189,8 +190,8 @@ fun DataSettingsScreen(
                 }
 
                 // ---------------------------------------------------------------- Units & display
-                SectionHeader(title = "Units & display")
-                Spacer(Modifier.height(8.dp))
+                SectionHeader(title = "Unidades e ecrã")
+                Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingChoice(
                         label = "Unidade de peso",
@@ -199,7 +200,7 @@ fun DataSettingsScreen(
                         selected = value(AppSettings.UNIT_SYSTEM),
                         onSelect = { change(AppSettings.UNIT_SYSTEM, it) },
                     )
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     SettingChoice(
                         label = "Unidade de energia",
                         options = listOf("kcal", "kJ"),
@@ -207,30 +208,30 @@ fun DataSettingsScreen(
                         selected = value(AppSettings.ENERGY_UNIT),
                         onSelect = { change(AppSettings.ENERGY_UNIT, it) },
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Hairline()
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     SettingSwitch(
-                        label = "Reduced motion",
-                        subtitle = "Minimize interface animation",
+                        label = "Movimento reduzido",
+                        subtitle = "Minimizar animações da interface",
                         checked = switchState[AppSettings.REDUCED_MOTION] ?: boolValue(AppSettings.REDUCED_MOTION),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.REDUCED_MOTION, it) },
                     )
                     SettingSwitch(
-                        label = "Advanced metrics",
-                        subtitle = "Show nerdy metrics in Analytics",
+                        label = "Métricas avançadas",
+                        subtitle = "Mostrar métricas detalhadas na Análise",
                         checked = switchState[AppSettings.ADVANCED_METRICS] ?: boolValue(AppSettings.ADVANCED_METRICS),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.ADVANCED_METRICS, it) },
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Data & privacy
                 SectionHeader(title = "Dados e privacidade")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
                         "Tudo fica neste dispositivo — sem conta, sem servidor, sem telemetria.",
@@ -239,34 +240,34 @@ fun DataSettingsScreen(
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     MetriqButton(
                         text = "Exportar CSV",
                         onClick = onExport,
                         modifier = Modifier.fillMaxWidth(),
                         primary = false,
                     )
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Hairline()
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     SettingChoice(
-                        label = "Widget refresh",
+                        label = "Atualização do widget",
                         options = listOf("15 min", "30 min", "60 min"),
                         values = listOf("15", "30", "60"),
                         selected = value(AppSettings.WIDGET_REFRESH_MINUTES),
                         onSelect = { change(AppSettings.WIDGET_REFRESH_MINUTES, it) },
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Text(
-                        "Minutes between widget updates — an app restart may be needed.",
+                        "Minutos entre atualizações do widget — pode ser necessário reiniciar a app.",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Hairline()
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Text(
                         "Metriq 0.1.0",
                         style = MaterialTheme.typography.label,
@@ -274,9 +275,9 @@ fun DataSettingsScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(
-                        "AGPL-3.0 · clean-room implementation, no code copied from other apps.",
+                        "AGPL-3.0 · implementação independente, sem código copiado de outras apps.",
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 2,
@@ -284,11 +285,11 @@ fun DataSettingsScreen(
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Integrations
-                SectionHeader(title = "Integrations")
-                Spacer(Modifier.height(8.dp))
+                SectionHeader(title = "Integrações")
+                Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
                         "HEALTH CONNECT",
@@ -297,7 +298,7 @@ fun DataSettingsScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Text(
                         healthStatus,
                         style = MaterialTheme.typography.bodyStrong,
@@ -305,7 +306,7 @@ fun DataSettingsScreen(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         MetriqButton(
                             text = "Ligar",
@@ -320,9 +321,9 @@ fun DataSettingsScreen(
                             primary = false,
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Hairline()
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     SettingSwitch(
                         label = "Sincronização automática",
                         subtitle = "Sincronizar com o Health Connect em segundo plano",
@@ -345,7 +346,7 @@ fun DataSettingsScreen(
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.HEALTH_IMPORT_WEIGHT, it) },
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(
                         "Os registos manuais têm sempre prioridade sobre os dados importados.",
                         style = MaterialTheme.typography.caption,
@@ -355,11 +356,11 @@ fun DataSettingsScreen(
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Hevy
                 SectionHeader(title = "Integração Hevy")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
                         "CHAVE DE API",
@@ -368,7 +369,7 @@ fun DataSettingsScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     // A chave permanece oculta e nunca é escrita em logs ou outro Text.
                     OutlinedTextField(
                         value = hevyApiKey,
@@ -393,7 +394,7 @@ fun DataSettingsScreen(
                             unfocusedContainerColor = MetriqColors.surface1,
                         ),
                     )
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Text(
                         when {
                             !hevyConnected && hevyApiKey.isBlank() ->
@@ -406,7 +407,7 @@ fun DataSettingsScreen(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(
                         if (hevyWorkoutCount > 0) "$hevyWorkoutCount treinos importados"
                         else "Nenhum treino importado ainda",
@@ -429,7 +430,7 @@ fun DataSettingsScreen(
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (!hevyLastError.isNullOrBlank()) {
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(Spacing.xs))
                         Text(
                             "Último erro: $hevyLastError",
                             style = MaterialTheme.typography.caption,
@@ -438,9 +439,9 @@ fun DataSettingsScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Hairline()
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         MetriqButton(
                             text = "Conectar",
@@ -461,9 +462,9 @@ fun DataSettingsScreen(
                             primary = false,
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Hairline()
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     SettingSwitch(
                         label = "Sincronização automática",
                         subtitle = "Ler novos treinos do Hevy automaticamente",
@@ -471,7 +472,7 @@ fun DataSettingsScreen(
                         reducedMotion = reducedMotion,
                         onChange = { setHevyAutoSync(it) },
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(
                         "A chave fica criptografada no aparelho. Os treinos são apenas lidos do Hevy; nada é enviado de volta.",
                         style = MaterialTheme.typography.caption,
@@ -481,41 +482,41 @@ fun DataSettingsScreen(
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Analytics defaults
-                SectionHeader(title = "Analytics defaults")
-                Spacer(Modifier.height(8.dp))
+                SectionHeader(title = "Predefinições de análise")
+                Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingChoice(
                         label = "Período predefinido",
-                        options = listOf("7D", "30D", "90D", "1Y"),
+                        options = listOf("7D", "30D", "90D", "1A"),
                         values = listOf("7", "30", "90", "365"),
                         selected = value(AppSettings.ANALYTICS_RANGE),
                         onSelect = { change(AppSettings.ANALYTICS_RANGE, it) },
                     )
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     SettingChoice(
-                        label = "Default metric",
-                        options = listOf("Intake", "Burn", "Peso", "Passos"),
+                        label = "Métrica predefinida",
+                        options = listOf("Ingestão", "Gasto", "Peso", "Passos"),
                         values = listOf("intake", "expenditure", "weight", "steps"),
                         selected = value(AppSettings.ANALYTICS_METRIC),
                         onSelect = { change(AppSettings.ANALYTICS_METRIC, it) },
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
-                SectionHeader(title = "Intelligence")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.xl))
+                SectionHeader(title = "Inteligência")
+                Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingSwitch(
-                        label = "Adaptive macros",
+                        label = "Macros adaptativos",
                         subtitle = "Reajustar hidratos e gordura com o sinal de treino de hoje do Health Connect",
                         checked = switchState[AppSettings.ADAPTIVE_MACROS] ?: boolValue(AppSettings.ADAPTIVE_MACROS),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.ADAPTIVE_MACROS, it) },
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -525,7 +526,7 @@ fun DataSettingsScreen(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "Integrations",
+                                "Integrações",
                                 style = MaterialTheme.typography.bodyStrong,
                                 color = MetriqColors.ink,
                                 maxLines = 1,
@@ -539,7 +540,7 @@ fun DataSettingsScreen(
                         }
                         Text("›", style = MaterialTheme.typography.h2, color = MetriqColors.accent)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(Spacing.md))
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -549,7 +550,7 @@ fun DataSettingsScreen(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "AI & local models",
+                                "IA e modelos locais",
                                 style = MaterialTheme.typography.bodyStrong,
                                 color = MetriqColors.ink,
                                 maxLines = 1,
@@ -585,7 +586,7 @@ private fun SettingChoice(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(Spacing.sm))
     val selectedIndex = values.indexOf(selected).coerceAtLeast(0)
     Segmented(
         options = options,
@@ -609,7 +610,8 @@ private fun SettingSwitch(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clickable { onChange(!checked) },
+            .clickable { onChange(!checked) }
+            .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -620,7 +622,7 @@ private fun SettingSwitch(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text(
                 subtitle,
                 style = MaterialTheme.typography.caption,
@@ -629,7 +631,7 @@ private fun SettingSwitch(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.md))
         Switch(
             checked = checked,
             onCheckedChange = onChange,

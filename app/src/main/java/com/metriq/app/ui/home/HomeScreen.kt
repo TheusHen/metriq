@@ -34,9 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metriq.app.R
 import com.metriq.app.Screen
+import com.metriq.core.TrainingIntensity
 import com.metriq.app.ui.components.EnergyBudget
 import com.metriq.app.ui.components.FoodRow
 import com.metriq.app.ui.components.MetriqButton
@@ -49,6 +51,8 @@ import com.metriq.app.ui.components.WeekStrip
 import com.metriq.app.ui.components.formatCount
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.app.ui.theme.Metrics
+import com.metriq.app.ui.theme.Radius
+import com.metriq.app.ui.theme.Spacing
 import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.bodyStrong
 import com.metriq.app.ui.theme.caption
@@ -95,20 +99,21 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .widthIn(max = Metrics.contentMaxWidth)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = Metrics.pageGutter, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                        .padding(horizontal = Metrics.pageGutter)
+                        .padding(top = Spacing.md, bottom = Spacing.xl),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     StatusRow(state.dateLabel)
                     ScreenHeader(
-                        title = stringResource(R.string.today),
+                        title = "Hoje",
                         subtitle = findingFor(state),
                     )
 
                     if (wide) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
                             Column(
                                 Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                             ) {
                                 BudgetSection(state, onEditGoal)
                                 AdaptationSection(state)
@@ -118,7 +123,7 @@ fun HomeScreen(
                             }
                             Column(
                                 Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                             ) {
                                 TrendSection(state)
                                 ExpenditureSection(state)
@@ -137,7 +142,6 @@ fun HomeScreen(
                         HealthSection(state)
                         CheckinSection(state, onAcceptCheckin)
                     }
-                    Spacer(Modifier.height(4.dp))
                 }
             }
         }
@@ -151,9 +155,9 @@ private fun StatusRow(dateLabel: String) {
         Image(
             painter = painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = "Metriq",
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(28.dp),
         )
-        Spacer(Modifier.width(7.dp))
+        Spacer(Modifier.width(Spacing.sm))
         Text(
             text = "METRIQ",
             style = MaterialTheme.typography.label,
@@ -186,55 +190,58 @@ private fun findingFor(state: DashboardState): String {
 @Composable
 private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
     val recalculation = state.goalRecalculation
-    SectionHeader(
-        title = "Orçamento energético",
-        action = if (recalculation == null) "Editar meta" else null,
-        onAction = onEditGoal,
-    )
-    Spacer(Modifier.height(8.dp))
-    EnergyBudget(
-        consumed = state.kcalConsumed,
-        target = state.kcalTarget,
-        protein = state.proteinG to state.proteinTarget,
-        carbs = state.carbG to state.carbTarget,
-        fat = state.fatG to state.fatTarget,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    if (recalculation != null) {
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = "Meta ajustada: ${formatCount(recalculation.appliedKcal)} kcal " +
-                        "(sugerido ${formatCount(recalculation.suggestedKcal)})",
-                    style = MaterialTheme.typography.bodyStrong,
-                    color = MetriqColors.ink,
-                    maxLines = 2,
-                )
-                Text(
-                    text = recalculation.summary,
-                    style = MaterialTheme.typography.caption,
-                    color = MetriqColors.ink3,
-                    maxLines = 3,
-                )
-                recalculation.warnings.forEach { warning ->
-                    Spacer(Modifier.height(2.dp))
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(
+            title = "Orçamento energético",
+            action = if (recalculation == null) "Editar meta" else null,
+            onAction = onEditGoal,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        EnergyBudget(
+            consumed = state.kcalConsumed,
+            target = state.kcalTarget,
+            protein = state.proteinG to state.proteinTarget,
+            carbs = state.carbG to state.carbTarget,
+            fat = state.fatG to state.fatTarget,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (recalculation != null) {
+            Spacer(Modifier.height(Spacing.md))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        text = warning,
+                        text = "Meta ajustada: ${formatCount(recalculation.appliedKcal)} kcal " +
+                            "(sugerido ${formatCount(recalculation.suggestedKcal)})",
+                        style = MaterialTheme.typography.bodyStrong,
+                        color = MetriqColors.ink,
+                        maxLines = 2,
+                    )
+                    Text(
+                        text = recalculation.summary,
                         style = MaterialTheme.typography.caption,
-                        color = MetriqColors.ink2,
+                        color = MetriqColors.ink3,
                         maxLines = 3,
                     )
+                    recalculation.warnings.forEach { warning ->
+                        Spacer(Modifier.height(Spacing.xs))
+                        Text(
+                            text = warning,
+                            style = MaterialTheme.typography.caption,
+                            color = MetriqColors.ink2,
+                            maxLines = 3,
+                        )
+                    }
                 }
+                Spacer(Modifier.width(Spacing.md))
+                Text(
+                    text = "Editar meta",
+                    style = MaterialTheme.typography.body,
+                    color = MetriqColors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable { onEditGoal() }.padding(vertical = Spacing.xs),
+                )
             }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = "Editar meta",
-                style = MaterialTheme.typography.body,
-                color = MetriqColors.ink2,
-                maxLines = 1,
-                modifier = Modifier.clickable { onEditGoal() }.padding(vertical = 2.dp),
-            )
         }
     }
 }
@@ -242,59 +249,67 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
 @Composable
 private fun AdaptationSection(state: DashboardState) {
     val adaptation = state.macroAdaptation ?: return
-    val intensity = adaptation.intensity.name
-        .lowercase(Locale.ENGLISH)
-        .replaceFirstChar { it.uppercase() }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Adaptação de macros",
+                style = MaterialTheme.typography.h2,
+                color = MetriqColors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = intensityLabel(adaptation.intensity),
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+                maxLines = 1,
+            )
+        }
+        Spacer(Modifier.height(Spacing.sm))
         Text(
-            text = "Macro adaptation",
-            style = MaterialTheme.typography.h2,
-            color = MetriqColors.ink,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
+            text = adaptation.reason,
+            style = MaterialTheme.typography.body,
+            color = MetriqColors.ink2,
+            maxLines = 2,
         )
-        Text(text = intensity, style = MaterialTheme.typography.caption, color = MetriqColors.ink3)
     }
-    Spacer(Modifier.height(6.dp))
-    Text(
-        text = adaptation.reason,
-        style = MaterialTheme.typography.body,
-        color = MetriqColors.ink2,
-        maxLines = 2,
-    )
 }
 
 /** Compact, honest training readout — real numbers only, no tinted icon slots. */
 @Composable
 private fun TrainingSection(state: DashboardState) {
-    SectionHeader(title = "Treino")
-    Spacer(Modifier.height(6.dp))
-    val signal = state.trainingSignal
-    val muscles = signal.muscles.sorted().joinToString(", ")
-    Text(
-        text = muscles.ifEmpty { "Sem grupos musculares registrados" },
-        style = MaterialTheme.typography.body,
-        color = MetriqColors.ink2,
-        maxLines = 2,
-    )
-    Spacer(Modifier.height(4.dp))
-    val intensity = signal.intensity.toString()
-        .lowercase(Locale.ENGLISH)
-        .replaceFirstChar { it.uppercase(Locale.ENGLISH) }
-    Text(
-        text = String.format(Locale.ENGLISH, "%.0f", signal.volumeKg.toDouble()) +
-            " kg · " + signal.durationMinutes.toString().removeSuffix(".0") + " min · " + intensity,
-        style = MaterialTheme.typography.caption,
-        color = MetriqColors.ink3,
-        maxLines = 1,
-    )
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Treino")
+        Spacer(Modifier.height(Spacing.sm))
+        val signal = state.trainingSignal
+        val muscles = signal.muscles.sorted().joinToString(", ")
+        Text(
+            text = muscles.ifEmpty { "Sem grupos musculares registrados" },
+            style = MaterialTheme.typography.body,
+            color = MetriqColors.ink2,
+            maxLines = 2,
+        )
+        Spacer(Modifier.height(Spacing.xs))
+        Text(
+            text = String.format(Locale.ENGLISH, "%.0f", signal.volumeKg.toDouble()) +
+                " kg · " + signal.durationMinutes.toString().removeSuffix(".0") +
+                " min · " + intensityLabel(signal.intensity),
+            style = MaterialTheme.typography.caption,
+            color = MetriqColors.ink3,
+            maxLines = 1,
+        )
+    }
 }
 
 @Composable
 private fun WeekSection(state: DashboardState) {
-    SectionHeader(title = "Esta semana")
-    Spacer(Modifier.height(8.dp))
-    WeekStrip(state.week, Modifier.fillMaxWidth())
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Esta semana")
+        Spacer(Modifier.height(Spacing.sm))
+        WeekStrip(state.week, Modifier.fillMaxWidth())
+    }
 }
 
 @Composable
@@ -303,57 +318,59 @@ private fun FoodLogSection(
     onAddFood: () -> Unit,
     onDeleteLog: (Long) -> Unit,
 ) {
-    SectionHeader(
-        title = "Registo alimentar",
-        action = if (state.logItems.isEmpty()) "Adicionar" else "View all",
-        onAction = onAddFood,
-    )
-    Spacer(Modifier.height(8.dp))
-    if (state.logItems.isEmpty()) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .border(1.dp, MetriqColors.border, RoundedCornerShape(8.dp))
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.nothing_logged),
-                style = MaterialTheme.typography.body,
-                color = MetriqColors.ink3,
-                maxLines = 2,
-            )
-        }
-    } else {
-        val items = state.logItems.take(3)
-        items.forEachIndexed { index, item ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                FoodRow(
-                    name = item.name,
-                    meta = String.format(
-                        Locale.ENGLISH,
-                        "%02d:00 · %s kcal · %d g",
-                        item.hour,
-                        formatCount(item.calories.toInt()),
-                        item.grams.toInt(),
-                    ),
-                    icon = null,
-                    onClick = onAddFood,
-                    modifier = Modifier.weight(1f),
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(
+            title = "Registo alimentar",
+            action = if (state.logItems.isEmpty()) "Adicionar" else "Ver tudo",
+            onAction = onAddFood,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        if (state.logItems.isEmpty()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MetriqColors.border, RoundedCornerShape(Radius.sm))
+                    .padding(horizontal = Spacing.md, vertical = 14.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.nothing_logged),
+                    style = MaterialTheme.typography.body,
+                    color = MetriqColors.ink3,
+                    maxLines = 2,
                 )
-                IconButton(
-                    onClick = { onDeleteLog(item.id) },
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "Remove",
-                        tint = MetriqColors.ink3,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
             }
-            if (index < items.lastIndex) {
-                HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
+        } else {
+            val items = state.logItems.take(3)
+            items.forEachIndexed { index, item ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FoodRow(
+                        name = item.name,
+                        meta = String.format(
+                            Locale.ENGLISH,
+                            "%02d:00 · %s kcal · %d g",
+                            item.hour,
+                            formatCount(item.calories.toInt()),
+                            item.grams.toInt(),
+                        ),
+                        icon = null,
+                        onClick = onAddFood,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = { onDeleteLog(item.id) },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Remover",
+                            tint = MetriqColors.ink3,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+                if (index < items.lastIndex) {
+                    HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
+                }
             }
         }
     }
@@ -364,7 +381,7 @@ private fun TrendSection(state: DashboardState) {
     val rate = state.trendChangePerWeek
     val rateText = when {
         rate == null -> "A recolher dados"
-        abs(rate) < 0.02 -> "Holding steady"
+        abs(rate) < 0.02 -> "Estável"
         rate < 0 -> "A descer ${format2(abs(rate))} kg por semana"
         else -> "A subir ${format2(rate)} kg por semana"
     }
@@ -374,117 +391,123 @@ private fun TrendSection(state: DashboardState) {
         state.goalLabel.equals("Gain", ignoreCase = true) && rate > 0 -> MetriqColors.success
         else -> MetriqColors.danger
     }
-    SectionHeader(title = "Tendência de peso")
-    Spacer(Modifier.height(8.dp))
-    Panel {
-        Row(verticalAlignment = Alignment.Bottom) {
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Tendência de peso")
+        Spacer(Modifier.height(Spacing.sm))
+        Panel {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = format1(state.trendKg),
+                    style = MaterialTheme.typography.number24.copy(fontFeatureSettings = "tnum"),
+                    color = MetriqColors.ink,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                Text(
+                    text = "kg",
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink3,
+                    maxLines = 1,
+                    modifier = Modifier.padding(bottom = 3.dp),
+                )
+            }
             Text(
-                text = format1(state.trendKg),
-                style = MaterialTheme.typography.number24.copy(fontFeatureSettings = "tnum"),
-                color = MetriqColors.ink,
+                text = rateText,
+                style = MaterialTheme.typography.caption,
+                color = rateColor,
                 maxLines = 1,
             )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "kg",
-                style = MaterialTheme.typography.caption,
-                color = MetriqColors.ink3,
-                maxLines = 1,
-                modifier = Modifier.padding(bottom = 3.dp),
+            Spacer(Modifier.height(Spacing.sm))
+            TrendChart(
+                values = state.trendSeries,
+                color = MetriqColors.ink2,
+                modifier = Modifier.fillMaxWidth(),
+                showPoints = false,
             )
         }
-        Text(
-            text = rateText,
-            style = MaterialTheme.typography.caption,
-            color = rateColor,
-            maxLines = 1,
-        )
-        Spacer(Modifier.height(8.dp))
-        TrendChart(
-            values = state.trendSeries,
-            color = MetriqColors.ink2,
-            modifier = Modifier.fillMaxWidth(),
-            showPoints = false,
-        )
     }
 }
 
 @Composable
 private fun ExpenditureSection(state: DashboardState) {
-    SectionHeader(title = "Gasto")
-    Spacer(Modifier.height(8.dp))
     Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        SectionHeader(title = "Gasto")
+        Spacer(Modifier.height(Spacing.sm))
+        Column(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Gasto estimado",
+                    style = MaterialTheme.typography.body,
+                    color = MetriqColors.ink2,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = formatCount(state.expenditureKcal),
+                    style = MaterialTheme.typography.bodyStrong.copy(fontFeatureSettings = "tnum"),
+                    color = MetriqColors.ink,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                Text(
+                    text = "kcal",
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink3,
+                    maxLines = 1,
+                )
+            }
             Text(
-                text = "Estimated burn",
-                style = MaterialTheme.typography.body,
-                color = MetriqColors.ink2,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = formatCount(state.expenditureKcal),
-                style = MaterialTheme.typography.bodyStrong.copy(fontFeatureSettings = "tnum"),
-                color = MetriqColors.ink,
-                maxLines = 1,
-            )
-            Spacer(Modifier.width(3.dp))
-            Text(
-                text = "kcal",
+                text = "${confidenceLabel(state.expenditureConfidence)} confiança",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 1,
             )
-        }
-        Text(
-            text = "${state.expenditureConfidence.replaceFirstChar { it.uppercase() }} confidence",
-            style = MaterialTheme.typography.caption,
-            color = MetriqColors.ink3,
-            maxLines = 1,
-        )
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Objetivo",
-                style = MaterialTheme.typography.body,
-                color = MetriqColors.ink2,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = state.goalLabel,
-                style = MaterialTheme.typography.bodyStrong,
-                color = MetriqColors.ink,
-                maxLines = 1,
-            )
+            Spacer(Modifier.height(Spacing.md))
+            HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
+            Spacer(Modifier.height(Spacing.md))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Objetivo",
+                    style = MaterialTheme.typography.body,
+                    color = MetriqColors.ink2,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = goalLabel(state.goalLabel),
+                    style = MaterialTheme.typography.bodyStrong,
+                    color = MetriqColors.ink,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun HealthSection(state: DashboardState) {
-    SectionHeader(title = "Saúde")
-    Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        HealthStat(
-            label = "Passos",
-            value = state.stepsToday?.let { formatCount(it.toInt()) } ?: "—",
-            modifier = Modifier.weight(1f),
-        )
-        VerticalDivider(thickness = 1.dp, color = MetriqColors.border, modifier = Modifier.height(44.dp))
-        HealthStat(
-            label = "Active kcal",
-            value = state.healthCalories?.let { formatCount(it.toInt()) } ?: "—",
-            modifier = Modifier.weight(1f),
-        )
-        VerticalDivider(thickness = 1.dp, color = MetriqColors.border, modifier = Modifier.height(44.dp))
-        HealthStat(
-            label = "Sessions",
-            value = state.healthExerciseSessions?.toString() ?: "—",
-            modifier = Modifier.weight(1f),
-        )
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Saúde")
+        Spacer(Modifier.height(Spacing.sm))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            HealthStat(
+                label = "Passos",
+                value = state.stepsToday?.let { formatCount(it.toInt()) } ?: "—",
+                modifier = Modifier.weight(1f),
+            )
+            VerticalDivider(thickness = 1.dp, color = MetriqColors.border, modifier = Modifier.height(44.dp))
+            HealthStat(
+                label = "kcal ativos",
+                value = state.healthCalories?.let { formatCount(it.toInt()) } ?: "—",
+                modifier = Modifier.weight(1f),
+            )
+            VerticalDivider(thickness = 1.dp, color = MetriqColors.border, modifier = Modifier.height(44.dp))
+            HealthStat(
+                label = "Sessões",
+                value = state.healthExerciseSessions?.toString() ?: "—",
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
@@ -508,21 +531,44 @@ private fun HealthStat(label: String, value: String, modifier: Modifier = Modifi
 
 @Composable
 private fun CheckinSection(state: DashboardState, onAccept: () -> Unit) {
-    SectionHeader(title = "Check-in semanal")
-    Spacer(Modifier.height(8.dp))
-    Panel {
-        Text(
-            text = if (state.checkinAccepted) stringResource(R.string.checkin_complete)
-            else "Com base no teu gasto atualizado, a tua meta é de ${formatCount(state.kcalTarget)} kcal por dia.",
-            style = MaterialTheme.typography.body,
-            color = MetriqColors.ink,
-            maxLines = 4,
-        )
-        if (!state.checkinAccepted) {
-            Spacer(Modifier.height(12.dp))
-            MetriqButton(text = stringResource(R.string.accept), onClick = onAccept)
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Check-in semanal")
+        Spacer(Modifier.height(Spacing.sm))
+        Panel {
+            Text(
+                text = if (state.checkinAccepted) stringResource(R.string.checkin_complete)
+                else "Com base no teu gasto atualizado, a tua meta é de ${formatCount(state.kcalTarget)} kcal por dia.",
+                style = MaterialTheme.typography.body,
+                color = MetriqColors.ink,
+                maxLines = 4,
+            )
+            if (!state.checkinAccepted) {
+                Spacer(Modifier.height(Spacing.md))
+                MetriqButton(text = stringResource(R.string.accept), onClick = onAccept)
+            }
         }
     }
+}
+
+private fun intensityLabel(intensity: TrainingIntensity): String = when (intensity) {
+    TrainingIntensity.REST -> "Repouso"
+    TrainingIntensity.LIGHT -> "Leve"
+    TrainingIntensity.MODERATE -> "Moderado"
+    TrainingIntensity.HARD -> "Intenso"
+}
+
+private fun confidenceLabel(value: String): String = when (value) {
+    "high" -> "Alta"
+    "medium" -> "Média"
+    "low" -> "Baixa"
+    else -> value.replaceFirstChar { it.uppercase(Locale.ENGLISH) }
+}
+
+private fun goalLabel(value: String): String = when (value) {
+    "cut" -> "Perder"
+    "maintain" -> "Manter"
+    "bulk" -> "Ganhar"
+    else -> value.replaceFirstChar { it.uppercase(Locale.ENGLISH) }
 }
 
 private fun format1(value: Double): String = String.format(Locale.ENGLISH, "%.1f", value)

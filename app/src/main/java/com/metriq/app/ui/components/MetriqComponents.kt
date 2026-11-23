@@ -125,7 +125,7 @@ fun SectionHeader(
                 text = action,
                 style = MaterialTheme.typography.body,
                 color = MetriqColors.ink2,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .heightIn(min = 48.dp)
@@ -181,7 +181,7 @@ fun EnergyBudget(
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             ) {
                 Text(
-                    text = if (over) "Acima da meta" else "Holding",
+                    text = if (over) "Acima da meta" else "Estável",
                     style = MaterialTheme.typography.label,
                     color = if (over) MetriqColors.danger else MetriqColors.ink2,
                     maxLines = 1,

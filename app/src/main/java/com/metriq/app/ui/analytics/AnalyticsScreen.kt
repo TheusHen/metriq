@@ -39,6 +39,8 @@ import com.metriq.app.ui.components.ScreenHeader
 import com.metriq.app.ui.components.SectionHeader
 import com.metriq.app.ui.components.charts.DataChart
 import com.metriq.app.ui.theme.MetriqColors
+import com.metriq.app.ui.theme.Spacing
+import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.h2
 import com.metriq.app.ui.theme.label
@@ -355,43 +357,55 @@ private fun ChartPanel(state: AnalyticsState, viewModel: AnalyticsViewModel, red
             title = AnalyticsFormat.label(state.metricId),
             action = AnalyticsFormat.unit(state.metricId),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Spacing.md))
         val pattern = remember(state.granularity) {
             DateTimeFormatter.ofPattern(
                 if (state.granularity == "month") "MMM ''yy" else "d MMM",
                 Locale.forLanguageTag("pt-PT"),
             )
         }
-        DataChart(
-            points = state.points,
-            primaryColor = AnalyticsFormat.color(state.metricId),
-            comparePoints = state.comparePoints,
-            compareColor = state.compareId?.let { AnalyticsFormat.color(it) } ?: Color.Unspecified,
-            chartType = state.chartType,
-            selectedIndex = state.selectedIndex,
-            onSelect = viewModel::selectPoint,
-            metricId = state.metricId,
-            compareMetricId = state.compareId,
-            xLabel = { it.format(pattern) },
-            reducedMotion = reducedMotion,
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            LegendKey(AnalyticsFormat.label(state.metricId), AnalyticsFormat.color(state.metricId))
-            state.compareId?.let { id ->
-                LegendKey("${AnalyticsFormat.label(id)} · own scale", AnalyticsFormat.color(id))
+        if (state.points.isEmpty()) {
+            // A full-height chart with a centred message reads as broken; keep it compact.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "Sem registos neste período.",
+                    style = MaterialTheme.typography.body,
+                    color = MetriqColors.ink3,
+                )
             }
+        } else {
+            DataChart(
+                points = state.points,
+                primaryColor = AnalyticsFormat.color(state.metricId),
+                comparePoints = state.comparePoints,
+                compareColor = state.compareId?.let { AnalyticsFormat.color(it) } ?: Color.Unspecified,
+                chartType = state.chartType,
+                selectedIndex = state.selectedIndex,
+                onSelect = viewModel::selectPoint,
+                metricId = state.metricId,
+                compareMetricId = state.compareId,
+                xLabel = { it.format(pattern) },
+                reducedMotion = reducedMotion,
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LegendKey(AnalyticsFormat.label(state.metricId), AnalyticsFormat.color(state.metricId))
+                state.compareId?.let { id ->
+                    LegendKey("${AnalyticsFormat.label(id)} · escala própria", AnalyticsFormat.color(id))
+                }
+            }
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = "Toca ou arrasta no gráfico para ver um ponto.",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+            )
         }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = if (state.points.isEmpty()) {
-                "Sem registos neste período."
-            } else {
-                "Toca ou arrasta no gráfico para ver um ponto."
-            },
-            style = MaterialTheme.typography.caption,
-            color = MetriqColors.ink3,
-        )
     }
 }
 
@@ -568,7 +582,7 @@ private fun ContributorsPanel(state: AnalyticsState) {
 @Composable
 private fun AveragesPanel(state: AnalyticsState) {
     Panel {
-        SectionHeader("Averages", action = AnalyticsFormat.unit(state.metricId))
+        SectionHeader("Médias", action = AnalyticsFormat.unit(state.metricId))
         Spacer(Modifier.height(8.dp))
         if (state.averages.isEmpty()) {
             Text(
@@ -667,7 +681,7 @@ private fun TimingPanel(state: AnalyticsState) {
         Spacer(Modifier.height(8.dp))
         Text(
             text = if (peak > 0.0 && peakHour != null) {
-                "Peak ${peakHour.toString().padStart(2, '0')}:00 · ${AnalyticsFormat.cell(peak)} kcal"
+                "Pico ${peakHour.toString().padStart(2, '0')}:00 · ${AnalyticsFormat.cell(peak)} kcal"
             } else {
                 "Sem calorias registadas neste período."
             },
@@ -683,7 +697,7 @@ private fun DataTablePanel(state: AnalyticsState, onSelect: (Int?) -> Unit) {
         SectionHeader("Dados")
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "${state.rows.size} ${if (state.rows.size == 1) "point" else "points"} · Δ vs previous",
+            text = "${state.rows.size} ${if (state.rows.size == 1) "ponto" else "pontos"} · Δ vs anterior",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -696,9 +710,9 @@ private fun DataTablePanel(state: AnalyticsState, onSelect: (Int?) -> Unit) {
         val heads = MaterialTheme.typography.label
         val compareId = state.compareId
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp)) {
-            Text("DATE", style = heads, color = MetriqColors.ink3, modifier = Modifier.weight(1.1f))
+            Text("DATA", style = heads, color = MetriqColors.ink3, modifier = Modifier.weight(1.1f))
             Text(
-                "VALUE", style = heads, color = MetriqColors.ink3, textAlign = TextAlign.End,
+                "VALOR", style = heads, color = MetriqColors.ink3, textAlign = TextAlign.End,
                 modifier = Modifier.weight(1f),
             )
             Text(
