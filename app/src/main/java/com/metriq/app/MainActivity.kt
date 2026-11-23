@@ -18,6 +18,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -30,7 +31,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.metriq.app.health.HealthConnectSyncWorker
 import com.metriq.app.log.FoodRecognitionManager
 import com.metriq.app.hevy.HevyKeyStore
+import com.metriq.app.integrations.HistoricalImport
 import com.metriq.app.ui.aimodels.AiModelsScreen
+import com.metriq.app.ui.integrations.IntegrationsScreen
 import com.metriq.app.ui.goal.GoalEditorSheet
 import com.metriq.app.ui.analytics.AnalyticsScreen
 import com.metriq.app.ui.analytics.AnalyticsViewModel
@@ -102,6 +105,8 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
                 var showGoalEditor by remember { mutableStateOf(false) }
+                var settingsRevision by remember { mutableIntStateOf(0) }
+                val settingsSnapshot = AppSettings.all().also { settingsRevision }
                 // Read the keystore once, not on every recomposition.
                 var hevyKeyInput by remember { mutableStateOf(HevyKeyStore.read(context).orEmpty()) }
                 var hevyKeyPersisted by remember { mutableStateOf(hevyKeyInput) }
@@ -110,6 +115,7 @@ class MainActivity : ComponentActivity() {
                         when (intent?.getStringExtra("start_screen")) {
                             "settings" -> Screen.SETTINGS
                             "analytics" -> Screen.ANALYTICS
+                            "integrations" -> Screen.INTEGRATIONS
                             else -> screenFor(intent?.action) ?: Screen.DASHBOARD
                         },
                     )
@@ -223,6 +229,15 @@ class MainActivity : ComponentActivity() {
                         },
                         budgetConsumed = state.kcalConsumed,
                         budgetTarget = state.kcalTarget,
+                        onCopyFromDay = { date -> viewModel.copyFromDay(date) },
+                        onQuickAdd = { kcal, protein, fat, carbs ->
+                            viewModel.quickAdd(kcal, protein, fat, carbs)
+                            screen = Screen.DASHBOARD
+                        },
+                        onLogDays = { food, grams, days ->
+                            viewModel.logDays(food, grams, days)
+                            screen = Screen.DASHBOARD
+                        },
                     )
 
                     Screen.SCAN -> BarcodeScreen(
@@ -403,8 +418,8 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Screen.SETTINGS -> DataSettingsScreen(
-                        settings = AppSettings.all(),
-                        onSettingChange = { key, value -> viewModel.setSetting(key, value) },
+                        settings = settingsSnapshot,
+                        onSettingChange = { key, value -> viewModel.setSetting(key, value); settingsRevision++ },
                         onExport = { exportLauncher.launch("metriq-export.csv") },
                         onSyncHealth = {
                             WorkManager.getInstance(context).enqueue(
@@ -423,6 +438,7 @@ class MainActivity : ComponentActivity() {
                         healthStatus = healthStatus,
                         onBack = { screen = Screen.PROFILE },
                         onOpenAiModels = { screen = Screen.AI_MODELS },
+                        onOpenIntegrations = { screen = Screen.INTEGRATIONS },
                         hevyConnected = AppSettings.bool(AppSettings.HEVY_CONNECTED) &&
                             AppGraph.hevyRepository.hasKey(),
                         hevyAutoSync = AppSettings.bool(AppSettings.HEVY_AUTO_SYNC),
@@ -472,9 +488,25 @@ class MainActivity : ComponentActivity() {
                     )
 
                     Screen.AI_MODELS -> AiModelsScreen(
-                        settings = AppSettings.all(),
-                        onSettingChange = { key, value -> viewModel.setSetting(key, value) },
+                        settings = settingsSnapshot,
+                        onSettingChange = { key, value -> viewModel.setSetting(key, value); settingsRevision++ },
                         onBack = { screen = Screen.SETTINGS },
+                    )
+
+                    Screen.INTEGRATIONS -> IntegrationsScreen(
+                        onBack = { screen = Screen.SETTINGS },
+                        onImportHistory = {
+                            scope.launch {
+                                val count = HistoricalImport.importFromHealthConnect(context)
+                                Toast.makeText(
+                                    context,
+                                    if (count > 0) "$count registros importados" else "Nada para importar",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                viewModel.refresh()
+                            }
+                        },
+                        onOpenHevy = { screen = Screen.SETTINGS },
                     )
                 }
                 if (showGoalEditor) {

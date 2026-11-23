@@ -107,6 +107,16 @@ jobs:
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen analytics || true
             sleep 4
             adb exec-out screencap -p > screen-analytics.png
+            adb shell am force-stop com.metriq.app || true
+            adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen integrations || true
+            sleep 4
+            adb exec-out screencap -p > screen-integrations.png
+            adb shell wm size 360x800 || true
+            adb shell am force-stop com.metriq.app || true
+            adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
+            sleep 4
+            adb exec-out screencap -p > screen-narrow-home.png
+            adb shell wm size 1080x2400 || true
             adb shell am start -n com.metriq.app/.MainActivity || true
             sleep 4
             echo "=== LOGCAT (threadtime) ==="

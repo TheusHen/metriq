@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -124,7 +126,9 @@ fun SectionHeader(
                 color = MetriqColors.ink2,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable { onAction() },
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .clickable { onAction() },
             )
         }
     }
@@ -244,7 +248,7 @@ private fun MacroRow(label: String, consumed: Int, target: Int) {
                 modifier = Modifier.weight(1f),
             )
             Row(
-                Modifier.width(112.dp),
+                Modifier.widthIn(max = 112.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -413,8 +417,9 @@ fun FoodRow(
             color = MetriqColors.ink2,
             maxLines = 1,
             modifier = Modifier
+                .heightIn(min = 48.dp)
                 .clickable { onClick() }
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp),
         )
     }
 }
@@ -486,6 +491,7 @@ private fun NavTab(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -512,16 +518,21 @@ fun MetriqButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = 48.dp),
         shape = RoundedCornerShape(10.dp),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (primary) MetriqColors.accent else MetriqColors.surface2,
             contentColor = if (primary) MetriqColors.accentInk else MetriqColors.ink,
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
     ) {
-        Text(text = text, style = MaterialTheme.typography.bodyStrong, maxLines = 1)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyStrong,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -531,8 +542,9 @@ fun ScreenHeader(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
             IconButton(onClick = onBack) {
                 Icon(
@@ -587,10 +599,10 @@ fun Segmented(
             Box(
                 Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(7.dp))
                     .background(if (selected) MetriqColors.surface2 else Color.Transparent)
-                    .clickable { onSelect(index) }
-                    .padding(vertical = 7.dp),
+                    .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

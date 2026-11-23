@@ -9,22 +9,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metriq.app.ui.common.SubScreen
@@ -67,6 +68,13 @@ fun ProfileScreen(
     var goal by remember { mutableStateOf(initial.goal) }
     var diet by remember { mutableStateOf(initial.diet) }
     var tier by remember { mutableStateOf(initial.proteinTier) }
+
+    // Optimistic local toggles: a settings-only write does not always re-emit from the
+    // parent StateFlow, so the switch must flip before the write is forwarded.
+    var localImportSteps by remember { mutableStateOf(importSteps) }
+    var localImportWeight by remember { mutableStateOf(importWeight) }
+    LaunchedEffect(importSteps) { localImportSteps = importSteps }
+    LaunchedEffect(importWeight) { localImportWeight = importWeight }
 
     SubScreen("Your profile", onBack) {
         Text(
@@ -184,8 +192,8 @@ fun ProfileScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenSettings() }
-                    .padding(vertical = 6.dp),
+                    .heightIn(min = 48.dp)
+                    .clickable { onOpenSettings() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
@@ -238,14 +246,20 @@ fun ProfileScreen(
             SettingToggle(
                 label = "Import steps",
                 subtitle = "Pull step counts from Health Connect",
-                checked = importSteps,
-                onChange = onImportStepsChange,
+                checked = localImportSteps,
+                onChange = { enabled ->
+                    localImportSteps = enabled
+                    onImportStepsChange(enabled)
+                },
             )
             SettingToggle(
                 label = "Import weight",
                 subtitle = "Pull weight samples from Health Connect",
-                checked = importWeight,
-                onChange = onImportWeightChange,
+                checked = localImportWeight,
+                onChange = { enabled ->
+                    localImportWeight = enabled
+                    onImportWeightChange(enabled)
+                },
             )
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -299,8 +313,8 @@ private fun SettingToggle(
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable { onChange(!checked) }
-            .padding(vertical = 8.dp),
+            .heightIn(min = 48.dp)
+            .clickable { onChange(!checked) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -308,33 +322,35 @@ private fun SettingToggle(
                 label,
                 style = MaterialTheme.typography.bodyStrong,
                 color = MetriqColors.ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 subtitle,
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         Spacer(Modifier.width(12.dp))
-        Box(
-            Modifier
-                .width(48.dp)
-                .height(28.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(if (checked) MetriqColors.accent else MetriqColors.surface2)
-                .padding(3.dp),
-            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
-        ) {
-            Box(
-                Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(if (checked) MetriqColors.accentInk else MetriqColors.ink3),
-            )
-        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MetriqColors.accentInk,
+                checkedTrackColor = MetriqColors.accent,
+                checkedBorderColor = MetriqColors.accent,
+                uncheckedThumbColor = MetriqColors.ink3,
+                uncheckedTrackColor = MetriqColors.surface2,
+                uncheckedBorderColor = MetriqColors.border,
+                disabledCheckedThumbColor = MetriqColors.accentInk.copy(alpha = 0.5f),
+                disabledCheckedTrackColor = MetriqColors.accent.copy(alpha = 0.5f),
+                disabledUncheckedThumbColor = MetriqColors.ink3.copy(alpha = 0.5f),
+                disabledUncheckedTrackColor = MetriqColors.surface2.copy(alpha = 0.5f),
+            ),
+        )
     }
 }
 

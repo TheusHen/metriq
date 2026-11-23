@@ -47,7 +47,11 @@ fun SubScreen(
                 .navigationBarsPadding()
                 .imePadding(),
         ) {
-            ScreenHeader(title = title, onBack = onBack)
+            ScreenHeader(
+                title = title,
+                onBack = onBack,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
             Column(
                 Modifier
                     .fillMaxWidth()

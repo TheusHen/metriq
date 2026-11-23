@@ -2,6 +2,7 @@ package com.metriq.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.metriq.data.db.MetriqDatabase
+import org.json.JSONObject
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -127,5 +128,57 @@ class FoodRepositoryTest {
             servingLabel = "1 unit", servingGrams = 40.0, verified = 0L, isCustom = 0L,
         )
         assertTrue(store.food.byBarcode("7891234567890")?.name == "Test bar")
+    }
+
+    private fun onlineHit(id: Long, name: String) = FoodHit(
+        id = id, name = name, brand = "Online Brand", category = "dairy", iconId = null,
+        calories = 90.0, protein = 5.0, fat = 2.0, carbs = 12.0,
+        servingLabel = "1 cup", servingGrams = 200.0,
+    )
+
+    @Test
+    fun `cacheOnline hits are found by searchAll and cachedOnline`() {
+        val store = store()
+        assertTrue(store.food.search("online test yogurt").isEmpty())
+        store.food.cacheOnline(listOf(onlineHit(-1L, "Online Test Yogurt")))
+
+        val hits = store.food.searchAll("online test yogurt")
+        assertTrue(hits.any { it.id == -1L && it.name == "Online Test Yogurt" })
+        assertEquals(1, store.food.cachedOnline("online test yogurt").size)
+        assertTrue(store.food.cachedOnline("unrelated").isEmpty())
+    }
+
+    @Test
+    fun `online cache persists across repositories and is bounded to 200`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        MetriqDatabase.Schema.create(driver)
+        val db = MetriqDatabase(driver)
+        val writer = MetriqStore(db, driver, DataChangeNotifier())
+        writer.food.cacheOnline((1..250).map { onlineHit(-it.toLong(), "Online food $it") })
+
+        val reader = MetriqStore(db, driver, DataChangeNotifier())
+        val raw = reader.db.metriqQueries
+            .settingValue(FoodRepository.ONLINE_CACHE_KEY).executeAsOneOrNull()!!
+        val array = JSONObject(raw).getJSONArray("hits")
+        assertEquals(FoodRepository.ONLINE_CACHE_MAX, array.length())
+        assertEquals(-1L, array.getJSONObject(0).getLong("id"))
+        assertTrue((0 until array.length()).none { array.getJSONObject(it).getLong("id") == -250L })
+        assertEquals(40, reader.food.cachedOnline("online food").size)
+    }
+
+    @Test
+    fun `searchAll does not duplicate a hit that is both local and cached`() {
+        val store = store()
+        val local = store.food.search("banana").first()
+        store.food.cacheOnline(listOf(local.copy(id = -999L)))
+        assertEquals(1, store.food.searchAll("banana").count { it.name == local.name })
+    }
+
+    @Test
+    fun `corrupt online cache never breaks search`() {
+        val store = store()
+        store.db.metriqQueries.setSetting(FoodRepository.ONLINE_CACHE_KEY, "not-json")
+        assertTrue(store.food.cachedOnline("banana").isEmpty())
+        assertTrue(store.food.searchAll("banana").any { it.name.startsWith("Banana") })
     }
 }

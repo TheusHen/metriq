@@ -244,6 +244,37 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         refresh()
     }
 
+    fun copyFromDay(date: String) {
+        AppGraph.store.logs.forDate(date).forEach { item ->
+            AppGraph.store.logs.add(today.toString(), LocalTime.now().hour, item.foodId, item.grams, item.servings)
+        }
+        refresh()
+    }
+
+    fun quickAdd(kcal: Double, proteinG: Double, fatG: Double, carbG: Double) {
+        if (kcal <= 0.0) return
+        val id = AppGraph.store.food.insertCustomFood(
+            name = "Quick add", brand = null, calories = kcal, protein = proteinG,
+            fat = fatG, carbs = carbG, fiber = null, sugar = null, sodium = null,
+            servingLabel = "1 serving", servingGrams = 100.0,
+        )
+        AppGraph.store.logs.add(today.toString(), LocalTime.now().hour, id, 100.0)
+        refresh()
+    }
+
+    fun logDays(food: com.metriq.data.FoodHit, grams: Double, days: Int) {
+        val count = days.coerceIn(1, 7)
+        (0 until count).forEach { offset ->
+            AppGraph.store.logs.add(
+                today.plusDays(offset.toLong()).toString(),
+                LocalTime.now().hour,
+                food.id,
+                grams,
+            )
+        }
+        refresh()
+    }
+
     fun addPhoto(context: Context, uri: Uri) {
         val target = java.io.File(context.filesDir, "progress_photos_incoming")
         target.mkdirs()

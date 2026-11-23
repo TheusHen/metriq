@@ -303,7 +303,7 @@ private fun ChartSurface(
         val selected = selectedIndex?.takeIf { it in points.indices }?.let { points[it] }
         if (selected != null) {
             val compareValue = comparePoints.firstOrNull { it.date == selected.date }
-            val estimatedWidth = 160.dp
+            val estimatedWidth = 160.dp.coerceAtMost(geom.totalWidth - 8.dp).coerceAtLeast(1.dp)
             val left = (xAt(selectedIndex!!, points.size) - estimatedWidth / 2f)
                 .coerceIn(4.dp, (geom.totalWidth - estimatedWidth - 4.dp).coerceAtLeast(4.dp))
             Box(

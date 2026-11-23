@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.metriq.app.AppGraph
 import com.metriq.app.AppSettings
 import com.metriq.app.DefaultProfile
+import com.metriq.app.GoalStore
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.core.Bmr
 import com.metriq.core.Expenditure
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
 data class DataPoint(val date: LocalDate, val value: Double)
 
@@ -39,6 +41,14 @@ data class AnalyticsState(
     val selectedIndex: Int?,
     val metrics: List<Pair<String, String>>,
     val macroSplit: List<Triple<String, Double, Color>>,
+    /** Top five named foods contributing to the selected metric in the filtered range. */
+    val topContributors: List<Pair<String, Double>>,
+    /** (label, period, value) — average weekly and monthly totals across the range. */
+    val averages: List<Triple<String, String, Double>>,
+    /** (4-hour bucket start, logged calories) — intake timing across the range. */
+    val timing: List<Pair<Int, Double>>,
+    /** Honest, human-readable goal estimate, or null only when nothing can be said. */
+    val etaText: String?,
 )
 
 private enum class Aggregation { SUM, AVERAGE }
@@ -124,6 +134,10 @@ class AnalyticsViewModel : ViewModel() {
             selectedIndex = null,
             metrics = METRICS.map { it.id to it.label },
             macroSplit = emptyList(),
+            topContributors = emptyList(),
+            averages = emptyList(),
+            timing = emptyList(),
+            etaText = null,
         ),
     )
     val state: StateFlow<AnalyticsState> = _state.asStateFlow()
@@ -241,6 +255,59 @@ class AnalyticsViewModel : ViewModel() {
             .filter { !it.isBefore(from) && !it.isAfter(today) }
             .associateWith { store.logs.forDate(it.toString()) }
 
+        /** One logged food's contribution to a nutrient, scaled by grams and servings. */
+        fun microOf(item: LogItem, key: String): Double {
+            val factor = item.grams * item.servings / 100.0
+            var total = 0.0
+            val food = store.food.byId(item.foodId)
+            if (key == "fiber") food?.fiber?.let { total += it * factor }
+            if (key == "sodium") food?.sodium?.let { total += it * factor }
+            store.food.micros(item.foodId)?.let { json ->
+                Regex("\"$key\"\\s*:\\s*([0-9.]+)")
+                    .find(json)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
+                    ?.let { total += it * factor }
+            }
+            return total
+        }
+
+        fun microsFor(items: List<LogItem>, key: String): Double = items.sumOf { microOf(it, key) }
+
+        /** Food-derived metrics can be attributed to named foods; the rest cannot. */
+        fun contributionOf(item: LogItem, id: String): Double = when (id) {
+            "intake" -> item.calories
+            "protein" -> item.protein
+            "carbs" -> item.carbs
+            "fat" -> item.fat
+            "fiber", "sodium" -> microOf(item, id)
+            else -> 0.0
+        }
+
+        // Top contributors: only metrics that come from actual food logs can be attributed.
+        val attributable = setOf("intake", "protein", "carbs", "fat", "fiber", "sodium")
+        val topContributors = if (metricId in attributable) {
+            val totals = LinkedHashMap<String, Double>()
+            dailyLogs.values.flatten().forEach { item ->
+                val value = contributionOf(item, metricId)
+                if (value > 0.0) totals[item.name] = (totals[item.name] ?: 0.0) + value
+            }
+            totals.toList().sortedByDescending { it.second }.take(5)
+        } else {
+            emptyList()
+        }
+
+        // Timing: logged calories grouped into 4-hour buckets (always intake, not the
+        // selected metric). Hours outside 0..23 are clamped so a bad record stays harmless.
+        val timing = if (dailyLogs.isEmpty()) {
+            emptyList()
+        } else {
+            val byHour = LinkedHashMap<Int, Double>()
+            dailyLogs.values.flatten().forEach { item ->
+                val bucket = (item.hour.coerceIn(0, 23) / 4) * 4
+                byHour[bucket] = (byHour[bucket] ?: 0.0) + item.calories
+            }
+            listOf(0, 4, 8, 12, 16, 20).map { it to (byHour[it] ?: 0.0) }
+        }
+
         // Trend is computed once over the widest useful window: expenditure needs 14 days
         // of look-back before the first visible day.
         val trendFrom = minOf(from, weightEntries.firstOrNull()?.date ?: from).minusDays(14)
@@ -264,22 +331,6 @@ class AnalyticsViewModel : ViewModel() {
                 }
                 day = day.plusDays(1)
             }
-        }
-
-        fun microsFor(items: List<LogItem>, key: String): Double {
-            var total = 0.0
-            items.forEach { item ->
-                val factor = item.grams * item.servings / 100.0
-                val food = store.food.byId(item.foodId)
-                if (key == "fiber") food?.fiber?.let { total += it * factor }
-                if (key == "sodium") food?.sodium?.let { total += it * factor }
-                store.food.micros(item.foodId)?.let { json ->
-                    Regex("\"$key\"\\s*:\\s*([0-9.]+)")
-                        .find(json)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
-                        ?.let { total += it * factor }
-                }
-            }
-            return total
         }
 
         /** One honest daily series per metric: only dates that actually carry data. */
@@ -316,19 +367,23 @@ class AnalyticsViewModel : ViewModel() {
             Aggregation.AVERAGE -> values.sum() / values.size
         }
 
-        fun bucketOf(date: LocalDate): LocalDate = when (granularity) {
-            "week" -> date.minusDays((date.dayOfWeek.value - 1).toLong())
-            "month" -> date.withDayOfMonth(1)
-            else -> date
-        }
-
-        fun bucketed(id: String): Map<LocalDate, Double> {
+        fun bucketedByPeriod(id: String, period: String): Map<LocalDate, Double> {
             val groups = LinkedHashMap<LocalDate, MutableList<Double>>()
             dailyFor(id).toSortedMap().forEach { (date, value) ->
-                groups.getOrPut(bucketOf(date)) { mutableListOf() }.add(value)
+                val bucket = when (period) {
+                    "week" -> date.minusDays((date.dayOfWeek.value - 1).toLong())
+                    "month" -> date.withDayOfMonth(1)
+                    else -> date
+                }
+                groups.getOrPut(bucket) { mutableListOf() }.add(value)
             }
             return groups.mapValues { (_, values) -> aggregate(values, id) }.toSortedMap()
         }
+
+        fun bucketed(id: String): Map<LocalDate, Double> = bucketedByPeriod(id, granularity)
+
+        fun mean(values: Collection<Double>): Double =
+            if (values.isEmpty()) 0.0 else values.sum() / values.size
 
         val buckets = bucketed(metricId)
         val points = buckets.map { (date, value) -> DataPoint(date, value) }
@@ -400,6 +455,56 @@ class AnalyticsViewModel : ViewModel() {
             Triple("Fat", dailyLogs.values.sumOf { items -> items.sumOf { it.fat } }, MetriqColors.fat),
         )
 
+        // Weekly / monthly averages use the same aggregation rule as the chart, then
+        // average the resulting buckets. No data -> no invented numbers.
+        val averages = if (daily.isEmpty()) {
+            emptyList()
+        } else {
+            listOf(
+                Triple(
+                    "Weekly average",
+                    "week",
+                    mean(bucketedByPeriod(metricId, "week").values),
+                ),
+                Triple(
+                    "Monthly average",
+                    "month",
+                    mean(bucketedByPeriod(metricId, "month").values),
+                ),
+            )
+        }
+
+        // Goal ETA: saved target weight + the same smoothed trend the chart uses.
+        val goal = GoalStore.read()
+        val targetWeight = goal?.targetWeightKg
+        val etaText = when {
+            goal == null -> "No weight goal set"
+            targetWeight == null -> "Goal has no target weight"
+            trend.isEmpty() -> "Not enough weigh-ins for a trend"
+            else -> {
+                val rate = TrendWeight.changeRatePerWeek(trend, today, 20)
+                val current = trend[today] ?: weightEntries.lastOrNull()?.kg
+                when {
+                    rate == null || current == null -> "Need ~20 days of weigh-ins for an estimate"
+                    abs(rate) < 0.01 -> "Weight trend is flat — no estimate"
+                    else -> {
+                        val target = targetWeight
+                        val remaining = current - target
+                        when {
+                            abs(remaining) < 0.1 -> "Target reached — ${"%.1f".format(Locale.ENGLISH, target)} kg"
+                            remaining * rate > 0.0 -> "Moving away from target (${"%.2f".format(Locale.ENGLISH, rate)} kg/wk)"
+                            else -> {
+                                val weeks = abs(remaining) / abs(rate)
+                                "≈ ${"%.1f".format(Locale.ENGLISH, weeks)} wk to " +
+                                    "${"%.1f".format(Locale.ENGLISH, target)} kg at " +
+                                    "${"%.2f".format(Locale.ENGLISH, rate)} kg/wk"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return AnalyticsState(
             metricId = metricId,
             rangeDays = rangeDays,
@@ -413,6 +518,10 @@ class AnalyticsViewModel : ViewModel() {
             selectedIndex = safeSelection,
             metrics = METRICS.map { it.id to it.label },
             macroSplit = macroSplit,
+            topContributors = topContributors,
+            averages = averages,
+            timing = timing,
+            etaText = etaText,
         )
     }
 }

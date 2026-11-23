@@ -4,6 +4,8 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import com.metriq.data.db.MetriqDatabase
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class FoodHit(
     val id: Long,
@@ -28,6 +30,13 @@ class FoodRepository(
     private val driver: SqlDriver,
     private val notifier: DataChangeNotifier? = null,
 ) {
+
+    companion object {
+        /** Online hits are cached in a single settings value; no new schema is needed. */
+        const val ONLINE_CACHE_KEY = "food_online_cache_v1"
+        const val ONLINE_CACHE_MAX = 200
+        const val ONLINE_HIT_LIMIT = 40
+    }
 
     fun count(): Long = db.metriqQueries.countFood().executeAsOne()
 
@@ -180,6 +189,117 @@ class FoodRepository(
             emptyList()
         }
     }
+
+    /**
+     * Unified search used by the multi-source search engine: bundled/online-imported
+     * foods first, then the small cache of previously fetched online hits. Results
+     * are de-duplicated by name+brand so the same food never appears twice.
+     */
+    fun searchAll(query: String, limit: Int = 40): List<FoodHit> {
+        val local = search(query, limit)
+        if (local.size >= limit) return local
+        val cached = cachedOnline(query, limit - local.size)
+        if (cached.isEmpty()) return local
+
+        val seen = HashSet<String>()
+        val combined = ArrayList<FoodHit>(local.size + cached.size)
+        (local + cached).forEach { hit ->
+            if (seen.add(cacheKey(hit))) combined.add(hit)
+        }
+        return combined
+    }
+
+    /** Store freshly fetched online hits, keeping the cache bounded and most-recent-first. */
+    fun cacheOnline(hits: List<FoodHit>) {
+        if (hits.isEmpty()) return
+        val existing = decodeOnlineHits(db.metriqQueries.settingValue(ONLINE_CACHE_KEY).executeAsOneOrNull())
+        val merged = (hits + existing)
+            .filter { it.name.isNotBlank() }
+            .distinctBy { cacheKey(it) }
+            .take(ONLINE_CACHE_MAX)
+        db.metriqQueries.setSetting(ONLINE_CACHE_KEY, encodeOnlineHits(merged))
+    }
+
+    /** Online hits from the cache whose name, brand or category matches the query terms. */
+    fun cachedOnline(query: String, limit: Int = ONLINE_HIT_LIMIT): List<FoodHit> {
+        val terms = Regex("\\w+").findAll(query)
+            .map { it.value.lowercase() }
+            .distinct()
+            .take(6)
+            .toList()
+        if (terms.isEmpty()) return emptyList()
+        val raw = db.metriqQueries.settingValue(ONLINE_CACHE_KEY).executeAsOneOrNull()
+        return decodeOnlineHits(raw)
+            .filter { hit ->
+                val haystack = listOfNotNull(hit.name, hit.brand, hit.category)
+                    .joinToString(" ").lowercase()
+                terms.all { haystack.contains(it) }
+            }
+            .take(limit)
+    }
+
+    /** Online hits carry synthetic ids, so identity must come from name+brand only. */
+    private fun cacheKey(hit: FoodHit): String =
+        "${hit.name.trim().lowercase()}|${hit.brand?.trim()?.lowercase().orEmpty()}"
+
+    private fun encodeOnlineHits(hits: List<FoodHit>): String {
+        val array = JSONArray()
+        hits.forEach { hit ->
+            val item = JSONObject().apply {
+                put("id", hit.id)
+                put("name", hit.name)
+                putNullable("brand", hit.brand)
+                putNullable("category", hit.category)
+                putNullable("iconId", hit.iconId)
+                put("calories", hit.calories)
+                put("protein", hit.protein)
+                put("fat", hit.fat)
+                put("carbs", hit.carbs)
+                putNullable("servingLabel", hit.servingLabel)
+                hit.servingGrams?.let { put("servingGrams", it) }
+            }
+            array.put(item)
+        }
+        return JSONObject().put("hits", array).toString()
+    }
+
+    private fun decodeOnlineHits(raw: String?): List<FoodHit> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return try {
+            val array = JSONObject(raw).optJSONArray("hits") ?: return emptyList()
+            (0 until array.length()).mapNotNull { index ->
+                val item = array.optJSONObject(index) ?: return@mapNotNull null
+                val name = item.optString("name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                FoodHit(
+                    id = item.optLong("id"),
+                    name = name,
+                    brand = item.stringOrNull("brand"),
+                    category = item.stringOrNull("category"),
+                    iconId = item.stringOrNull("iconId"),
+                    calories = item.optDouble("calories"),
+                    protein = item.optDouble("protein"),
+                    fat = item.optDouble("fat"),
+                    carbs = item.optDouble("carbs"),
+                    servingLabel = item.stringOrNull("servingLabel"),
+                    servingGrams = if (item.has("servingGrams") && !item.isNull("servingGrams")) {
+                        item.optDouble("servingGrams")
+                    } else {
+                        null
+                    },
+                )
+            }
+        } catch (_: Exception) {
+            // A corrupt/legacy cache value must never break search.
+            emptyList()
+        }
+    }
+
+    private fun JSONObject.putNullable(key: String, value: String?) {
+        if (!value.isNullOrBlank()) put(key, value)
+    }
+
+    private fun JSONObject.stringOrNull(key: String): String? =
+        if (!has(key) || isNull(key)) null else optString(key).ifBlank { null }
 
     private fun SqlCursor.toFoodHit() = FoodHit(
         id = getLong(0)!!,

@@ -42,5 +42,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation("app.cash.sqldelight:sqlite-driver:2.1.0")
+    // Android provides org.json at runtime; JVM unit tests need the real implementation.
+    testImplementation("org.json:json:20240303")
 }
 

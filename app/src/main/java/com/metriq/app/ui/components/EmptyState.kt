@@ -45,7 +45,9 @@ fun EmptyState(
                 actionLabel,
                 style = MaterialTheme.typography.titleMedium,
                 color = Accent,
-                modifier = Modifier.clickable { onAction() },
+                modifier = Modifier
+                    .clickable { onAction() }
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
             )
         }
     }

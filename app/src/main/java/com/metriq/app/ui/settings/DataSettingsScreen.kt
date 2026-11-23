@@ -1,6 +1,5 @@
 package com.metriq.app.ui.settings
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -16,31 +15,32 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,6 +73,7 @@ fun DataSettingsScreen(
     healthStatus: String,
     onBack: () -> Unit,
     onOpenAiModels: () -> Unit = {},
+    onOpenIntegrations: () -> Unit = {},
     hevyConnected: Boolean = false,
     hevyAutoSync: Boolean = false,
     hevyLastSync: String? = null,
@@ -90,7 +91,36 @@ fun DataSettingsScreen(
     fun boolValue(key: String): Boolean = value(key).toBooleanStrictOrNull()
         ?: AppSettings.defaults[key]?.toBooleanStrictOrNull() ?: false
 
-    val reducedMotion = boolValue(AppSettings.REDUCED_MOTION)
+    // A settings-only write produces a DashboardState that is .equals() to the previous
+    // one, so StateFlow skips emission and the parent may never recompose. Keep an
+    // optimistic local copy of every switch and update it BEFORE forwarding the write.
+    val switchKeys = listOf(
+        AppSettings.REDUCED_MOTION,
+        AppSettings.ADVANCED_METRICS,
+        AppSettings.HEALTH_AUTO_SYNC,
+        AppSettings.HEALTH_IMPORT_STEPS,
+        AppSettings.HEALTH_IMPORT_WEIGHT,
+        AppSettings.ADAPTIVE_MACROS,
+    )
+    val switchState = remember {
+        mutableStateMapOf<String, Boolean>().apply {
+            switchKeys.forEach { put(it, boolValue(it)) }
+        }
+    }
+    var localHevyAutoSync by remember { mutableStateOf(hevyAutoSync) }
+
+    // Re-seed only when an incoming value genuinely changes. This list is compared by
+    // value, so an unrelated parent recomposition with the same settings cannot undo a
+    // local toggle, while a real external change is still reflected.
+    val incomingSwitches = switchKeys.map { value(it) }
+    LaunchedEffect(incomingSwitches) {
+        incomingSwitches.forEachIndexed { index, raw ->
+            switchState[switchKeys[index]] = raw.toBooleanStrictOrNull() ?: false
+        }
+    }
+    LaunchedEffect(hevyAutoSync) { localHevyAutoSync = hevyAutoSync }
+
+    val reducedMotion = switchState[AppSettings.REDUCED_MOTION] ?: boolValue(AppSettings.REDUCED_MOTION)
 
     // Brief "Saved locally" confirmation after any change; no long animations.
     var savedRevision by remember { mutableStateOf(0) }
@@ -111,6 +141,14 @@ fun DataSettingsScreen(
         savedRevision++
         onSettingChange(key, newValue)
     }
+    fun setSwitch(key: String, enabled: Boolean) {
+        switchState[key] = enabled
+        change(key, enabled.toString())
+    }
+    fun setHevyAutoSync(enabled: Boolean) {
+        localHevyAutoSync = enabled
+        onHevyAutoSyncChange(enabled)
+    }
 
     Box(
         Modifier
@@ -130,6 +168,7 @@ fun DataSettingsScreen(
                 title = "Settings",
                 subtitle = "Stored on this device",
                 onBack = onBack,
+                modifier = Modifier.padding(horizontal = 20.dp),
             )
             Column(
                 Modifier
@@ -174,16 +213,16 @@ fun DataSettingsScreen(
                     SettingSwitch(
                         label = "Reduced motion",
                         subtitle = "Minimize interface animation",
-                        checked = boolValue(AppSettings.REDUCED_MOTION),
+                        checked = switchState[AppSettings.REDUCED_MOTION] ?: boolValue(AppSettings.REDUCED_MOTION),
                         reducedMotion = reducedMotion,
-                        onChange = { change(AppSettings.REDUCED_MOTION, it.toString()) },
+                        onChange = { setSwitch(AppSettings.REDUCED_MOTION, it) },
                     )
                     SettingSwitch(
                         label = "Advanced metrics",
                         subtitle = "Show nerdy metrics in Analytics",
-                        checked = boolValue(AppSettings.ADVANCED_METRICS),
+                        checked = switchState[AppSettings.ADVANCED_METRICS] ?: boolValue(AppSettings.ADVANCED_METRICS),
                         reducedMotion = reducedMotion,
-                        onChange = { change(AppSettings.ADVANCED_METRICS, it.toString()) },
+                        onChange = { setSwitch(AppSettings.ADVANCED_METRICS, it) },
                     )
                 }
 
@@ -287,23 +326,24 @@ fun DataSettingsScreen(
                     SettingSwitch(
                         label = "Auto-sync",
                         subtitle = "Sync with Health Connect in the background",
-                        checked = boolValue(AppSettings.HEALTH_AUTO_SYNC),
+                        checked = switchState[AppSettings.HEALTH_AUTO_SYNC] ?: boolValue(AppSettings.HEALTH_AUTO_SYNC),
                         reducedMotion = reducedMotion,
-                        onChange = { change(AppSettings.HEALTH_AUTO_SYNC, it.toString()) },
+                        onChange = { setSwitch(AppSettings.HEALTH_AUTO_SYNC, it) },
                     )
                     SettingSwitch(
                         label = "Import steps",
                         subtitle = "Pull step counts from Health Connect",
-                        checked = boolValue(AppSettings.HEALTH_IMPORT_STEPS),
+                        checked = switchState[AppSettings.HEALTH_IMPORT_STEPS] ?: boolValue(AppSettings.HEALTH_IMPORT_STEPS),
                         reducedMotion = reducedMotion,
-                        onChange = { change(AppSettings.HEALTH_IMPORT_STEPS, it.toString()) },
+                        onChange = { setSwitch(AppSettings.HEALTH_IMPORT_STEPS, it) },
                     )
                     SettingSwitch(
                         label = "Import weight",
                         subtitle = "Pull weight samples from Health Connect",
-                        checked = boolValue(AppSettings.HEALTH_IMPORT_WEIGHT),
+                        checked = switchState[AppSettings.HEALTH_IMPORT_WEIGHT]
+                            ?: boolValue(AppSettings.HEALTH_IMPORT_WEIGHT),
                         reducedMotion = reducedMotion,
-                        onChange = { change(AppSettings.HEALTH_IMPORT_WEIGHT, it.toString()) },
+                        onChange = { setSwitch(AppSettings.HEALTH_IMPORT_WEIGHT, it) },
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -427,9 +467,9 @@ fun DataSettingsScreen(
                     SettingSwitch(
                         label = "Sincronização automática",
                         subtitle = "Ler novos treinos do Hevy automaticamente",
-                        checked = hevyAutoSync,
+                        checked = localHevyAutoSync,
                         reducedMotion = reducedMotion,
-                        onChange = onHevyAutoSyncChange,
+                        onChange = { setHevyAutoSync(it) },
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -471,14 +511,39 @@ fun DataSettingsScreen(
                     SettingSwitch(
                         label = "Adaptive macros",
                         subtitle = "Rebalance carbs and fat using today's Health Connect training signal",
-                        checked = boolValue(AppSettings.ADAPTIVE_MACROS),
+                        checked = switchState[AppSettings.ADAPTIVE_MACROS] ?: boolValue(AppSettings.ADAPTIVE_MACROS),
                         reducedMotion = reducedMotion,
-                        onChange = { change(AppSettings.ADAPTIVE_MACROS, it.toString()) },
+                        onChange = { setSwitch(AppSettings.ADAPTIVE_MACROS, it) },
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { onOpenIntegrations() },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Integrations",
+                                style = MaterialTheme.typography.bodyStrong,
+                                color = MetriqColors.ink,
+                                maxLines = 1,
+                            )
+                            Text(
+                                "Health Connect, Hevy, history import and more",
+                                style = MaterialTheme.typography.caption,
+                                color = MetriqColors.ink2,
+                                maxLines = 2,
+                            )
+                        }
+                        Text("›", style = MaterialTheme.typography.h2, color = MetriqColors.accent)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .clickable { onOpenAiModels() },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -530,8 +595,9 @@ private fun SettingChoice(
     )
 }
 
-/** Color/opacity-only toggle — the thumb snaps, only colors animate, capped at 200ms. */
+/** Real Material3 switch for accessibility and a 48.dp touch target. */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 private fun SettingSwitch(
     label: String,
     subtitle: String,
@@ -539,21 +605,11 @@ private fun SettingSwitch(
     reducedMotion: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
-    val track by animateColorAsState(
-        targetValue = if (checked) MetriqColors.accent else MetriqColors.surface2,
-        animationSpec = animationSpec(reducedMotion),
-        label = "switchTrack",
-    )
-    val thumb by animateColorAsState(
-        targetValue = if (checked) MetriqColors.accentInk else MetriqColors.ink3,
-        animationSpec = animationSpec(reducedMotion),
-        label = "switchThumb",
-    )
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable { onChange(!checked) }
-            .padding(vertical = 8.dp),
+            .heightIn(min = 48.dp)
+            .clickable { onChange(!checked) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -561,7 +617,7 @@ private fun SettingSwitch(
                 label,
                 style = MaterialTheme.typography.bodyStrong,
                 color = MetriqColors.ink,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
@@ -569,29 +625,35 @@ private fun SettingSwitch(
                 subtitle,
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         Spacer(Modifier.width(12.dp))
-        Box(
-            Modifier
-                .width(48.dp)
-                .height(28.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(track)
-                .padding(3.dp),
-            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
-        ) {
-            Box(
-                Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(thumb),
-            )
-        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = switchColors(),
+        )
     }
 }
+
+/** Metriq dark palette expressed through Material3 switch tokens. */
+@Composable
+private fun switchColors() = SwitchDefaults.colors(
+    checkedThumbColor = MetriqColors.accentInk,
+    checkedTrackColor = MetriqColors.accent,
+    checkedBorderColor = MetriqColors.accent,
+    uncheckedThumbColor = MetriqColors.ink3,
+    uncheckedTrackColor = MetriqColors.surface2,
+    uncheckedBorderColor = MetriqColors.border,
+    disabledCheckedThumbColor = MetriqColors.accentInk.copy(alpha = 0.5f),
+    disabledCheckedTrackColor = MetriqColors.accent.copy(alpha = 0.5f),
+    disabledCheckedBorderColor = MetriqColors.accent.copy(alpha = 0.5f),
+    disabledUncheckedThumbColor = MetriqColors.ink3.copy(alpha = 0.5f),
+    disabledUncheckedTrackColor = MetriqColors.surface2.copy(alpha = 0.5f),
+    disabledUncheckedBorderColor = MetriqColors.border,
+)
 
 @Composable
 private fun Hairline() {

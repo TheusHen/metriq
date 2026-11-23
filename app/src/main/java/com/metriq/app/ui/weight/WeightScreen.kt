@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.metriq.app.AppSettings
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.Panel
 import com.metriq.app.ui.components.ScreenHeader
@@ -45,6 +46,13 @@ fun WeightScreen(
     var date by remember { mutableStateOf(todayIso) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // Display unit follows the user setting; storage stays in kilograms.
+    val displayInPounds = remember {
+        AppSettings.get(AppSettings.UNIT_SYSTEM).equals("lb", ignoreCase = true)
+    }
+    val unitFactor = if (displayInPounds) 2.20462 else 1.0
+    val unitLabel = if (displayInPounds) "lb" else "kg"
+
     val reversed = remember(entries) { entries.asReversed() }
     val latest = reversed.firstOrNull()
 
@@ -66,12 +74,12 @@ fun WeightScreen(
                 Text("CURRENT WEIGHT", style = MaterialTheme.typography.labelSmall, color = MetriqColors.ink3)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    latest?.let { String.format(Locale.ENGLISH, "%.1f", it.kg) } ?: "—",
+                    latest?.let { String.format(Locale.ENGLISH, "%.1f", it.kg * unitFactor) } ?: "—",
                     style = MaterialTheme.typography.displayMedium,
                     color = MetriqColors.accent,
                 )
                 Text(
-                    if (latest != null) "kg · ${latest.date}" else "Log your first weigh-in to get started",
+                    if (latest != null) "$unitLabel · ${latest.date}" else "Log your first weigh-in to get started",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MetriqColors.ink2,
                 )
@@ -141,7 +149,7 @@ fun WeightScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(entry.date.toString(), style = MaterialTheme.typography.titleMedium, color = MetriqColors.ink)
                                 Text(
-                                    String.format(Locale.ENGLISH, "%.1f kg", entry.kg),
+                                    String.format(Locale.ENGLISH, "%.1f $unitLabel", entry.kg * unitFactor),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MetriqColors.ink2,
                                 )

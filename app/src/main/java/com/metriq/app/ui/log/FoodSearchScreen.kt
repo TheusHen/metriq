@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.QrCode
@@ -54,11 +55,52 @@ import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.label
 import com.metriq.data.FoodHit
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 import kotlinx.coroutines.delay
+
+/** One food aggregated from real log history: how often it was logged and when last. */
+private data class RecentEntry(val food: FoodHit, val count: Int, val lastDate: String)
+
+/**
+ * Smart history: read the last 30 days of real logs via the log repository, group by food id,
+ * then order by recency first and frequency second. No synthetic or sample data.
+ */
+private fun recentFromLogs(limit: Int = 6): List<RecentEntry> {
+    val today = LocalDate.now()
+    val datesByFood = LinkedHashMap<Long, MutableList<String>>()
+    for (daysAgo in 0 until 30) {
+        val date = today.minusDays(daysAgo.toLong()).toString()
+        AppGraph.store.logs.forDate(date).forEach { item ->
+            datesByFood.getOrPut(item.foodId) { ArrayList() }.add(item.date)
+        }
+    }
+    return datesByFood.entries.mapNotNull { (foodId, dates) ->
+        val row = AppGraph.store.food.byId(foodId) ?: return@mapNotNull null
+        RecentEntry(
+            food = FoodHit(
+                id = row.id,
+                name = row.name,
+                brand = row.brand,
+                category = row.category,
+                iconId = row.iconId,
+                calories = row.calories,
+                protein = row.protein,
+                fat = row.fat,
+                carbs = row.carbs,
+                servingLabel = row.servingLabel,
+                servingGrams = row.servingGrams,
+            ),
+            count = dates.size,
+            lastDate = dates.maxOrNull().orEmpty(),
+        )
+    }
+        .sortedWith(compareByDescending<RecentEntry> { it.lastDate }.thenByDescending { it.count })
+        .take(limit)
+}
 
 /** Single canonical category key per food, consumed by FoodRow's monochrome glyph. */
 private fun foodCategoryKey(name: String, category: String?): String {
@@ -98,17 +140,33 @@ fun FoodSearchScreen(
     budgetConsumed: Int = 0,
     budgetTarget: Int = 0,
     mealLabel: String? = null,
+    onCopyFromDay: (String) -> Unit = {},
+    onQuickAdd: (Double, Double, Double, Double) -> Unit = { _, _, _, _ -> },
+    onLogDays: (com.metriq.data.FoodHit, Double, Int) -> Unit = { _, _, _ -> },
 ) {
     var query by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(1) }
     val selected = remember { mutableStateListOf<FoodHit>() }
+    var onlineResults by remember { mutableStateOf<List<FoodHit>>(emptyList()) }
 
-    val results = remember(query) {
-        if (query.isBlank()) AppGraph.store.food.commonFoods(40)
-        else AppGraph.store.food.search(query)
+    LaunchedEffect(query) {
+        onlineResults = if (query.trim().length >= 3) {
+            com.metriq.app.food.FoodSearchEngine.search(query.trim())
+        } else emptyList()
+    }
+
+    val results = remember(query, onlineResults) {
+        if (query.isBlank()) {
+            AppGraph.store.food.commonFoods(40)
+        } else {
+            val local = AppGraph.store.food.search(query)
+            val seen = local.map { it.id }.toHashSet()
+            local + onlineResults.filter { it.id !in seen }
+        }
     }
     val favorites = remember { AppGraph.store.food.favorites(6) }
     val picks = remember(results) { results.take(3) }
+    val recent = remember { recentFromLogs() }
     val selectedKcal = selected.sumOf { it.calories.toInt() }
 
     // Meal scope is either supplied by the caller or the device's current time.
@@ -129,13 +187,22 @@ fun FoodSearchScreen(
         "$consumedText / ${formatCount(budgetTarget)} kcal"
     }
 
+    // Multi-day add flow. Day 1 keeps the existing onAdd path; 3/7 route through onLogDays.
+    var logDays by remember { mutableStateOf(1) }
+
+    // Quick-add macro fields (kcal / protein / carbs / fat), used only on the Quick Add tab.
+    var quickKcal by remember { mutableStateOf("") }
+    var quickProtein by remember { mutableStateOf("") }
+    var quickCarbs by remember { mutableStateOf("") }
+    var quickFat by remember { mutableStateOf("") }
+
     fun toggle(food: FoodHit) {
         val existing = selected.firstOrNull { it.id == food.id }
         if (existing != null) selected.remove(existing) else selected.add(food)
     }
 
     FramedColumn {
-        // Top bar: close, meal scope, and the two utilities. No calorie pill here.
+        // Top bar: close, meal scope, and the utilities. No calorie pill here.
         Row(
             Modifier
                 .fillMaxWidth()
@@ -147,6 +214,13 @@ fun FoodSearchScreen(
             }
             Text(mealScope, style = MaterialTheme.typography.body, color = MetriqColors.ink2)
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = { onCopyFromDay(LocalDate.now().minusDays(1).toString()) }) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Copy yesterday",
+                    tint = MetriqColors.ink2,
+                )
+            }
             IconButton(onClick = onPhoto) {
                 Icon(Icons.Default.PhotoCamera, contentDescription = "AI photo", tint = MetriqColors.ink2)
             }
@@ -169,7 +243,7 @@ fun FoodSearchScreen(
                 when (index) {
                     0 -> onScan()
                     2 -> onPhoto()
-                    3 -> onCreateFood()
+                    // "Quick Add" stays on this screen and reveals the inline macro row.
                 }
             },
             modifier = Modifier
@@ -186,6 +260,34 @@ fun FoodSearchScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
+            if (tab == 3) {
+                QuickAddRow(
+                    kcal = quickKcal,
+                    protein = quickProtein,
+                    carbs = quickCarbs,
+                    fat = quickFat,
+                    onKcal = { quickKcal = it },
+                    onProtein = { quickProtein = it },
+                    onCarbs = { quickCarbs = it },
+                    onFat = { quickFat = it },
+                    onAdd = {
+                        fun parse(value: String) = value.replace(',', '.').toDoubleOrNull() ?: 0.0
+                        onQuickAdd(
+                            parse(quickKcal),
+                            parse(quickProtein),
+                            parse(quickCarbs),
+                            parse(quickFat),
+                        )
+                        quickKcal = ""
+                        quickProtein = ""
+                        quickCarbs = ""
+                        quickFat = ""
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
             // One search field only.
             SearchField(query, { query = it }, Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
@@ -238,6 +340,14 @@ fun FoodSearchScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
+            // Smart history from real logs, shown alongside favorites and picks on an empty query.
+            if (query.isBlank() && recent.isNotEmpty()) {
+                SectionHeader(title = "Recent")
+                Spacer(Modifier.height(8.dp))
+                RecentRows(recent, selected, ::toggle)
+                Spacer(Modifier.height(12.dp))
+            }
+
             if (picks.isNotEmpty()) {
                 SectionHeader(title = "Picks for $mealScope")
                 Spacer(Modifier.height(8.dp))
@@ -269,9 +379,26 @@ fun FoodSearchScreen(
             Spacer(Modifier.height(12.dp))
         }
 
-        // Bottom bar: selection total, live budget readout, and the one primary action.
+        // Bottom bar: multi-day selector, selection total, live budget readout, primary action.
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(MetriqColors.border))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Days", style = MaterialTheme.typography.label, color = MetriqColors.ink3)
+                Spacer(Modifier.width(12.dp))
+                listOf(1, 3, 7).forEach { days ->
+                    DayChip(
+                        days = days,
+                        selected = logDays == days,
+                        onClick = { logDays = days },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -303,7 +430,10 @@ fun FoodSearchScreen(
                 MetriqButton(
                     text = "Log Foods",
                     onClick = {
-                        selected.forEach { onAdd(it, it.servingGrams ?: 100.0) }
+                        selected.forEach { food ->
+                            val grams = food.servingGrams ?: 100.0
+                            if (logDays <= 1) onAdd(food, grams) else onLogDays(food, grams, logDays)
+                        }
                         selected.clear()
                     },
                     primary = selected.isNotEmpty(),
@@ -325,6 +455,63 @@ private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Mod
         colors = darkFieldColors(),
         modifier = modifier,
     )
+}
+
+@Composable
+private fun NumberField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        singleLine = true,
+        shape = RoundedCornerShape(10.dp),
+        colors = darkFieldColors(),
+        modifier = modifier,
+    )
+}
+
+/** Compact, inline macro entry for the "Quick Add" tab — no custom food is created. */
+@Composable
+private fun QuickAddRow(
+    kcal: String,
+    protein: String,
+    carbs: String,
+    fat: String,
+    onKcal: (String) -> Unit,
+    onProtein: (String) -> Unit,
+    onCarbs: (String) -> Unit,
+    onFat: (String) -> Unit,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MetriqColors.surface1)
+            .border(1.dp, MetriqColors.border, RoundedCornerShape(10.dp))
+            .padding(12.dp),
+    ) {
+        Text("QUICK ADD MACROS", style = MaterialTheme.typography.labelSmall, color = MetriqColors.accent)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            NumberField("kcal", kcal, onKcal, Modifier.weight(1f))
+            NumberField("P g", protein, onProtein, Modifier.weight(1f))
+            NumberField("C g", carbs, onCarbs, Modifier.weight(1f))
+            NumberField("F g", fat, onFat, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            MetriqButton(text = "Add", onClick = onAdd, primary = true)
+        }
+    }
 }
 
 @Composable
@@ -352,6 +539,34 @@ private fun ActionChip(
             color = MetriqColors.ink2,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun DayChip(
+    days: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier
+            .height(48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) MetriqColors.surface2 else MetriqColors.surface1)
+            .border(
+                1.dp,
+                if (selected) MetriqColors.accent else MetriqColors.border,
+                RoundedCornerShape(8.dp),
+            )
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "$days",
+            style = tabularNumbers(),
+            color = if (selected) MetriqColors.ink else MetriqColors.ink2,
         )
     }
 }
@@ -392,6 +607,34 @@ private fun FavoriteCell(
                 color = MetriqColors.ink2,
                 maxLines = 1,
             )
+        }
+    }
+}
+
+@Composable
+private fun RecentRows(
+    entries: List<RecentEntry>,
+    selected: List<FoodHit>,
+    onToggle: (FoodHit) -> Unit,
+) {
+    entries.forEachIndexed { index, entry ->
+        val isSelected = selected.any { it.id == entry.food.id }
+        FoodRow(
+            name = entry.food.name,
+            meta = "${entry.count}× · ${formatCount(entry.food.calories.toInt())} kcal",
+            icon = foodCategoryKey(entry.food.name, entry.food.category),
+            onClick = { onToggle(entry.food) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (isSelected) Modifier.background(
+                        MetriqColors.surface2,
+                        RoundedCornerShape(8.dp),
+                    ) else Modifier,
+                ),
+        )
+        if (index < entries.lastIndex) {
+            HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
         }
     }
 }

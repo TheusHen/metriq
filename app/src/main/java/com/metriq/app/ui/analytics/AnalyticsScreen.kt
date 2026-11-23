@@ -78,6 +78,16 @@ fun AnalyticsScreen(
                     MetriqButton(text = "Export", onClick = onExport, primary = false)
                 },
             )
+            state.etaText?.let { text ->
+                Text(
+                    text = "Goal ETA · $text",
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                )
+            }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val scroll = Modifier
                     .fillMaxWidth()
@@ -90,9 +100,15 @@ fun AnalyticsScreen(
                             Filters(state, viewModel)
                             Spacer(Modifier.height(16.dp))
                             ChartPanel(state, viewModel, reducedMotion)
+                            Spacer(Modifier.height(16.dp))
+                            ContributorsPanel(state)
+                            Spacer(Modifier.height(16.dp))
+                            TimingPanel(state)
                         }
                         Column(Modifier.weight(1f)) {
                             StatsPanel(state)
+                            Spacer(Modifier.height(16.dp))
+                            AveragesPanel(state)
                             Spacer(Modifier.height(16.dp))
                             MacroSplitPanel(state.macroSplit)
                             Spacer(Modifier.height(16.dp))
@@ -107,7 +123,13 @@ fun AnalyticsScreen(
                         Spacer(Modifier.height(16.dp))
                         StatsPanel(state)
                         Spacer(Modifier.height(16.dp))
+                        AveragesPanel(state)
+                        Spacer(Modifier.height(16.dp))
                         MacroSplitPanel(state.macroSplit)
+                        Spacer(Modifier.height(16.dp))
+                        ContributorsPanel(state)
+                        Spacer(Modifier.height(16.dp))
+                        TimingPanel(state)
                         Spacer(Modifier.height(16.dp))
                         DataTablePanel(state, viewModel::selectPoint)
                     }
@@ -410,6 +432,156 @@ private fun MacroSplitPanel(split: List<Triple<String, Double, Color>>) {
                 Spacer(Modifier.height(6.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun ContributorsPanel(state: AnalyticsState) {
+    Panel {
+        SectionHeader("Top contributors", action = AnalyticsFormat.label(state.metricId))
+        Spacer(Modifier.height(4.dp))
+        if (state.topContributors.isEmpty()) {
+            Text(
+                text = "No food data for this metric in this range.",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+            )
+            return@Panel
+        }
+        val unit = AnalyticsFormat.unit(state.metricId)
+        state.topContributors.forEach { (name, value) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.label,
+                    color = MetriqColors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${AnalyticsFormat.value(state.metricId, value)} $unit",
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+    }
+}
+
+@Composable
+private fun AveragesPanel(state: AnalyticsState) {
+    Panel {
+        SectionHeader("Averages", action = AnalyticsFormat.unit(state.metricId))
+        Spacer(Modifier.height(8.dp))
+        if (state.averages.isEmpty()) {
+            Text(
+                text = "No data in this range.",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+            )
+            return@Panel
+        }
+        state.averages.forEach { (label, period, value) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.label,
+                    color = MetriqColors.ink2,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = period.uppercase(Locale.ENGLISH),
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink3,
+                    maxLines = 1,
+                    modifier = Modifier.width(56.dp),
+                )
+                Text(
+                    text = AnalyticsFormat.value(state.metricId, value),
+                    style = MaterialTheme.typography.caption,
+                    color = MetriqColors.ink,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    modifier = Modifier.width(92.dp),
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+    }
+}
+
+@Composable
+private fun TimingPanel(state: AnalyticsState) {
+    Panel {
+        SectionHeader("Timing", action = "kcal / 4 h")
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Calories logged by time of day.",
+            style = MaterialTheme.typography.caption,
+            color = MetriqColors.ink3,
+        )
+        Spacer(Modifier.height(12.dp))
+        val timing = state.timing
+        if (timing.isEmpty()) {
+            Text(
+                text = "No meal timing data in this range.",
+                style = MaterialTheme.typography.caption,
+                color = MetriqColors.ink3,
+            )
+            return@Panel
+        }
+        val peak = timing.maxOfOrNull { it.second } ?: 0.0
+        val peakHour = timing.maxByOrNull { it.second }?.first
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            timing.forEach { (hour, kcal) ->
+                Column(
+                    Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(MetriqColors.surface2),
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        if (kcal > 0.0 && peak > 0.0) {
+                            val barHeight = maxOf(3.0, 64.0 * (kcal / peak).coerceIn(0.0, 1.0)).dp
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(barHeight)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(MetriqColors.accent),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = hour.toString().padStart(2, '0'),
+                        style = MaterialTheme.typography.caption,
+                        color = MetriqColors.ink3,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = if (peak > 0.0 && peakHour != null) {
+                "Peak ${peakHour.toString().padStart(2, '0')}:00 · ${AnalyticsFormat.cell(peak)} kcal"
+            } else {
+                "No calories logged in this range."
+            },
+            style = MaterialTheme.typography.caption,
+            color = MetriqColors.ink3,
+        )
     }
 }
 
