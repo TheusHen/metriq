@@ -86,39 +86,39 @@ jobs:
             adb exec-out screencap -p > screen-onboarding.png
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
-            sleep 8
+            sleep 12
             adb exec-out screencap -p > screen-home.png
             adb shell am force-stop com.metriq.app || true
             adb shell am start -a com.metriq.LOG -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
-            sleep 4
+            sleep 12
             adb exec-out screencap -p > screen-search.png
             adb shell pm grant com.metriq.app android.permission.CAMERA || true
             adb shell am force-stop com.metriq.app || true
             adb shell am start -a com.metriq.SCAN -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
-            sleep 4
+            sleep 12
             adb exec-out screencap -p > screen-scan.png
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen settings || true
-            sleep 4
+            sleep 12
             adb shell input swipe 540 1900 540 800 400 || true
             sleep 1
             adb exec-out screencap -p > screen-settings-hevy.png
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen analytics || true
-            sleep 4
+            sleep 12
             adb exec-out screencap -p > screen-analytics.png
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen integrations || true
-            sleep 4
+            sleep 12
             adb exec-out screencap -p > screen-integrations.png
             adb shell wm size 360x800 || true
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
-            sleep 4
+            sleep 12
             adb exec-out screencap -p > screen-narrow-home.png
             adb shell wm size 1080x2400 || true
             adb shell am start -n com.metriq.app/.MainActivity || true
-            sleep 4
+            sleep 12
             echo "=== LOGCAT (threadtime) ==="
             adb logcat -d -v threadtime > crash-log.txt
             echo "=== CRASH LINES ==="
