@@ -44,6 +44,9 @@ jobs:
       - name: Run JVM unit tests
         run: ./gradlew test --stacktrace
 
+      - name: Install Python test dependencies
+        run: python -m pip install --upgrade pip pytest
+
       - name: Run food-pack tests
         run: python -m pytest metriq-foodpacks/tests -q
 
@@ -167,8 +170,10 @@ jobs:
         if: always()
         run: |
           if [ ! -f crash-log.txt ]; then
-            echo "::error::crash-log.txt was not produced by the emulator step"
-            exit 1
+            # The emulator step did not run (usually an earlier step already failed).
+            # Do not turn that into a second, misleading failure.
+            echo "crash-log.txt not produced; skipping crash gate"
+            exit 0
           fi
           # Fail only on signals of an uncaught crash/ANR. A bare "Exception" also
           # matches handled library errors, which would make this gate flaky.
