@@ -23,7 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,18 +54,18 @@ fun RecipesScreen(
     var selectedFood by remember { mutableStateOf<Food?>(null) }
     var items by remember { mutableStateOf<List<Pair<Food, Double>>>(emptyList()) }
 
-    SubScreen("Receitas", onBack) {
+    SubScreen(stringResource(R.string.recipes), onBack) {
         Text(
-            "Cria uma receita com os teus alimentos e regista uma dose com um toque.",
+            stringResource(R.string.recipes_intro),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "As tuas receitas")
+        SectionHeader(title = stringResource(R.string.recipes_saved))
         Spacer(Modifier.height(6.dp))
         Text(
-            "Receitas guardadas · toca em Registar para adicionar uma dose a hoje",
+            stringResource(R.string.recipes_tip),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -71,7 +73,7 @@ fun RecipesScreen(
         Panel(Modifier.fillMaxWidth()) {
             if (recipes.isEmpty()) {
                 Text(
-                    "Ainda não há receitas. Cria uma abaixo.",
+                    stringResource(R.string.recipes_empty),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -105,7 +107,7 @@ fun RecipesScreen(
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                         ) {
                             Text(
-                                "Registar",
+                                stringResource(R.string.search_log),
                                 style = MaterialTheme.typography.label,
                                 color = MetriqColors.accent,
                             )
@@ -117,13 +119,13 @@ fun RecipesScreen(
         }
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "New recipe")
+        SectionHeader(title = stringResource(R.string.new_recipe))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Recipe name") },
+                label = { Text(stringResource(R.string.recipe_name)) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
@@ -133,7 +135,7 @@ fun RecipesScreen(
                 OutlinedTextField(
                     value = servings,
                     onValueChange = { servings = it },
-                    label = { Text("Servings") },
+                    label = { Text(stringResource(R.string.servings)) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f),
@@ -141,7 +143,7 @@ fun RecipesScreen(
                 OutlinedTextField(
                     value = grams,
                     onValueChange = { grams = it },
-                    label = { Text("Ingredient g") },
+                    label = { Text(stringResource(R.string.ingredient_g)) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f),
@@ -150,11 +152,11 @@ fun RecipesScreen(
         }
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Ingredients")
+        SectionHeader(title = stringResource(R.string.ingredients))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "Escolhe um alimento, define os gramas e adiciona.",
+                stringResource(R.string.recipes_pick_food),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -167,7 +169,7 @@ fun RecipesScreen(
             ) {
                 if (foods.isEmpty()) {
                     Text(
-                        "Ainda não há alimentos disponíveis.",
+                        stringResource(R.string.no_foods),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )
@@ -185,7 +187,7 @@ fun RecipesScreen(
             Spacer(Modifier.height(10.dp))
             if (selectedFood != null) {
                 Text(
-                    "Selected: ${selectedFood?.name}",
+                    stringResource(R.string.selected_food, selectedFood?.name.orEmpty()),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.accent,
                     maxLines = 1,
@@ -194,7 +196,7 @@ fun RecipesScreen(
                 Spacer(Modifier.height(8.dp))
             }
             MetriqButton(
-                text = "Adicionar ingrediente",
+                text = stringResource(R.string.add_ingredient),
                 onClick = {
                     val food = selectedFood
                     val amount = grams.replace(',', '.').toDoubleOrNull()
@@ -212,7 +214,7 @@ fun RecipesScreen(
 
         if (items.isNotEmpty()) {
             Spacer(Modifier.height(18.dp))
-            SectionHeader(title = "Included", action = "${items.size} items")
+            SectionHeader(title = stringResource(R.string.included), action = stringResource(R.string.recipe_items, items.size))
             Spacer(Modifier.height(8.dp))
             Panel(Modifier.fillMaxWidth()) {
                 items.forEach { (food, amount) ->
@@ -230,7 +232,7 @@ fun RecipesScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Remove",
+                            stringResource(R.string.remove),
                             style = MaterialTheme.typography.caption,
                             color = MetriqColors.danger,
                             modifier = Modifier.clickable {
@@ -251,7 +253,7 @@ fun RecipesScreen(
         Spacer(Modifier.height(18.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "ENERGIA POR DOSE",
+                stringResource(R.string.energy_serving),
                 style = MaterialTheme.typography.label,
                 color = MetriqColors.ink3,
             )
@@ -263,14 +265,14 @@ fun RecipesScreen(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                "Across ${items.size} ingredient(s) and ${servings.toIntOrNull()?.coerceAtLeast(1) ?: 1} serving(s)",
+                stringResource(R.string.recipe_ingredients, items.size, servings.toIntOrNull()?.coerceAtLeast(1) ?: 1),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
         }
         Spacer(Modifier.height(14.dp))
         MetriqButton(
-            text = "Create recipe",
+            text = stringResource(R.string.create_recipe),
             onClick = {
                 if (name.isNotBlank() && items.isNotEmpty()) {
                     onAdd(

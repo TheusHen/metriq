@@ -5,6 +5,8 @@ import com.metriq.app.AppGraph
 import com.metriq.app.DailyTraining
 import com.metriq.app.TrainingHistory
 import com.metriq.app.health.HealthConnectManager
+import com.metriq.app.health.WeightReading
+import com.metriq.app.health.latestWeightByDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -20,7 +22,16 @@ object HistoricalImport {
 
     private const val DAYS = 30
 
-    /** Returns the number of records written (step days + training days + weight samples). */
+    /**
+     * Backfill entry point for the connect wizard. Uses the same gap-only import as
+     * the Settings button; [Dispatchers.IO] keeps callers free to show progress on
+     * the main thread. Returns the number of records written (see [importFromHealthConnect]).
+     */
+    suspend fun backfillAfterConnect(context: Context): Int = withContext(Dispatchers.IO) {
+        importFromHealthConnect(context)
+    }
+
+    /** Returns the number of records written (step days + training days + distinct weight days). */
     suspend fun importFromHealthConnect(context: Context): Int = withContext(Dispatchers.IO) {
         AppGraph.ensure(context)
         val hc = AppGraph.healthConnect ?: HealthConnectManager(context.applicationContext)
@@ -32,8 +43,10 @@ object HistoricalImport {
 
         // Weight: one sample per day, only where no local weigh-in exists.
         val localWeightDates = AppGraph.store.weights.all().map { it.date }.toSet()
-        runCatching { hc.readWeight(DAYS) }.getOrDefault(emptyList())
-            .filter { (date, _) -> date in start..today && date !in localWeightDates }
+        val readings: List<WeightReading> =
+            runCatching { hc.readWeight(DAYS) }.getOrDefault(emptyList())
+        latestWeightByDate(readings)
+            .filterKeys { date -> date in start..today && date !in localWeightDates }
             .forEach { (date, kg) ->
                 AppGraph.store.weights.add(date.toString(), kg, "health_connect")
                 imported++

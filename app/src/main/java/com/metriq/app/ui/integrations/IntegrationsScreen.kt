@@ -23,7 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -72,10 +74,10 @@ fun IntegrationsScreen(
     }
     val alpha by reveal.asState()
 
-    SubScreen(title = "Integrations", onBack = onBack) {
+    SubScreen(title = stringResource(R.string.integrations_title), onBack = onBack) {
         Spacer(Modifier.height(4.dp))
         Text(
-            "Ligações só de leitura. Os dados vão diretamente para o armazenamento local deste dispositivo.",
+            stringResource(R.string.integrations_intro),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink2,
             maxLines = 2,
@@ -83,7 +85,7 @@ fun IntegrationsScreen(
         )
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Disponíveis e planeadas")
+        SectionHeader(title = stringResource(R.string.integrations_available))
         Spacer(Modifier.height(8.dp))
         Column(
             Modifier
@@ -106,7 +108,7 @@ fun IntegrationsScreen(
         }
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Importar histórico")
+        SectionHeader(title = stringResource(R.string.integrations_import))
         Spacer(Modifier.height(8.dp))
         Column(
             Modifier
@@ -116,8 +118,8 @@ fun IntegrationsScreen(
                 .padding(16.dp),
         ) {
             Text(
-                "Importa os últimos 30 dias de passos, peso e exercício do Health Connect. " +
-                    "Only empty days are filled — existing entries are never overwritten.",
+                stringResource(R.string.integrations_import_info) + " " +
+                    stringResource(R.string.integrations_import_note),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink2,
                 maxLines = 4,
@@ -125,7 +127,7 @@ fun IntegrationsScreen(
             )
             Spacer(Modifier.height(12.dp))
             MetriqButton(
-                text = "Importar histórico",
+                text = stringResource(R.string.integrations_import),
                 onClick = onImportHistory,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -133,8 +135,8 @@ fun IntegrationsScreen(
             HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
             Spacer(Modifier.height(10.dp))
             Text(
-                "Privacidade: as leituras ficam neste dispositivo. Nada é enviado, não é criada uma conta e " +
-                    "os registos manuais têm sempre prioridade sobre os dados importados.",
+                stringResource(R.string.integrations_privacy) + " " +
+                    stringResource(R.string.settings_hevy_weight),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 4,
@@ -151,7 +153,7 @@ private fun IntegrationRow(
     onOpenHevy: () -> Unit,
 ) {
     val available = state != IntegrationsHub.STATUS_COMING_SOON
-    val statusText = if (available) "Active" else "Não disponível nesta versão"
+    val statusText = stringResource(if (available) R.string.health_available else R.string.integrations_unavailable)
     val statusColor = if (available) MetriqColors.accent else MetriqColors.ink3
     val opensSettings = spec.id == "hevy"
     val clickable = if (opensSettings) Modifier.clickable { onOpenHevy() } else Modifier
@@ -196,7 +198,7 @@ private fun IntegrationRow(
             )
             if (opensSettings) {
                 Text(
-                    text = "Open ›",
+                    text = stringResource(R.string.integrations_open),
                     style = MaterialTheme.typography.label,
                     color = MetriqColors.ink2,
                     textAlign = TextAlign.End,

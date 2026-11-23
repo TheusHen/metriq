@@ -38,15 +38,15 @@ fun StepsScreen(
     var stepInput by remember { mutableStateOf(steps?.toString() ?: "") }
     var waterInput by remember { mutableStateOf(waterMl?.toString() ?: "") }
 
-    SubScreen("Passos e água", onBack) {
+    SubScreen(stringResource(R.string.steps_title), onBack) {
         Text(
-            "Regista o movimento e a hidratação de hoje.",
+            stringResource(R.string.steps_subtitle),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Passos de hoje")
+        SectionHeader(title = stringResource(R.string.steps_today))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.Bottom) {
@@ -57,7 +57,7 @@ fun StepsScreen(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "steps",
+                    stringResource(R.string.steps),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink3,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -65,7 +65,7 @@ fun StepsScreen(
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "Meta diária: 10 000 passos",
+                stringResource(R.string.steps_goal),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -87,7 +87,7 @@ fun StepsScreen(
         }
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Água de hoje")
+        SectionHeader(title = stringResource(R.string.water_today))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.Bottom) {
@@ -106,7 +106,7 @@ fun StepsScreen(
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "Meta diária: 2 500 ml",
+                stringResource(R.string.water_goal),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )

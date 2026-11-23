@@ -32,7 +32,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -130,8 +132,8 @@ fun LabelScannerScreen(
             )
             Column(Modifier.fillMaxWidth()) {
                 ScreenHeader(
-                    title = "Digitalizar etiqueta nutricional",
-                    subtitle = "Enquadra a etiqueta na moldura",
+                    title = stringResource(R.string.label_scan_title),
+                    subtitle = stringResource(R.string.label_scan_hint),
                     onBack = onBack,
                 )
             }
@@ -163,7 +165,7 @@ fun LabelScannerScreen(
                             )
                             Spacer(Modifier.padding(horizontal = 4.dp))
                             Text(
-                                "Label found · ${(label.confidence * 100).toInt()}%",
+                                stringResource(R.string.label_found, (label.confidence * 100).toInt()),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MetriqColors.accent,
                             )
@@ -175,21 +177,25 @@ fun LabelScannerScreen(
                             color = MetriqColors.ink,
                         )
                         Text(
-                            "P ${label.protein?.toInt() ?: 0}g  ·  F ${label.totalFat?.toInt() ?: 0}g  ·  " +
-                                "C ${label.totalCarbs?.toInt() ?: 0}g",
+                            stringResource(
+                                R.string.label_pfc,
+                                label.protein?.toInt() ?: 0,
+                                label.totalFat?.toInt() ?: 0,
+                                label.totalCarbs?.toInt() ?: 0,
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MetriqColors.ink2,
                         )
                         Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
                             MetriqButton(
-                                text = "Editar",
+                                text = stringResource(R.string.edit),
                                 onClick = { onEdit(label) },
                                 modifier = Modifier.weight(1f),
                                 primary = false,
                             )
                             MetriqButton(
-                                text = "Guardar e registar",
+                                text = stringResource(R.string.voice_save),
                                 onClick = { onResult(label) },
                                 modifier = Modifier.weight(1f),
                                 primary = true,
@@ -207,14 +213,14 @@ fun LabelScannerScreen(
                             )
                             Spacer(Modifier.padding(horizontal = 4.dp))
                             Text(
-                                if (granted) "Reading label…" else "Camera permission needed",
+                                if (granted) stringResource(R.string.label_reading) else stringResource(R.string.label_camera_needed),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MetriqColors.ink,
                             )
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "Mantém o painel nutricional imóvel dentro da moldura. Os valores são preenchidos automaticamente.",
+                            stringResource(R.string.label_scan_info),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MetriqColors.ink2,
                         )

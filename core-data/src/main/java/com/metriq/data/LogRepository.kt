@@ -52,13 +52,20 @@ class LogRepository(private val db: MetriqDatabase, private val notifier: DataCh
     }
 
     fun copy(fromDate: String, toDate: String) {
-        db.metriqQueries.copyLogToDate(toDate, System.currentTimeMillis(), fromDate)
+        if (fromDate == toDate) return
+        // Clear the target first, in the same transaction, so repeating a copy never
+        // duplicates the day's entries.
+        db.transaction {
+            db.metriqQueries.deleteLogsForDate(toDate)
+            db.metriqQueries.copyLogToDate(toDate, System.currentTimeMillis(), fromDate)
+        }
         notifier?.notify(DataType.FOOD_LOG)
     }
 
     /** Logged calories per day; used by the expenditure estimator. */
     fun dailyIntake(): Map<LocalDate, Double?> = db.metriqQueries.dailyIntake()
         .executeAsList()
-        .associate { LocalDate.parse(it.date) to it.kcal }
+        .mapNotNull { row -> runCatching { LocalDate.parse(row.date) to row.kcal }.getOrNull() }
+        .toMap()
 }
 

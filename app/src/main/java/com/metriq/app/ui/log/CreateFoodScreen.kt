@@ -21,7 +21,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.Panel
@@ -34,9 +37,10 @@ fun CreateFoodScreen(
     onSave: (FoodDraft) -> Unit,
     initial: FoodDraft? = null,
 ) {
+    val context = LocalContext.current
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var brand by remember { mutableStateOf(initial?.brand ?: "") }
-    var serving by remember { mutableStateOf(initial?.servingLabel ?: "1 serving") }
+    var serving by remember { mutableStateOf(initial?.servingLabel ?: "") }
     var grams by remember { mutableStateOf((initial?.servingGrams ?: 100.0).toString()) }
     var kcal by remember { mutableStateOf(initial?.calories?.toString() ?: "") }
     var protein by remember { mutableStateOf(initial?.protein?.toString() ?: "") }
@@ -46,8 +50,8 @@ fun CreateFoodScreen(
 
     FramedColumn {
         ScreenHeader(
-            title = "Criar alimento",
-            subtitle = "Nutrition values per 100 g",
+            title = stringResource(R.string.create_title),
+            subtitle = stringResource(R.string.create_nutrition),
             onBack = onBack,
         )
 
@@ -59,35 +63,35 @@ fun CreateFoodScreen(
                 .padding(horizontal = 16.dp),
         ) {
             Panel(Modifier.fillMaxWidth()) {
-                SectionLabel("DETAILS")
+                SectionLabel(stringResource(R.string.details))
                 Spacer(Modifier.height(10.dp))
-                Field("Name", name) { name = it; error = null }
+                Field(stringResource(R.string.create_name), name) { name = it; error = null }
                 Spacer(Modifier.height(10.dp))
-                Field("Brand (optional)", brand) { brand = it }
+                Field(stringResource(R.string.create_brand), brand) { brand = it }
             }
 
             Spacer(Modifier.height(16.dp))
             Panel(Modifier.fillMaxWidth()) {
-                SectionLabel("SERVING")
+                SectionLabel(stringResource(R.string.serving))
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Field("Serving", serving, Modifier.weight(1f)) { serving = it }
-                    Field("Grams", grams, Modifier.weight(1f)) { grams = it }
+                    Field(stringResource(R.string.serving), serving, Modifier.weight(1f)) { serving = it }
+                    Field(stringResource(R.string.grams), grams, Modifier.weight(1f)) { grams = it }
                 }
             }
 
             Spacer(Modifier.height(16.dp))
             Panel(Modifier.fillMaxWidth()) {
-                SectionLabel("NUTRITION PER 100 G")
+                SectionLabel(stringResource(R.string.create_section))
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Field("Calorias", kcal, Modifier.weight(1f)) { kcal = it; error = null }
-                    Field("Proteína g", protein, Modifier.weight(1f)) { protein = it }
+                    Field(stringResource(R.string.create_calories), kcal, Modifier.weight(1f)) { kcal = it; error = null }
+                    Field(stringResource(R.string.create_protein), protein, Modifier.weight(1f)) { protein = it }
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Field("Gordura g", fat, Modifier.weight(1f)) { fat = it }
-                    Field("Hidratos g", carbs, Modifier.weight(1f)) { carbs = it }
+                    Field(stringResource(R.string.create_fat), fat, Modifier.weight(1f)) { fat = it }
+                    Field(stringResource(R.string.create_carbs), carbs, Modifier.weight(1f)) { carbs = it }
                 }
                 error?.let { message ->
                     Spacer(Modifier.height(8.dp))
@@ -106,21 +110,21 @@ fun CreateFoodScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             MetriqButton(
-                text = "Criar e registar",
+                text = stringResource(R.string.create_save),
                 onClick = {
                     val kcalValue = kcal.replace(',', '.').toDoubleOrNull()
                     if (kcalValue == null || kcalValue <= 0.0) {
-                        error = "Enter calories greater than zero."
+                        error = context.getString(R.string.create_error)
                     } else {
                         onSave(
                             FoodDraft(
-                                name = name.ifBlank { "Adição rápida" },
+                                name = name.ifBlank { context.getString(R.string.quick_add_name) },
                                 brand = brand.ifBlank { null },
                                 calories = kcalValue,
                                 protein = protein.replace(',', '.').toDoubleOrNull() ?: 0.0,
                                 fat = fat.replace(',', '.').toDoubleOrNull() ?: 0.0,
                                 carbs = carbs.replace(',', '.').toDoubleOrNull() ?: 0.0,
-                                servingLabel = serving.ifBlank { "1 serving" },
+                                servingLabel = serving.ifBlank { context.getString(R.string.serving_one) },
                                 servingGrams = grams.replace(',', '.').toDoubleOrNull() ?: 100.0,
                             ),
                         )

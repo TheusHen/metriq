@@ -22,7 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,15 +46,15 @@ fun HabitsScreen(
     var name by remember { mutableStateOf("") }
     val doneCount = habits.count { it.doneToday }
 
-    SubScreen("Hábitos", onBack) {
+    SubScreen(stringResource(R.string.habits), onBack) {
         Text(
-            "Small actions, repeated.",
+            stringResource(R.string.habits_subtitle),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Hoje")
+        SectionHeader(title = stringResource(R.string.today))
         Spacer(Modifier.height(6.dp))
         Text(
             "$doneCount de ${habits.size} concluídos hoje",
@@ -63,7 +65,7 @@ fun HabitsScreen(
         Panel(Modifier.fillMaxWidth()) {
             if (habits.isEmpty()) {
                 Text(
-                    "Ainda não há hábitos. Adiciona um abaixo para iniciar uma sequência.",
+                    stringResource(R.string.habits_empty),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -110,7 +112,7 @@ fun HabitsScreen(
                                 color = if (habit.streak > 0) MetriqColors.accent else MetriqColors.ink3,
                             )
                             Text(
-                                "STREAK",
+                                stringResource(R.string.streak),
                                 style = MaterialTheme.typography.caption,
                                 color = MetriqColors.ink3,
                             )
@@ -121,26 +123,26 @@ fun HabitsScreen(
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "Toca num hábito para marcar a conclusão de hoje.",
+            stringResource(R.string.habits_tap),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Adicionar hábito")
+        SectionHeader(title = stringResource(R.string.habits_add))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Habit name") },
+                label = { Text(stringResource(R.string.habits_name)) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(10.dp))
             MetriqButton(
-                text = "Adicionar hábito",
+                text = stringResource(R.string.habits_add),
                 onClick = {
                     if (name.isNotBlank()) {
                         onAdd(name.trim())

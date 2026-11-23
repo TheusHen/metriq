@@ -14,11 +14,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from common import FIELDS, dedupe, number, write_pack
 
+# Every value here must be a common.FIELDS column; write_pack drops anything else.
+# USDA id 1091 (phosphorus) is intentionally absent: the pack schema does not
+# track phosphorus, so mapping it would silently discard the parsed value.
 DEFAULT_MAP = {
     "1008": "kcal", "1003": "protein", "1004": "fat", "1005": "carbs",
     "1079": "fiber", "2000": "sugar", "1093": "sodium",
     "1253": "cholesterol", "1092": "potassium", "1087": "calcium",
-    "1089": "iron", "1090": "magnesium", "1091": "phosphorus",
+    "1089": "iron", "1090": "magnesium",
     "1095": "zinc", "1106": "vitaminA", "1162": "vitaminC",
     "1114": "vitaminD", "1178": "vitaminB12",
 }

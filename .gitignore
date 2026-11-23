@@ -10,7 +10,6 @@ captures/
 *.apk
 *.aab
 .kotlin/
-README.md
 .review-fix-plan.md
 .playwright-mcp/
 .pytest_cache/

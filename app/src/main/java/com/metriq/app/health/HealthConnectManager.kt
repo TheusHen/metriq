@@ -53,14 +53,18 @@ class HealthConnectManager(private val context: Context) {
             .records.sumOf { it.energy.inKilocalories }
     }
 
-    suspend fun readWeight(days: Int = 7): List<Pair<LocalDate, Double>> {
+    suspend fun readWeight(days: Int = 7): List<WeightReading> {
         val zone = ZoneId.systemDefault()
         val end = Instant.now()
         val start = end.minusSeconds(days * 86400L)
         return client.readRecords(
             ReadRecordsRequest(WeightRecord::class, TimeRangeFilter.between(start, end)),
         ).records.map { record ->
-            LocalDate.ofInstant(record.time, zone) to record.weight.inKilograms
+            WeightReading(
+                date = LocalDate.ofInstant(record.time, zone),
+                kilograms = record.weight.inKilograms,
+                time = record.time,
+            )
         }
     }
 

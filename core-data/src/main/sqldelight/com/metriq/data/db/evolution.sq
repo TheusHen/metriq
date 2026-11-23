@@ -34,6 +34,9 @@ SELECT * FROM progressPhoto ORDER BY date DESC;
 selectPhotosByDate:
 SELECT * FROM progressPhoto WHERE date = ?;
 
+selectPhotoById:
+SELECT * FROM progressPhoto WHERE id = ?;
+
 deletePhoto:
 DELETE FROM progressPhoto WHERE id = ?;
 

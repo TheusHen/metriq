@@ -53,7 +53,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -167,7 +169,7 @@ fun EnergyBudget(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Meta diária",
+                text = stringResource(R.string.daily_goal),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 1,
@@ -181,7 +183,7 @@ fun EnergyBudget(
                     .padding(horizontal = 10.dp, vertical = 3.dp),
             ) {
                 Text(
-                    text = if (over) "Acima da meta" else "Estável",
+                    text = if (over) "Acima da meta" else stringResource(R.string.home_stable),
                     style = MaterialTheme.typography.label,
                     color = if (over) MetriqColors.danger else MetriqColors.ink2,
                     maxLines = 1,

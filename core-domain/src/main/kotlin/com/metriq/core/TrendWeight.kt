@@ -3,8 +3,9 @@ package com.metriq.core
 import java.time.LocalDate
 
 /**
- * Weight trend: gaps interpolated, then an exponential average that leans on recent
- * weigh-ins and stands still on days without data.
+ * Weight trend: an exponential average applied only on actual weigh-in days that
+ * leans harder on the reading the longer it has been since the previous weigh-in.
+ * Days without data hold the previous trend.
  */
 object TrendWeight {
 
@@ -19,21 +20,24 @@ object TrendWeight {
     ): Map<LocalDate, Double> {
         val days = dayRange(from, to)
         if (days.isEmpty()) return emptyMap()
-        val dense = interpolate(weights, days)
 
         val trend = LinkedHashMap<LocalDate, Double>(days.size)
         var current: Double? = null
         var lastWeighIn: LocalDate? = null
 
-        days.forEachIndexed { index, day ->
-            val observed = dense[index]
+        days.forEach { day ->
+            // Only a real weigh-in moves the trend. The alpha is driven by the gap
+            // since the last actual weigh-in, not by the presence of a trend value.
+            val observed = weights[day]
             if (observed != null) {
                 val gapDays = lastWeighInGap(day, lastWeighIn)
                 lastWeighIn = day
                 if (current == null) {
                     current = observed
                 } else {
-                    val alpha = (MIN_ALPHA + ALPHA_STEP * gapDays).coerceIn(MIN_ALPHA, MAX_ALPHA)
+                    // gapDays counts calendar days between weigh-ins, so a daily
+                    // weigh-in (gap 1) must use exactly MIN_ALPHA.
+                    val alpha = (MIN_ALPHA + ALPHA_STEP * (gapDays - 1)).coerceIn(MIN_ALPHA, MAX_ALPHA)
                     current = current!! + alpha * (observed - current!!)
                 }
             }
@@ -48,6 +52,7 @@ object TrendWeight {
         date: LocalDate,
         spanDays: Int = 20,
     ): Double? {
+        if (spanDays <= 0) return null
         val end = trend[date] ?: return null
         val start = trend[date.minusDays(spanDays.toLong())] ?: return null
         return (end - start) / spanDays * 7.0
@@ -65,28 +70,5 @@ object TrendWeight {
             day = day.plusDays(1)
         }
         return days
-    }
-
-    /** Linear interpolation between known weigh-ins; flat hold at both ends. */
-    private fun interpolate(weights: Map<LocalDate, Double>, days: List<LocalDate>): List<Double?> {
-        val raw = days.map { weights[it] }
-        val known = raw.indices.filter { raw[it] != null }
-        if (known.isEmpty()) return raw
-        if (known.size == 1) return raw.map { raw[known.first()] }
-
-        val out = raw.toMutableList()
-        for (i in 0 until known.first()) out[i] = raw[known.first()]
-        for (k in 0 until known.size - 1) {
-            val a = known[k]
-            val b = known[k + 1]
-            val va = raw[a]!!
-            val vb = raw[b]!!
-            for (i in a + 1 until b) {
-                val t = (i - a).toDouble() / (b - a).toDouble()
-                out[i] = va + (vb - va) * t
-            }
-        }
-        for (i in known.last() + 1 until raw.size) out[i] = raw[known.last()]
-        return out
     }
 }

@@ -26,7 +26,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -52,23 +54,23 @@ fun BodyScreen(
     onDeletePhoto: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
-    var site by remember { mutableStateOf("Waist") }
+    var site by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
 
-    SubScreen("Corpo", onBack) {
+    SubScreen(stringResource(R.string.body), onBack) {
         Text(
-            "Regista as tuas medições, ciclo e fotos de progresso.",
+            stringResource(R.string.body_intro),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Measurements")
+        SectionHeader(title = stringResource(R.string.measurements))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             if (measurements.isEmpty()) {
                 Text(
-                    "Ainda não há medições registadas.",
+                    stringResource(R.string.body_measurements),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -106,7 +108,7 @@ fun BodyScreen(
         Spacer(Modifier.height(12.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "Adicionar medição",
+                stringResource(R.string.body_add_measurement),
                 style = MaterialTheme.typography.bodyStrong,
                 color = MetriqColors.ink,
             )
@@ -115,7 +117,7 @@ fun BodyScreen(
                 OutlinedTextField(
                     value = site,
                     onValueChange = { site = it },
-                    label = { Text("Site") },
+                    label = { Text(stringResource(R.string.site)) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f),
@@ -131,7 +133,7 @@ fun BodyScreen(
             }
             Spacer(Modifier.height(12.dp))
             MetriqButton(
-                text = "Guardar medição",
+                text = stringResource(R.string.body_save_measurement),
                 onClick = {
                     value.replace(',', '.').toDoubleOrNull()?.let {
                         onAddMeasurement(site, it)
@@ -143,7 +145,7 @@ fun BodyScreen(
         }
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Cycle")
+        SectionHeader(title = stringResource(R.string.cycle))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Row(
@@ -154,13 +156,13 @@ fun BodyScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "Período hoje",
+                        stringResource(R.string.body_period),
                         style = MaterialTheme.typography.bodyStrong,
                         color = MetriqColors.ink,
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        "Marcar hoje como parte do ciclo.",
+                        stringResource(R.string.body_period_note),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )
@@ -186,12 +188,12 @@ fun BodyScreen(
         }
 
         Spacer(Modifier.height(20.dp))
-        SectionHeader(title = "Fotos de progresso", action = "Adicionar", onAction = onAddPhoto)
+        SectionHeader(title = stringResource(R.string.body_photos), action = stringResource(R.string.add), onAction = onAddPhoto)
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             if (photos.isEmpty()) {
                 Text(
-                    "Ainda não há fotos. Adiciona uma da galeria.",
+                    stringResource(R.string.body_no_photos),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -212,7 +214,7 @@ fun BodyScreen(
             }
             Spacer(Modifier.height(14.dp))
             MetriqButton(
-                text = "Adicionar foto da galeria",
+                text = stringResource(R.string.body_add_photo),
                 onClick = onAddPhoto,
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,
@@ -241,13 +243,13 @@ private fun PhotoTile(
             if (bitmap != null) {
                 Image(
                     bitmap,
-                    contentDescription = "Foto de progresso de ${photo.date}",
+                    contentDescription = stringResource(R.string.body_photo_label, photo.date),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
             } else {
                 Text(
-                    "Image unavailable",
+                    stringResource(R.string.body_image_unavailable),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink3,
                 )
@@ -265,7 +267,7 @@ private fun PhotoTile(
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                "Eliminar",
+                stringResource(R.string.remove),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.danger,
                 modifier = Modifier.clickable { onDelete() },

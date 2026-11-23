@@ -24,14 +24,20 @@ class HabitRepository(private val db: MetriqDatabase, private val notifier: Data
         notifier.notify(DataType.HABIT)
     }
 
-    fun streak(habitId: Long, today: String): Int {
-        var cursor = java.time.LocalDate.parse(today)
+    fun streak(habitId: Long, today: String, maxDays: Int = 3650): Int {
+        val end = java.time.LocalDate.parse(today)
+        val start = end.minusDays((maxDays - 1).toLong())
+        // One bounded query instead of one query per day, then walk in memory.
+        val doneDates = db.evolutionQueries.selectHabitLogs(habitId, start.toString(), today)
+            .executeAsList()
+            .asSequence()
+            .filter { it.done == 1L }
+            .map { it.date }
+            .toSet()
+
+        var cursor = end
         var count = 0
-        while (true) {
-            val key = cursor.toString()
-            val done = db.evolutionQueries.selectHabitLogs(habitId, key, key)
-                .executeAsList().firstOrNull()?.done == 1L
-            if (!done) break
+        while (count < maxDays && cursor.toString() in doneDates) {
             count++
             cursor = cursor.minusDays(1)
         }

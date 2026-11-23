@@ -51,6 +51,22 @@ class NutritionLabelParserTest {
     }
 
     @Test
+    fun `thousand separators are stripped before decimal normalization`() {
+        val text = """
+            Nutrition Facts
+            Total Fat 1.000 g
+            Sodium 1,000 mg
+            Total Sugars 3,5 g
+            Protein 9 g
+        """.trimIndent()
+        val label = parser.parse(text)
+        assertEquals(1000.0, label.totalFat!!)
+        assertEquals(1000.0, label.sodium!!)
+        assertEquals(3.5, label.sugars!!)
+        assertEquals(9.0, label.protein!!)
+    }
+
+    @Test
     fun `low confidence on irrelevant text`() {
         val label = parser.parse("Just a shopping list with milk and bread.")
         assertTrue(label.confidence < 0.2f)

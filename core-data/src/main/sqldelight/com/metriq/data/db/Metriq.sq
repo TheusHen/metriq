@@ -127,7 +127,7 @@ CREATE TABLE waterEntry (
 
 CREATE TABLE nutrientTarget (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  nutrient TEXT NOT NULL,
+  nutrient TEXT NOT NULL UNIQUE,
   mode TEXT NOT NULL,
   minimum REAL,
   maximum REAL,
@@ -203,6 +203,13 @@ insertFood:
 INSERT INTO food(source, sourceId, barcode, name, brand, category, iconId, calories, protein, fat, carbs, fiber, sugar, sodium, servingLabel, servingGrams, verified, isCustom)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+insertOnlineFood:
+INSERT INTO food(source, sourceId, barcode, name, brand, category, iconId, calories, protein, fat, carbs, fiber, sugar, sodium, servingLabel, servingGrams, verified, isCustom)
+VALUES ('online', ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, 0, 0);
+
+foodByNameBrand:
+SELECT * FROM food WHERE name = ? AND COALESCE(brand, '') = ? LIMIT 1;
+
 recentFood:
 SELECT * FROM food ORDER BY id DESC LIMIT ?;
 
@@ -241,6 +248,9 @@ copyLogToDate:
 INSERT INTO logEntry(date, hour, foodId, grams, servings, createdAt)
 SELECT ?, hour, foodId, grams, servings, ? FROM logEntry WHERE date = ?;
 
+deleteLogsForDate:
+DELETE FROM logEntry WHERE date = ?;
+
 dailyIntake:
 SELECT logEntry.date AS date, SUM(food.calories * logEntry.grams / 100.0 * logEntry.servings) AS kcal
 FROM logEntry JOIN food ON food.id = logEntry.foodId
@@ -267,8 +277,14 @@ INSERT OR REPLACE INTO stepEntry(date, steps, source) VALUES (?, ?, ?);
 latestCheckin:
 SELECT * FROM checkin ORDER BY weekStart DESC LIMIT 1;
 
+checkinForWeek:
+SELECT * FROM checkin WHERE weekStart = ? ORDER BY id DESC LIMIT 1;
+
 insertCheckin:
 INSERT INTO checkin(weekStart, recommendedKcal, recommendedMacros, accepted, note) VALUES (?, ?, ?, ?, ?);
+
+deleteCheckinForWeek:
+DELETE FROM checkin WHERE weekStart = ?;
 
 stepsForDate:
 SELECT steps FROM stepEntry WHERE date = ?;

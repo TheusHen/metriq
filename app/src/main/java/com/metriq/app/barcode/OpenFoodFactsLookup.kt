@@ -1,6 +1,8 @@
 package com.metriq.app.barcode
 
+import com.metriq.data.DataType
 import com.metriq.data.MetriqStore
+import com.metriq.data.db.Food
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -58,21 +60,7 @@ object OpenFoodFactsLookup {
 
             // A previous lookup (or the bundled pack) already cached this barcode.
             val cached = store.food.byBarcode(normalized)
-            if (cached != null) {
-                return@withContext LookupOutcome.Success(
-                    product = OffProduct(
-                        name = cached.name,
-                        brand = cached.brand,
-                        calories = cached.calories,
-                        protein = cached.protein,
-                        fat = cached.fat,
-                        carbs = cached.carbs,
-                        servingLabel = cached.servingLabel,
-                        servingGrams = cached.servingGrams,
-                    ),
-                    foodId = cached.id,
-                )
-            }
+            if (cached != null) return@withContext outcomeFor(cached)
 
             val url = ENDPOINT + URLEncoder.encode(normalized, "UTF-8") + ".json?fields=$FIELDS"
             var connection: HttpURLConnection? = null
@@ -131,12 +119,16 @@ object OpenFoodFactsLookup {
                 servingGrams = product.opt("serving_quantity")?.asFiniteDouble(),
             )
 
-            // insertCustomFood has no barcode parameter, so stamp it with a direct statement
-            // after insertion. The unique index makes a second lookup of the same code a no-op.
+            // Single insert including the barcode: no barcodeless row can be left behind.
             val id = try {
-                store.food.insertCustomFood(
+                store.db.metriqQueries.insertFood(
+                    source = "custom",
+                    sourceId = null,
+                    barcode = normalized,
                     name = parsed.name,
                     brand = parsed.brand,
+                    category = "custom",
+                    iconId = null,
                     calories = parsed.calories,
                     protein = parsed.protein,
                     fat = parsed.fat,
@@ -146,34 +138,35 @@ object OpenFoodFactsLookup {
                     sodium = null,
                     servingLabel = parsed.servingLabel,
                     servingGrams = parsed.servingGrams,
+                    verified = 0L,
+                    isCustom = 1L,
                 )
+                store.food.byBarcode(normalized)?.id
+                    ?: return@withContext LookupOutcome.Error("Could not save product: barcode not found")
             } catch (e: Exception) {
+                // A concurrent lookup may have won the unique-barcode race; reuse its row.
+                store.food.byBarcode(normalized)?.let { return@withContext outcomeFor(it) }
                 return@withContext LookupOutcome.Error(
                     "Could not save product: ${e.message ?: "database error"}",
                 )
             }
-
-            try {
-                store.driver.execute(null, "UPDATE food SET barcode = ? WHERE id = ?", 2) {
-                    bindString(0, normalized)
-                    bindLong(1, id)
-                }
-            } catch (e: Exception) {
-                // Do not leave a barcodeless duplicate behind if the stamp fails.
-                try {
-                    store.driver.execute(null, "DELETE FROM food WHERE id = ?", 1) {
-                        bindLong(0, id)
-                    }
-                } catch (_: Exception) {
-                    // Best effort cleanup; the error below is still reported to the user.
-                }
-                return@withContext LookupOutcome.Error(
-                    "Could not save barcode: ${e.message ?: "database error"}",
-                )
-            }
-
+            store.notifier.notify(DataType.FOOD_LOG)
             LookupOutcome.Success(parsed, id)
         }
+
+    private fun outcomeFor(food: Food): LookupOutcome.Success = LookupOutcome.Success(
+        product = OffProduct(
+            name = food.name,
+            brand = food.brand,
+            calories = food.calories,
+            protein = food.protein,
+            fat = food.fat,
+            carbs = food.carbs,
+            servingLabel = food.servingLabel,
+            servingGrams = food.servingGrams,
+        ),
+        foodId = food.id,
+    )
 
     private fun Any.asFiniteDouble(): Double? = when (this) {
         is Number -> toDouble().takeIf { it.isFinite() && it > 0.0 }

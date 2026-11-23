@@ -25,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
@@ -119,15 +121,15 @@ fun MicronutrientsScreen(
         }
     }
 
-    SubScreen("Nutrientes", onBack) {
+    SubScreen(stringResource(R.string.nutrients), onBack) {
         Text(
-            "Micronutrients",
+            stringResource(R.string.nutrients),
             style = MaterialTheme.typography.h2,
             color = MetriqColors.ink,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Ingestão diária face aos valores de referência do teu perfil.",
+            stringResource(R.string.micro_intro),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
@@ -135,16 +137,16 @@ fun MicronutrientsScreen(
 
         Panel(Modifier.fillMaxWidth()) {
             SectionHeader(
-                title = "Targets",
-                action = if (editing) "Concluído" else "Editar metas",
+                title = stringResource(R.string.targets),
+                action = if (editing) stringResource(R.string.micro_done) else stringResource(R.string.micro_edit),
                 onAction = { toggleEdit() },
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = if (editing) {
-                    "Define uma quantidade diária personalizada por nutriente. Os valores predefinidos seguem as DRIs para o teu perfil."
+                    stringResource(R.string.micro_custom_info)
                 } else if (customTargets.isEmpty()) {
-                    "A usar os valores de referência predefinidos."
+                    stringResource(R.string.micro_defaults)
                 } else {
                     "${customTargets.size} meta personalizada${if (customTargets.size == 1) "" else "s"} set."
                 },
@@ -186,7 +188,7 @@ fun MicronutrientsScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 Text(
-                    text = "Reset to DRI",
+                    text = stringResource(R.string.micro_reset),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     modifier = Modifier.clickable {
@@ -272,7 +274,7 @@ fun MicronutrientsScreen(
                 } else {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Sem dados registados para este nutriente",
+                        stringResource(R.string.micro_no_data),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )

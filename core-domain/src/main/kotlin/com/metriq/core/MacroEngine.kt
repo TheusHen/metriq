@@ -235,6 +235,7 @@ object MacroEngine {
             proteinG = base.proteinG,
             fatG = newFatG,
             carbG = newCarbG,
+            floorsRelaxed = base.floorsRelaxed,
         )
         val carbDeltaG = newCarbG - base.carbG
         val fatDeltaG = newFatG - base.fatG

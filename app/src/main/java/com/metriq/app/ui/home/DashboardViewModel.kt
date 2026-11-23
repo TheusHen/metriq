@@ -5,7 +5,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.metriq.app.DefaultProfile
 import com.metriq.app.AppGraph
 import com.metriq.app.AppSettings
@@ -96,8 +98,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val hevyRepository get() = AppGraph.hevyRepository
 
     // Exact inputs used by the last buildState(), for faithful goal warnings preview.
-    private var previewPlan: PlanResult? = null
-    private var previewProfile: Profile? = null
+    @Volatile private var previewPlan: PlanResult? = null
+    @Volatile private var previewProfile: Profile? = null
+
+    // Only the newest requested snapshot may be published; older IO builds are discarded.
+    private var buildSequence = 0
 
     fun previewGoalWarnings(goal: GoalOverride): List<String> {
         val plan = previewPlan ?: return emptyList()
@@ -105,8 +110,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         return GoalEngine.recalculate(plan, goal, profile, profile.age < 18).warnings
     }
 
-    /** Re-evaluated on every refresh so the app does not get stuck on yesterday after midnight. */
-    private var today: LocalDate = LocalDate.now()
+    /**
+     * Read at the moment of each write, not cached in a field: an app left open across
+     * midnight must log to the new day even if no refresh happened in between.
+     */
+    private val today: LocalDate get() = LocalDate.now()
 
     private val _state = MutableStateFlow(buildState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
@@ -118,7 +126,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addFood(food: FoodHit, grams: Double) {
-        AppGraph.store.logs.add(today.toString(), LocalTime.now().hour, food.id, grams)
+        val id = AppGraph.store.food.materialize(food)
+        AppGraph.store.logs.add(today.toString(), LocalTime.now().hour, id, grams)
         refresh()
     }
 
@@ -253,22 +262,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun quickAdd(kcal: Double, proteinG: Double, fatG: Double, carbG: Double) {
         if (kcal <= 0.0) return
+        val app = getApplication<Application>()
         val id = AppGraph.store.food.insertCustomFood(
-            name = "Adição rápida", brand = null, calories = kcal, protein = proteinG,
+            name = app.getString(com.metriq.app.R.string.quick_add_name),
+            brand = null, calories = kcal, protein = proteinG,
             fat = fatG, carbs = carbG, fiber = null, sugar = null, sodium = null,
-            servingLabel = "1 serving", servingGrams = 100.0,
+            servingLabel = app.getString(com.metriq.app.R.string.serving_one),
+            servingGrams = 100.0,
         )
         AppGraph.store.logs.add(today.toString(), LocalTime.now().hour, id, 100.0)
         refresh()
     }
 
     fun logDays(food: com.metriq.data.FoodHit, grams: Double, days: Int) {
+        val id = AppGraph.store.food.materialize(food)
         val count = days.coerceIn(1, 7)
         (0 until count).forEach { offset ->
             AppGraph.store.logs.add(
-                today.plusDays(offset.toLong()).toString(),
+                LocalDate.now().plusDays(offset.toLong()).toString(),
                 LocalTime.now().hour,
-                food.id,
+                id,
                 grams,
             )
         }
@@ -300,9 +313,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         refresh()
     }
 
+    /** Rebuild off the Main thread; notifier bursts must not block the UI. */
     fun refresh() {
-        today = LocalDate.now()
-        _state.value = buildState()
+        val sequence = ++buildSequence
+        viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.IO) { buildState() }
+            if (sequence == buildSequence) _state.value = snapshot
+        }
     }
 
     private fun buildState(): DashboardState {
@@ -316,13 +333,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val intake: MutableMap<LocalDate, Double?> = AppGraph.store.logs.dailyIntake().toMutableMap()
         val lastKg = weightEntries.lastOrNull()?.kg ?: profile.weightKg
         val effectiveProfile = profile.copy(weightKg = lastKg)
-        val bmr = Bmr.forProfile(effectiveProfile)
+        // The historical peak is what makes the below-peak BMR correction fire. Without
+        // it forProfile sees only the current weight and never discounts the estimate.
+        val peakKg = weightEntries.maxOfOrNull { it.kg } ?: profile.weightKg
+        val bmr = Bmr.forProfile(effectiveProfile, peakKg)
+        // Measured output only feeds expenditure confidence; it never changes kcal.
+        val observedActiveKcal = AppGraph.store.settings.get("health_active_calories")?.toDoubleOrNull()
         // Hold the last estimate when logging pauses, as required by algorithms.md.
         val previousKcal = AppGraph.store.settings.get("last_expenditure_kcal")?.toDoubleOrNull()
         val previous = previousKcal?.let {
             ExpenditureResult(today, it, Confidence.MEDIUM, updated = false, samples = 0)
         }
-        val expenditure = Expenditure.estimate(today, intake, trend, bmr, previous)
+        val expenditure = Expenditure.estimate(
+            date = today,
+            intake = intake,
+            trend = trend,
+            bmr = bmr,
+            weights = weightMap,
+            previous = previous,
+            observedActiveKcal = observedActiveKcal,
+        )
         if (expenditure.updated) {
             AppGraph.store.settings.set("last_expenditure_kcal", expenditure.kcal.toString())
         }
@@ -342,10 +372,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val kcal = health?.activeKcal ?: 0.0
             val minutes = health?.minutes ?: 0
             val sessions = health?.sessions ?: 0
+            // Steps are stored locally; feeding them lets TrainingEngine classify
+            // light-activity days. They only affect the macro split, never total kcal.
+            val steps = AppGraph.store.step.forDate(date.toString())
             return if (hevy != null) {
                 TrainingEngine.fromHevy(
                     activeKcal = kcal,
-                    steps = null,
+                    steps = steps,
                     volumeKg = hevy.volumeKg,
                     // Health Connect cardio still counts on a day with a Hevy lift.
                     durationMinutes = hevy.durationMinutes + minutes,
@@ -356,7 +389,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } else {
                 TrainingEngine.fromHealthConnect(
                     activeKcal = kcal,
-                    steps = null,
+                    steps = steps,
                     sessions = sessions,
                     durationMinutes = minutes,
                     bodyWeightKg = effectiveProfile.weightKg,
@@ -380,7 +413,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         )
         previewPlan = suggestedPlan
         previewProfile = effectiveProfile
-        val goalRecalculation = GoalStore.read()?.let { override ->
+        val goalRecalculation = GoalStore.read()?.let { stored ->
+            // A "follow expenditure" goal must track improved device data instead of a
+            // kcal value frozen at onboarding. resolve() returns a copy, so the
+            // persisted JSON stays untouched; manual goals are returned as-is.
+            val override = FollowExpenditureGoal.resolve(
+                stored = stored,
+                currentExpenditureKcal = expenditure.kcal,
+                currentWeightKg = effectiveProfile.weightKg,
+            )
             GoalEngine.recalculate(suggestedPlan, override, effectiveProfile, isMinor)
         }
         // Adapt on top of the goal-adjusted plan so the override and the training
@@ -431,7 +472,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         return DashboardState(
-            dateLabel = today.format(DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.forLanguageTag("pt-PT"))),
+            dateLabel = today.format(DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.getDefault())),
             week = buildWeek(intake, weightEntries),
             kcalConsumed = consumedKcal,
             kcalTarget = macros.kcal,
@@ -444,12 +485,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             trendKg = trendSeries.lastOrNull() ?: lastKg,
             trendChangePerWeek = changePerWeek,
             trendSeries = trendSeries,
-            trendStartLabel = start.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("pt-PT"))),
-            trendEndLabel = today.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("pt-PT"))),
+            trendStartLabel = start.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
+            trendEndLabel = today.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())),
             expenditureKcal = Math.round(expenditure.kcal).toInt(),
             expenditureConfidence = expenditure.confidence.name.lowercase(Locale.ENGLISH),
-            goalLabel = profile.goal.name.lowercase(Locale.ENGLISH)
-                .replaceFirstChar { it.uppercase() },
+            // HomeScreen and TrendSection match "cut"/"bulk" as lowercase keys.
+            goalLabel = profile.goal.name.lowercase(Locale.ENGLISH),
             logItems = logs,
             weights = weightEntries,
             checkinAccepted = AppGraph.store.checkin.acceptedFor(

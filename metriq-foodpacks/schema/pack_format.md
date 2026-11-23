@@ -33,4 +33,8 @@ TSV com cabeçalho opcional. Colunas, nesta ordem:
 
 Campos vazios significam "desconhecido". O app trata como 0 ao somar, mas nunca afirma que o valor foi medido.
 
+Fósforo não é rastreado: não existe coluna para ele neste formato de 26 colunas, e
+os conversores USDA/FDC não mapeiam o nutriente 1091. Mapeá-lo exigiria uma
+migração do schema e do parser do app.
+
 Packs legados de 12 colunas (sem barcode e micros) ainda são aceitos pelo app.

@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -58,9 +59,6 @@ import com.metriq.app.ui.steps.StepsScreen
 import com.metriq.app.ui.theme.MetriqTheme
 import com.metriq.app.ui.weight.WeightScreen
 import androidx.health.connect.client.PermissionController
-import androidx.work.Data
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.metriq.core.NutritionLabelParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,33 +73,50 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private enum class HealthRequestSource { ONBOARDING, DASHBOARD }
+
+private enum class HealthPermissionUiState { UNKNOWN, GRANTED, DENIED }
+
 class MainActivity : ComponentActivity() {
 
     private val viewModel: DashboardViewModel by viewModels()
+    private val onboardingViewModel: OnboardingViewModel by viewModels()
     private val navAction = MutableStateFlow<String?>(null)
+    private val healthPermissionState = MutableStateFlow(HealthPermissionUiState.UNKNOWN)
+    private var healthRequestSource = HealthRequestSource.DASHBOARD
     private var foodDraftPrefill: FoodDraft? = null
     private var pendingCsv: String? = null
+
+    // One launcher for the whole Activity: the wizard and the dashboard share it.
+    private val hcLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted -> onHealthPermissionsResult(granted) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashLog.read(this)?.let { report ->
-            CrashLog.clear(this)
             AlertDialog.Builder(this)
-                .setTitle("Metriq — crash report")
+                .setTitle(getString(R.string.crash_title))
                 .setMessage(report.take(4000))
-                .setPositiveButton("Copy") { _, _ ->
+                .setPositiveButton(getString(R.string.crash_copy)) { _, _ ->
                     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Metriq crash", report))
-                    Toast.makeText(this, "Crash report copied", Toast.LENGTH_SHORT).show()
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText(getString(R.string.app_name), report),
+                    )
+                    Toast.makeText(this, getString(R.string.crash_copied), Toast.LENGTH_SHORT).show()
+                    // Only an explicit copy discards the report; plain dismiss keeps it.
+                    CrashLog.clear(this)
                 }
-                .setNegativeButton("Fechar", null)
+                .setNegativeButton(getString(R.string.crash_close), null)
                 .show()
         }
         enableEdgeToEdge()
-        navAction.value = intent?.action
+        // A fresh launch may route from the intent; a rotation must not re-apply it.
+        if (savedInstanceState == null) navAction.value = intent?.action
         setContent {
             MetriqTheme {
                 val state by viewModel.state.collectAsStateWithLifecycle()
+                val healthPermission by healthPermissionState.collectAsStateWithLifecycle()
                 val context = LocalContext.current
                 val scope = rememberCoroutineScope()
                 var showGoalEditor by remember { mutableStateOf(false) }
@@ -128,9 +143,19 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (!onboardingDone) {
-                    val onboardingViewModel: OnboardingViewModel = viewModel()
                     OnboardingScreen(
                         viewModel = onboardingViewModel,
+                        healthConnect = AppGraph.healthConnect,
+                        onRequestHealthConnect = {
+                            healthRequestSource = HealthRequestSource.ONBOARDING
+                            val health = AppGraph.healthConnect
+                            if (health != null && health.isAvailable()) {
+                                hcLauncher.launch(health.permissions)
+                            } else {
+                                onboardingViewModel.refreshHealthStatus(false, false)
+                            }
+                        },
+                        onConnectHevy = { key -> connectHevyFromOnboarding(key) },
                         onComplete = {
                             onboardingDone = true
                             screen = Screen.DASHBOARD
@@ -140,23 +165,18 @@ class MainActivity : ComponentActivity() {
                 } else {
                 val action by navAction.collectAsStateWithLifecycle()
                 LaunchedEffect(action) {
-                    screenFor(action)?.let { screen = it }
+                    val target = screenFor(action) ?: return@LaunchedEffect
+                    screen = target
+                    navAction.value = null // consume once: rotation/deep-link replay must not re-route
                 }
                 val recognition = remember { FoodRecognitionManager(AppGraph.store) }
                 val health = AppGraph.healthConnect
                 val healthStatus = when {
-                    health == null -> "Unavailable on this device"
-                    !health.isAvailable() -> "O Health Connect não está instalado"
-                    else -> "Disponível"
-                }
-                val hcLauncher = rememberLauncherForActivityResult(
-                    PermissionController.createRequestPermissionResultContract(),
-                ) {
-                    WorkManager.getInstance(context).enqueue(
-                        OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-                            .setInputData(Data.Builder().putBoolean("manual", true).build())
-                            .build(),
-                    )
+                    health == null -> stringResource(R.string.health_unavailable)
+                    !health.isAvailable() -> stringResource(R.string.health_not_installed)
+                    healthPermission == HealthPermissionUiState.GRANTED -> stringResource(R.string.health_connected)
+                    healthPermission == HealthPermissionUiState.DENIED -> stringResource(R.string.health_denied)
+                    else -> stringResource(R.string.health_available)
                 }
                 val exportLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("text/csv"),
@@ -173,7 +193,9 @@ class MainActivity : ComponentActivity() {
                     if (uri != null) viewModel.addPhoto(context, uri)
                 }
 
-                BackHandler(enabled = screen != Screen.DASHBOARD) { screen = Screen.DASHBOARD }
+                // System back unwinds the same chain as the header back buttons.
+                val backTarget = screen.parent
+                BackHandler(enabled = backTarget != null) { backTarget?.let { screen = it } }
 
                 // Persist off the UI thread and only after typing pauses.
                 LaunchedEffect(hevyKeyInput) {
@@ -255,7 +277,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 screen = Screen.DASHBOARD
                             } else {
-                                Toast.makeText(context, "Barcode not in local pack.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.barcode_not_local), Toast.LENGTH_SHORT).show()
                                 foodDraftPrefill = null
                                 screen = Screen.CREATE
                             }
@@ -266,13 +288,15 @@ class MainActivity : ComponentActivity() {
                         onBack = { screen = Screen.SEARCH },
                         onEdit = { label ->
                             foodDraftPrefill = FoodDraft(
-                                name = label.servingSize?.let { "Rotular alimento · $it" } ?: "Rotular alimento",
+                                name = label.servingSize?.let {
+                                    context.getString(R.string.label_food_with, it)
+                                } ?: context.getString(R.string.label_food),
                                 brand = null,
                                 calories = label.calories ?: 0.0,
                                 protein = label.protein ?: 0.0,
                                 fat = label.totalFat ?: 0.0,
                                 carbs = label.totalCarbs ?: 0.0,
-                                servingLabel = label.servingSize ?: "1 serving",
+                                servingLabel = label.servingSize ?: context.getString(R.string.serving_one),
                                 servingGrams = 100.0,
                             )
                             screen = Screen.CREATE
@@ -280,13 +304,13 @@ class MainActivity : ComponentActivity() {
                         onResult = { label: NutritionLabelParser.ParsedLabel ->
                             viewModel.createFood(
                                 FoodDraft(
-                                    name = "Rotular alimento",
+                                    name = context.getString(R.string.label_food),
                                     brand = null,
                                     calories = label.calories ?: 0.0,
                                     protein = label.protein ?: 0.0,
                                     fat = label.totalFat ?: 0.0,
                                     carbs = label.totalCarbs ?: 0.0,
-                                    servingLabel = label.servingSize ?: "1 serving",
+                                    servingLabel = label.servingSize ?: context.getString(R.string.serving_one),
                                     servingGrams = 100.0,
                                 ),
                             )
@@ -331,7 +355,7 @@ class MainActivity : ComponentActivity() {
 
                     Screen.PROFILE -> ProfileScreen(
                         initial = AppGraph.store.profile.get() ?: DefaultProfile.PROFILE,
-                        targetWeightKg = null,
+                        targetWeightKg = GoalStore.read()?.targetWeightKg,
                         onBack = { screen = Screen.DASHBOARD },
                         onSave = { profile, target ->
                             viewModel.saveProfile(profile, target)
@@ -339,6 +363,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onExport = { exportLauncher.launch("metriq-export.csv") },
                         onConnectHealth = {
+                            healthRequestSource = HealthRequestSource.DASHBOARD
                             if (health != null && health.isAvailable()) {
                                 hcLauncher.launch(health.permissions)
                             } else {
@@ -346,11 +371,7 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onSyncHealth = {
-                            WorkManager.getInstance(context).enqueue(
-                                OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-                            .setInputData(Data.Builder().putBoolean("manual", true).build())
-                            .build(),
-                            )
+                            HealthConnectSyncWorker.enqueue(context, manual = true)
                         },
                         healthStatus = healthStatus,
                         lastHealthSync = AppGraph.store.settings.get("health_last_sync")?.let(::formatEpoch),
@@ -422,13 +443,10 @@ class MainActivity : ComponentActivity() {
                         onSettingChange = { key, value -> viewModel.setSetting(key, value); settingsRevision++ },
                         onExport = { exportLauncher.launch("metriq-export.csv") },
                         onSyncHealth = {
-                            WorkManager.getInstance(context).enqueue(
-                                OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-                            .setInputData(Data.Builder().putBoolean("manual", true).build())
-                            .build(),
-                            )
+                            HealthConnectSyncWorker.enqueue(context, manual = true)
                         },
                         onConnectHealth = {
+                            healthRequestSource = HealthRequestSource.DASHBOARD
                             if (health != null && health.isAvailable()) {
                                 hcLauncher.launch(health.permissions)
                             } else {
@@ -471,16 +489,20 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onHevyDisconnect = {
+                            val clearError = context.getString(R.string.settings_hevy_clear_error)
                             hevyKeyInput = ""
                             hevyKeyPersisted = ""
-                            if (!AppGraph.hevyRepository.clear()) {
-                                Toast.makeText(
-                                    context,
-                                    "Não foi possível limpar todos os dados do Hevy.",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                            scope.launch {
+                                val cleared = AppGraph.hevyRepository.clear()
+                                if (!cleared) {
+                                    Toast.makeText(
+                                        context,
+                                        clearError,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                                viewModel.refresh()
                             }
-                            viewModel.refresh()
                         },
                         onHevyAutoSyncChange = { enabled ->
                             viewModel.setSetting(AppSettings.HEVY_AUTO_SYNC, enabled.toString())
@@ -496,11 +518,13 @@ class MainActivity : ComponentActivity() {
                     Screen.INTEGRATIONS -> IntegrationsScreen(
                         onBack = { screen = Screen.SETTINGS },
                         onImportHistory = {
+                            val nothing = context.getString(R.string.import_empty)
                             scope.launch {
                                 val count = HistoricalImport.importFromHealthConnect(context)
                                 Toast.makeText(
                                     context,
-                                    if (count > 0) "$count registros importados" else "Nada para importar",
+                                    if (count > 0) context.getString(R.string.import_success, count)
+                                    else nothing,
                                     Toast.LENGTH_SHORT,
                                 ).show()
                                 viewModel.refresh()
@@ -543,6 +567,19 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refresh()
+        // A permission may have been changed in system settings while we were away.
+        lifecycleScope.launch {
+            val health = AppGraph.healthConnect
+            if (health?.isAvailable() == true) {
+                val granted = runCatching { health.hasAllPermissions() }.getOrDefault(false)
+                healthPermissionState.value = when {
+                    granted -> HealthPermissionUiState.GRANTED
+                    healthPermissionState.value == HealthPermissionUiState.DENIED ->
+                        HealthPermissionUiState.DENIED
+                    else -> HealthPermissionUiState.UNKNOWN
+                }
+            }
+        }
         if (AppSettings.bool(AppSettings.HEVY_CONNECTED) &&
             AppSettings.bool(AppSettings.HEVY_AUTO_SYNC) &&
             HevyKeyStore.read(this) != null
@@ -561,13 +598,69 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** The launcher inspects the actual grant set, not just whether the dialog closed. */
+    private fun onHealthPermissionsResult(granted: Set<String>) {
+        val health = AppGraph.healthConnect
+        val hasAll = health != null && granted.containsAll(health.permissions)
+        healthPermissionState.value = if (hasAll) {
+            HealthPermissionUiState.GRANTED
+        } else {
+            HealthPermissionUiState.DENIED
+        }
+        when (healthRequestSource) {
+            HealthRequestSource.ONBOARDING -> {
+                onboardingViewModel.onHealthPermissionResult(hasAll)
+                if (hasAll) {
+                    HealthConnectSyncWorker.enqueue(this, manual = true)
+                    lifecycleScope.launch {
+                        val count = HistoricalImport.backfillAfterConnect(applicationContext)
+                        onboardingViewModel.onHealthImport(count)
+                    }
+                }
+            }
+            // Preserve the existing Profile/Settings behaviour: a completed request syncs.
+            HealthRequestSource.DASHBOARD -> {
+                HealthConnectSyncWorker.enqueue(this, manual = true)
+                viewModel.refresh()
+            }
+        }
+    }
+
+    /** Connect writes the key immediately (no debounce) and only reports success after sync. */
+    private fun connectHevyFromOnboarding(key: String) {
+        if (key.isBlank()) {
+            onboardingViewModel.onHevyFailed(getString(R.string.onboarding_hevy_empty_key))
+            return
+        }
+        onboardingViewModel.onHevyConnecting()
+        lifecycleScope.launch {
+            val saved = withContext(Dispatchers.IO) { HevyKeyStore.save(applicationContext, key) }
+            if (!saved) {
+                onboardingViewModel.onHevyKeySaveFailed()
+                return@launch
+            }
+            val result = AppGraph.hevyRepository.sync()
+            val connected = AppSettings.bool(AppSettings.HEVY_CONNECTED) &&
+                AppGraph.hevyRepository.hasKey() &&
+                AppSettings.get(AppSettings.HEVY_LAST_SYNC).isNotBlank() &&
+                AppSettings.get(AppSettings.HEVY_LAST_ERROR).isBlank()
+            val message = result.message.ifBlank { getString(R.string.onboarding_hevy_error_unknown) }
+            if (connected) {
+                onboardingViewModel.onHevyConnected(message)
+            } else {
+                onboardingViewModel.onHevyFailed(message)
+            }
+            viewModel.refresh()
+        }
+    }
+
     private fun setting(key: String, default: Boolean): Boolean =
         AppGraph.store.settings.get(key)?.toBooleanStrictOrNull() ?: default
 
     private fun formatEpoch(raw: String): String = try {
         Instant.ofEpochMilli(raw.toLong())
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.forLanguageTag("pt-PT")))
+            .format(DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault()))
     } catch (_: Exception) {
         raw
     }
@@ -585,5 +678,5 @@ class MainActivity : ComponentActivity() {
 }
 
 private fun showKeySaveError(context: Context) {
-    Toast.makeText(context, "Não foi possível salvar a chave no aparelho.", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.key_save_error), Toast.LENGTH_SHORT).show()
 }

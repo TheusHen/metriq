@@ -1,4 +1,6 @@
-# USDA nutrient id -> Metriq column
+# USDA nutrient id -> Metriq column.
+# Every value must be a common.FIELDS column (unknown values are dropped).
+# 1091=phosphorus is intentionally omitted: phosphorus is not tracked in the pack.
 1008=kcal
 1003=protein
 1004=fat
@@ -11,7 +13,6 @@
 1087=calcium
 1089=iron
 1090=magnesium
-1091=phosphorus
 1095=zinc
 1106=vitaminA
 1162=vitaminC

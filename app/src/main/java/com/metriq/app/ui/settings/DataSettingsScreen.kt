@@ -39,7 +39,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -166,7 +168,7 @@ fun DataSettingsScreen(
                 .imePadding(),
         ) {
             ScreenHeader(
-                title = "Definições",
+                title = stringResource(R.string.settings_title),
                 subtitle = "Guardado neste dispositivo",
                 onBack = onBack,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -190,7 +192,7 @@ fun DataSettingsScreen(
                 }
 
                 // ---------------------------------------------------------------- Units & display
-                SectionHeader(title = "Unidades e ecrã")
+                SectionHeader(title = stringResource(R.string.settings_units))
                 Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingChoice(
@@ -213,14 +215,14 @@ fun DataSettingsScreen(
                     Spacer(Modifier.height(Spacing.sm))
                     SettingSwitch(
                         label = "Movimento reduzido",
-                        subtitle = "Minimizar animações da interface",
+                        subtitle = stringResource(R.string.settings_min_anim),
                         checked = switchState[AppSettings.REDUCED_MOTION] ?: boolValue(AppSettings.REDUCED_MOTION),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.REDUCED_MOTION, it) },
                     )
                     SettingSwitch(
-                        label = "Métricas avançadas",
-                        subtitle = "Mostrar métricas detalhadas na Análise",
+                        label = stringResource(R.string.settings_advanced),
+                        subtitle = stringResource(R.string.settings_advanced_info),
                         checked = switchState[AppSettings.ADVANCED_METRICS] ?: boolValue(AppSettings.ADVANCED_METRICS),
                         reducedMotion = reducedMotion,
                         onChange = { setSwitch(AppSettings.ADVANCED_METRICS, it) },
@@ -251,7 +253,7 @@ fun DataSettingsScreen(
                     Hairline()
                     Spacer(Modifier.height(Spacing.md))
                     SettingChoice(
-                        label = "Atualização do widget",
+                        label = stringResource(R.string.settings_widget_update),
                         options = listOf("15 min", "30 min", "60 min"),
                         values = listOf("15", "30", "60"),
                         selected = value(AppSettings.WIDGET_REFRESH_MINUTES),
@@ -288,7 +290,7 @@ fun DataSettingsScreen(
                 Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Integrations
-                SectionHeader(title = "Integrações")
+                SectionHeader(title = stringResource(R.string.settings_integrations))
                 Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
@@ -325,7 +327,7 @@ fun DataSettingsScreen(
                     Hairline()
                     Spacer(Modifier.height(Spacing.sm))
                     SettingSwitch(
-                        label = "Sincronização automática",
+                        label = stringResource(R.string.settings_hevy_auto),
                         subtitle = "Sincronizar com o Health Connect em segundo plano",
                         checked = switchState[AppSettings.HEALTH_AUTO_SYNC] ?: boolValue(AppSettings.HEALTH_AUTO_SYNC),
                         reducedMotion = reducedMotion,
@@ -359,7 +361,7 @@ fun DataSettingsScreen(
                 Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Hevy
-                SectionHeader(title = "Integração Hevy")
+                SectionHeader(title = stringResource(R.string.settings_hevy))
                 Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     Text(
@@ -466,7 +468,7 @@ fun DataSettingsScreen(
                     Hairline()
                     Spacer(Modifier.height(Spacing.sm))
                     SettingSwitch(
-                        label = "Sincronização automática",
+                        label = stringResource(R.string.settings_hevy_auto),
                         subtitle = "Ler novos treinos do Hevy automaticamente",
                         checked = localHevyAutoSync,
                         reducedMotion = reducedMotion,
@@ -485,11 +487,11 @@ fun DataSettingsScreen(
                 Spacer(Modifier.height(Spacing.xl))
 
                 // ---------------------------------------------------------------- Analytics defaults
-                SectionHeader(title = "Predefinições de análise")
+                SectionHeader(title = stringResource(R.string.settings_analytics))
                 Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingChoice(
-                        label = "Período predefinido",
+                        label = stringResource(R.string.settings_default_period),
                         options = listOf("7D", "30D", "90D", "1A"),
                         values = listOf("7", "30", "90", "365"),
                         selected = value(AppSettings.ANALYTICS_RANGE),
@@ -497,7 +499,7 @@ fun DataSettingsScreen(
                     )
                     Spacer(Modifier.height(Spacing.md))
                     SettingChoice(
-                        label = "Métrica predefinida",
+                        label = stringResource(R.string.settings_default_metric),
                         options = listOf("Ingestão", "Gasto", "Peso", "Passos"),
                         values = listOf("intake", "expenditure", "weight", "steps"),
                         selected = value(AppSettings.ANALYTICS_METRIC),
@@ -506,7 +508,7 @@ fun DataSettingsScreen(
                 }
 
                 Spacer(Modifier.height(Spacing.xl))
-                SectionHeader(title = "Inteligência")
+                SectionHeader(title = stringResource(R.string.settings_ai))
                 Spacer(Modifier.height(Spacing.sm))
                 Panel(Modifier.fillMaxWidth()) {
                     SettingSwitch(
@@ -526,7 +528,7 @@ fun DataSettingsScreen(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "Integrações",
+                                stringResource(R.string.settings_integrations),
                                 style = MaterialTheme.typography.bodyStrong,
                                 color = MetriqColors.ink,
                                 maxLines = 1,

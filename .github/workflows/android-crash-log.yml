@@ -36,6 +36,17 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run JVM unit tests
+        run: ./gradlew test --stacktrace
+
+      - name: Run food-pack tests
+        run: python -m pytest metriq-foodpacks/tests -q
+
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
@@ -148,9 +159,24 @@ jobs:
             echo "=== LOGCAT (threadtime) ==="
             adb logcat -d -v threadtime > crash-log.txt
             echo "=== CRASH LINES ==="
-            grep -i -E "FATAL|AndroidRuntime|MetriqCrash|Exception|ANR" crash-log.txt || true
+            grep -i -E "FATAL|AndroidRuntime|MetriqCrash|Exception|ANR" crash-log.txt || echo "none"
             echo "=== PROCESS STATE ==="
             adb shell pidof com.metriq.app || echo "process not running"
+
+      - name: Fail on crash or exception in logcat
+        if: always()
+        run: |
+          if [ ! -f crash-log.txt ]; then
+            echo "::error::crash-log.txt was not produced by the emulator step"
+            exit 1
+          fi
+          # Fail only on signals of an uncaught crash/ANR. A bare "Exception" also
+          # matches handled library errors, which would make this gate flaky.
+          if grep -i -E "FATAL EXCEPTION|E/AndroidRuntime|MetriqCrash|ANR in" crash-log.txt; then
+            echo "::error::Crash or ANR detected in logcat"
+            exit 1
+          fi
+          echo "No FATAL/ANR crash signals in logcat"
 
       - name: Upload crash log and screenshots
         if: always()

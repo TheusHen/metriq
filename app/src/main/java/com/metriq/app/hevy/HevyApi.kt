@@ -41,6 +41,12 @@ data class HevyWorkout(
     val exercises: List<HevyExercise>,
 )
 
+/** One decoded page; [pageCount] is the API's declared total when it supplies one. */
+data class HevyPage(
+    val workouts: List<HevyWorkout>,
+    val pageCount: Int?,
+)
+
 /** Tolerant ISO-8601 parser used by both the API layer and the local cache decoder. */
 internal fun parseHevyInstant(raw: String?): Instant? {
     if (raw.isNullOrBlank()) return null
@@ -107,9 +113,11 @@ private fun jsonLong(obj: JSONObject, vararg keys: String): Long? {
     return null
 }
 
-internal fun parseWorkouts(body: String): List<HevyWorkout> {
+/** Throws on malformed JSON so a bad 200 response can never look like an empty page. */
+internal fun parseWorkoutsPage(body: String): HevyPage {
     val root = JSONObject(body)
-    val workouts = root.optJSONArray("workouts") ?: return emptyList()
+    val pageCount = jsonInt(root, "page_count")
+    val workouts = root.optJSONArray("workouts") ?: return HevyPage(emptyList(), pageCount)
     val result = mutableListOf<HevyWorkout>()
     for (i in 0 until workouts.length()) {
         val w = workouts.optJSONObject(i) ?: continue
@@ -145,7 +153,19 @@ internal fun parseWorkouts(body: String): List<HevyWorkout> {
         }
         result += HevyWorkout(id, title, start, end, exercises)
     }
-    return result
+    return HevyPage(result, pageCount)
+}
+
+internal fun parseWorkouts(body: String): List<HevyWorkout> = parseWorkoutsPage(body).workouts
+
+/** Converts a decode failure into a typed [HevyResult.Failure] for the caller to surface. */
+internal fun parseWorkoutsResult(body: String): HevyResult<HevyPage> = runCatching<HevyResult<HevyPage>> {
+    HevyResult.Success(parseWorkoutsPage(body))
+}.getOrElse {
+    HevyResult.Failure(
+        "Resposta inválida da API Hevy: " +
+            (it.message?.takeIf { message -> message.isNotBlank() }?.take(60) ?: "JSON inválido"),
+    )
 }
 
 object HevyApi {
@@ -156,7 +176,7 @@ object HevyApi {
         apiKey: String,
         page: Int = 1,
         pageSize: Int = 25,
-    ): HevyResult<List<HevyWorkout>> = withContext(Dispatchers.IO) {
+    ): HevyResult<HevyPage> = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         try {
             val url = URL("$ENDPOINT?page=$page&pageSize=$pageSize")
@@ -172,8 +192,7 @@ object HevyApi {
             when (val code = connection.responseCode) {
                 HttpURLConnection.HTTP_OK -> {
                     val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    val workouts = runCatching { parseWorkouts(body) }.getOrDefault(emptyList())
-                    HevyResult.Success(workouts)
+                    parseWorkoutsResult(body)
                 }
                 HttpURLConnection.HTTP_UNAUTHORIZED, HttpURLConnection.HTTP_FORBIDDEN -> HevyResult.InvalidKey
                 RATE_LIMITED -> HevyResult.RateLimited

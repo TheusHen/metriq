@@ -1,5 +1,6 @@
 package com.metriq.core
 
+import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -61,9 +62,72 @@ class PlanTest {
     }
 
     @Test
-    fun `fat never falls under the floor`() {
+    fun `fat floor yields to the calorie target when the target is very small`() {
         val targets = MacroPlanner.plan(1200.0, 90.0, 60.0, GoalType.CUT, ProteinTier.EXTRA, DietStyle.HIGH_CARB_LOW_FAT)
-        assertTrue(targets.fatG >= 45)
+        val total = targets.proteinG * 4.0 + targets.fatG * 9.0 + targets.carbG * 4.0
+        // 210 g protein + 45 g fat already cost 1245 kcal at a 1200 kcal target.
+        assertEquals(1200.0, total, 2.0)
+        assertTrue(targets.floorsRelaxed)
+        assertTrue(targets.proteinG >= 0 && targets.fatG >= 0 && targets.carbG >= 0)
+    }
+
+    @Test
+    fun `protein and fat floors are relaxed to fit a 100 kcal target`() {
+        val targets = MacroPlanner.plan(
+            kcal = 100.0,
+            bodyWeightKg = 78.0,
+            fatFreeMassKg = null,
+            goal = GoalType.MAINTAIN,
+            tier = ProteinTier.MODERATE,
+            diet = DietStyle.BALANCED,
+        )
+        val total = targets.proteinG * 4.0 + targets.fatG * 9.0 + targets.carbG * 4.0
+        assertEquals(100.0, total, 2.0)
+        assertTrue(targets.floorsRelaxed)
+        assertTrue(targets.proteinG >= 0 && targets.fatG >= 0 && targets.carbG >= 0)
+    }
+
+    @Test
+    fun `fat floor uses the same ceiling as macro adaptation`() {
+        val kg = 80.2
+        val targets = MacroPlanner.plan(
+            kcal = 1600.0,
+            bodyWeightKg = kg,
+            fatFreeMassKg = 60.0,
+            goal = GoalType.CUT,
+            tier = ProteinTier.MODERATE,
+            diet = DietStyle.HIGH_CARB_LOW_FAT,
+        )
+        // 0.5 * 80.2 = 40.1: rounding down leaves less fat than the adaptation floor.
+        assertEquals(ceil(0.5 * kg).toInt(), targets.fatG)
+        assertTrue(targets.carbG > 0)
+    }
+
+    @Test
+    fun `invalid fat free mass falls back to a fraction of body weight`() {
+        val negative = MacroPlanner.plan(
+            kcal = 2000.0,
+            bodyWeightKg = 78.0,
+            fatFreeMassKg = -39.0,
+            goal = GoalType.MAINTAIN,
+            tier = ProteinTier.MODERATE,
+            diet = DietStyle.BALANCED,
+        )
+        val nonFinite = MacroPlanner.plan(
+            kcal = 2000.0,
+            bodyWeightKg = 78.0,
+            fatFreeMassKg = Double.NaN,
+            goal = GoalType.MAINTAIN,
+            tier = ProteinTier.MODERATE,
+            diet = DietStyle.BALANCED,
+        )
+
+        // OTHER_PROTEIN[MODERATE] = 2.35 g/kg; fallback lean mass is 75% of 78 kg.
+        assertEquals(137, negative.proteinG)
+        assertEquals(137, nonFinite.proteinG)
+        assertEquals(213, negative.carbG)
+        assertTrue(negative.proteinG > 0)
+        assertTrue(negative.carbG > 0)
     }
 
     @Test

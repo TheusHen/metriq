@@ -22,10 +22,19 @@ class PhotoRepository(
         return target.absolutePath
     }
 
-    fun delete(id: Long) {
-        val row = db.evolutionQueries.selectPhotos().executeAsList().firstOrNull { it.id == id }
+    /**
+     * Deletes a photo and its file. Returns true when both the row and the file are
+     * gone. If the file cannot be removed the row is kept, so the disk file never
+     * becomes an unreferenced orphan; the false result reports the failure to callers.
+     */
+    fun delete(id: Long): Boolean {
+        val row = db.evolutionQueries.selectPhotoById(id).executeAsOneOrNull()
+            ?: return true
+        val file = File(row.path)
+        val fileRemoved = !file.exists() || runCatching { file.delete() }.getOrDefault(false)
+        if (!fileRemoved) return false
         db.evolutionQueries.deletePhoto(id)
-        row?.let { File(it.path).delete() }
         notifier.notify(DataType.PHOTO)
+        return true
     }
 }

@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -49,6 +50,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import com.metriq.app.AppGraph
+import com.metriq.app.R
 import com.metriq.app.barcode.LookupOutcome
 import com.metriq.app.barcode.OpenFoodFactsLookup
 import com.metriq.app.ui.components.MetriqButton
@@ -100,18 +102,20 @@ fun BarcodeScreen(
         canLookupOnline = false
         pendingIsError = false
         onlineBusy = false
-        pendingMessage = "A verificar a biblioteca para $code…"
+        pendingMessage = context.getString(R.string.barcode_checking, code)
         scope.launch {
             val local = withContext(Dispatchers.IO) { AppGraph.store.food.byBarcode(code) }
             withContext(Dispatchers.Main) {
                 if (local != null) {
                     emitDetected(code)
                 } else if (!OpenFoodFactsLookup.isValid(code)) {
+                    consumed.set(false) // let the camera try another code
                     pendingIsError = true
-                    pendingMessage = "Esse código não é um código de barras alimentar padrão de 8 a 14 dígitos."
+                    pendingMessage = context.getString(R.string.barcode_invalid)
                 } else {
+                    consumed.set(false) // decision ended without a match: resume scanning
                     canLookupOnline = true
-                    pendingMessage = "Não está na biblioteca. Nada é enviado online até tocares abaixo."
+                    pendingMessage = context.getString(R.string.barcode_not_in_library)
                 }
             }
         }
@@ -122,36 +126,41 @@ fun BarcodeScreen(
         onlineBusy = true
         canLookupOnline = false
         pendingIsError = false
-        pendingMessage = "A procurar $code no Open Food Facts…"
+        pendingMessage = context.getString(R.string.barcode_searching_online, code)
         scope.launch {
             val outcome = OpenFoodFactsLookup.lookupAndStore(code, AppGraph.store)
             withContext(Dispatchers.Main) {
                 onlineBusy = false
                 when (outcome) {
                     is LookupOutcome.Success -> {
-                        pendingMessage = "${outcome.product.name} adicionado à tua biblioteca."
+                        pendingMessage = context.getString(R.string.barcode_product_added, outcome.product.name)
                         emitDetected(code)
                     }
                     LookupOutcome.NotFound -> {
+                        consumed.set(false)
                         pendingIsError = true
                         canLookupOnline = true
-                        pendingMessage = "Nenhum produto encontrado no Open Food Facts para $code."
+                        pendingMessage = context.getString(R.string.barcode_not_found, code)
                     }
                     LookupOutcome.NoNutrition -> {
+                        consumed.set(false)
                         pendingIsError = true
                         canLookupOnline = true
-                        pendingMessage = "Produto encontrado, mas sem dados nutricionais para registar."
+                        pendingMessage = context.getString(R.string.barcode_no_nutrition)
                     }
                     LookupOutcome.InvalidBarcode -> {
+                        consumed.set(false)
                         pendingIsError = true
-                        pendingMessage = "Esse código não é um código de barras alimentar padrão de 8 a 14 dígitos."
+                        pendingMessage = context.getString(R.string.barcode_invalid)
                     }
                     is LookupOutcome.NetworkError -> {
+                        consumed.set(false)
                         pendingIsError = true
                         canLookupOnline = true
-                        pendingMessage = "Não foi possível contactar o Open Food Facts (${outcome.detail}). Verifica a ligação."
+                        pendingMessage = context.getString(R.string.barcode_network_error, outcome.detail)
                     }
                     is LookupOutcome.Error -> {
+                        consumed.set(false)
                         pendingIsError = true
                         canLookupOnline = true
                         pendingMessage = outcome.message
@@ -164,7 +173,7 @@ fun BarcodeScreen(
     fun manualLookup() {
         val normalized = OpenFoodFactsLookup.normalize(manual)
         if (!OpenFoodFactsLookup.isValid(normalized)) {
-            manualError = "Enter an 8–14 digit barcode."
+            manualError = context.getString(R.string.barcode_manual_invalid)
             return
         }
         manualError = null
@@ -227,8 +236,8 @@ fun BarcodeScreen(
 
     FramedColumn {
         ScreenHeader(
-            title = "Digitalizar código de barras",
-            subtitle = "Camera or manual entry",
+            title = stringResource(R.string.barcode_title),
+            subtitle = stringResource(R.string.barcode_subtitle),
             onBack = onClose,
         )
 
@@ -257,7 +266,7 @@ fun BarcodeScreen(
                 )
                 if (!granted) {
                     Text(
-                        text = "Camera permission needed — use manual entry below",
+                        text = stringResource(R.string.barcode_camera_needed),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink2,
                         modifier = Modifier
@@ -278,20 +287,20 @@ fun BarcodeScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (granted) "Looking for a barcode" else "Camera unavailable",
+                        text = if (granted) stringResource(R.string.barcode_looking) else stringResource(R.string.barcode_camera_unavailable),
                         style = MaterialTheme.typography.label,
                         color = MetriqColors.ink,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Aponta a câmara para um código de barras ou introduz-o abaixo. Os códigos da biblioteca são registados de imediato.",
+                    text = stringResource(R.string.barcode_instructions),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "A pesquisa online só acontece quando tocas no botão.",
+                    text = stringResource(R.string.barcode_online_note),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink3,
                 )
@@ -301,7 +310,7 @@ fun BarcodeScreen(
             if (code != null) {
                 Spacer(Modifier.height(12.dp))
                 Panel(Modifier.fillMaxWidth()) {
-                    Text(text = "Barcode", style = MaterialTheme.typography.label, color = MetriqColors.ink3)
+                    Text(text = stringResource(R.string.search_barcode), style = MaterialTheme.typography.label, color = MetriqColors.ink3)
                     Spacer(Modifier.height(4.dp))
                     Text(text = code, style = MaterialTheme.typography.bodyStrong, color = MetriqColors.ink)
                     Spacer(Modifier.height(8.dp))
@@ -313,14 +322,14 @@ fun BarcodeScreen(
                     if (canLookupOnline && !onlineBusy) {
                         Spacer(Modifier.height(12.dp))
                         MetriqButton(
-                            text = "Procurar online (Open Food Facts)",
+                            text = stringResource(R.string.barcode_online_button),
                             onClick = { lookupOnline() },
                             primary = true,
                         )
                     } else if (onlineBusy) {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Looking up online…",
+                            text = stringResource(R.string.barcode_searching_general),
                             style = MaterialTheme.typography.caption,
                             color = MetriqColors.ink2,
                         )
@@ -331,7 +340,7 @@ fun BarcodeScreen(
             Spacer(Modifier.height(12.dp))
             Panel(Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Have a barcode? Enter it",
+                    text = stringResource(R.string.barcode_enter),
                     style = MaterialTheme.typography.bodyStrong,
                     color = MetriqColors.ink,
                 )
@@ -343,7 +352,7 @@ fun BarcodeScreen(
                             manual = value
                             manualError = null
                         },
-                        placeholder = { Text("e.g. 5449000054227", color = MetriqColors.ink3) },
+                        placeholder = { Text(stringResource(R.string.barcode_example), color = MetriqColors.ink3) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = darkFieldColors(),
@@ -351,7 +360,7 @@ fun BarcodeScreen(
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
-                    MetriqButton(text = "Lookup", onClick = { manualLookup() }, primary = false)
+                    MetriqButton(text = stringResource(R.string.barcode_lookup), onClick = { manualLookup() }, primary = false)
                 }
                 val error = manualError
                 if (error != null) {

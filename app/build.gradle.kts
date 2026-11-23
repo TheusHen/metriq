@@ -61,6 +61,8 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    // CameraX ProcessCameraProvider.getInstance() returns Guava's ListenableFuture.
+    // ML Kit's transitive Guava is not on the compile classpath; keep this explicit.
     implementation("com.google.guava:guava:32.1.3-android")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:image-labeling:17.0.9")

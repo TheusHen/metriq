@@ -19,6 +19,8 @@ data class FoodHit(
     val carbs: Double,
     val servingLabel: String?,
     val servingGrams: Double?,
+    /** Barcode from the upstream provider when available; optional for source compatibility. */
+    val barcode: String? = null,
 )
 
 /**
@@ -36,25 +38,43 @@ class FoodRepository(
         const val ONLINE_CACHE_KEY = "food_online_cache_v1"
         const val ONLINE_CACHE_MAX = 200
         const val ONLINE_HIT_LIMIT = 40
+        /** Dedicated completion marker: an interrupted seed leaves it unset and is retried. */
+        const val SEED_MARKER_KEY = "foods_seeded_v1"
     }
 
     fun count(): Long = db.metriqQueries.countFood().executeAsOne()
 
     fun seedIfNeeded(assetText: String) {
-        if (count() > 0L) return
+        if (db.metriqQueries.settingValue(SEED_MARKER_KEY).executeAsOneOrNull() != null) return
+        db.transaction {
+            seedRows(assetText)
+            // Written last, inside the same transaction: a crash before commit leaves
+            // both the marker and all inserts rolled back, so the next launch retries.
+            db.metriqQueries.setSetting(SEED_MARKER_KEY, "1")
+        }
+    }
+
+    private fun seedRows(assetText: String) {
         assetText.lineSequence()
             .map { it.split('\t') }
             .filter { it.size >= 11 && it[0].isNotBlank() }
             .filterNot { isHeaderRow(it) }
             .forEach { cols ->
+                val name = cols[0]
+                val brand = cols[1].ifBlank { null }
+                // Idempotent per row: if a previous attempt already wrote this food,
+                // skip it instead of creating a duplicate (custom foods are never touched).
+                if (db.metriqQueries.foodByNameBrand(name, brand.orEmpty()).executeAsOneOrNull() != null) {
+                    return@forEach
+                }
                 val extended = cols.size >= 26
                 val offset = if (extended) 1 else 0
                 db.metriqQueries.insertFood(
                     source = "base",
-                    sourceId = cols[0],
+                    sourceId = name,
                     barcode = if (extended) cols[3].ifBlank { null } else null,
-                    name = cols[0],
-                    brand = cols[1].ifBlank { null },
+                    name = name,
+                    brand = brand,
                     category = cols[2].ifBlank { null },
                     iconId = null,
                     calories = cols[3 + offset].toDoubleOrNull() ?: 0.0,
@@ -101,12 +121,54 @@ class FoodRepository(
         servingLabel: String?,
         servingGrams: Double?,
     ): Long {
-        db.metriqQueries.insertCustomFood(
-            name, brand, calories, protein, fat, carbs, fiber, sugar, sodium, servingLabel, servingGrams,
-        )
-        val id = lastInsertedId()
+        var id = 0L
+        db.transaction {
+            db.metriqQueries.insertCustomFood(
+                name, brand, calories, protein, fat, carbs, fiber, sugar, sodium, servingLabel, servingGrams,
+            )
+            id = lastInsertedId()
+        }
         notifier?.notify(DataType.FOOD_LOG)
         return id
+    }
+
+    /**
+     * Turns a search hit into a row that can be logged. Online hits carry synthetic
+     * negative ids (they are not database rows yet); logging them directly makes them
+     * invisible to the INNER JOINs in `logsForDate` / `dailyIntake`.
+     *
+     * Repeated calls are idempotent: a hit is matched by barcode when it has one,
+     * otherwise by name+brand. Positive ids are returned unchanged.
+     */
+    fun materialize(hit: FoodHit): Long {
+        if (hit.id > 0) return hit.id
+        var result = 0L
+        db.transaction {
+            // Re-check inside the transaction so concurrent materializations of the
+            // same hit cannot both insert a row.
+            val existing = hit.barcode?.takeIf { it.isNotBlank() }
+                ?.let { db.metriqQueries.foodByBarcode(it).executeAsOneOrNull() }
+                ?: db.metriqQueries.foodByNameBrand(hit.name, hit.brand.orEmpty()).executeAsOneOrNull()
+            if (existing != null) {
+                result = existing.id
+            } else {
+                db.metriqQueries.insertOnlineFood(
+                    sourceId = hit.barcode,
+                    barcode = hit.barcode?.ifBlank { null },
+                    name = hit.name,
+                    brand = hit.brand,
+                    category = hit.category,
+                    calories = hit.calories,
+                    protein = hit.protein,
+                    fat = hit.fat,
+                    carbs = hit.carbs,
+                    servingLabel = hit.servingLabel,
+                    servingGrams = hit.servingGrams,
+                )
+                result = lastInsertedId()
+            }
+        }
+        return result
     }
 
     fun byBarcode(barcode: String) = db.metriqQueries.foodByBarcode(barcode).executeAsOneOrNull()
@@ -139,10 +201,11 @@ class FoodRepository(
     /**
      * Device-compatible food search. Android's system SQLite does not always ship the FTS5
      * extension (e.g. Samsung/One UI), so search uses plain LIKE over the food table instead.
-     * Only word characters are kept, which also makes malformed input harmless.
+     * Only letters and digits (including accented ones) are kept, which also keeps
+     * LIKE metacharacters out and makes malformed input harmless.
      */
     fun search(rawQuery: String, limit: Int = 40): List<FoodHit> {
-        val terms = Regex("\\w+").findAll(rawQuery)
+        val terms = Regex("[\\p{L}\\p{N}]+").findAll(rawQuery)
             .map { it.value.lowercase() }
             .distinct()
             .take(6)
@@ -222,7 +285,7 @@ class FoodRepository(
 
     /** Online hits from the cache whose name, brand or category matches the query terms. */
     fun cachedOnline(query: String, limit: Int = ONLINE_HIT_LIMIT): List<FoodHit> {
-        val terms = Regex("\\w+").findAll(query)
+        val terms = Regex("[\\p{L}\\p{N}]+").findAll(query)
             .map { it.value.lowercase() }
             .distinct()
             .take(6)
@@ -257,6 +320,7 @@ class FoodRepository(
                 put("carbs", hit.carbs)
                 putNullable("servingLabel", hit.servingLabel)
                 hit.servingGrams?.let { put("servingGrams", it) }
+                putNullable("barcode", hit.barcode)
             }
             array.put(item)
         }
@@ -286,6 +350,7 @@ class FoodRepository(
                     } else {
                         null
                     },
+                    barcode = item.stringOrNull("barcode"),
                 )
             }
         } catch (_: Exception) {

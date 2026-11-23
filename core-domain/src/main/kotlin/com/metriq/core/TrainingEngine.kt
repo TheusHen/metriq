@@ -109,8 +109,9 @@ object TrainingEngine {
         sessions: Int,
         bodyWeightKg: Double,
     ): TrainingIntensity {
-        if (sessions <= 0 || (minutes < TrainingThresholds.MIN_DURATION_MINUTES &&
-                kcal < TrainingThresholds.MIN_ACTIVE_KCAL && volumeKg <= 0.0)
+        // Same REST guard as MacroEngine.intensityOf: any missing core signal is REST.
+        if (sessions <= 0 || kcal < TrainingThresholds.MIN_ACTIVE_KCAL ||
+            minutes < TrainingThresholds.MIN_DURATION_MINUTES
         ) {
             return TrainingIntensity.REST
         }

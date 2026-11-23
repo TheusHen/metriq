@@ -2,7 +2,6 @@ package com.metriq.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.roundToInt
@@ -52,9 +51,26 @@ class GoalEngineTest {
 
         assertFalse(result.didClamp)
         assertEquals(result.suggestedKcal, result.appliedKcal)
-        assertSame(suggested, result.plan)
+        assertEquals(suggested, result.plan)
         assertTrue(result.summary.contains("mantida em"))
         assertTrue(result.warnings == suggested.warnings)
+    }
+
+    @Test
+    fun `same kcal still carries newly generated warnings into the plan`() {
+        val input = adult()
+        val suggested = OnboardingPlanner.plan(input).copy(warnings = emptyList())
+        val result = GoalEngine.recalculate(
+            suggested,
+            GoalOverride(suggested.dailyKcal.roundToInt(), reason = "  férias  "),
+            profile(input),
+            false,
+        )
+
+        assertEquals(suggested.dailyKcal.roundToInt(), result.appliedKcal)
+        assertTrue(result.warnings.contains("Motivo informado: férias"))
+        assertTrue(result.plan.warnings.contains("Motivo informado: férias"))
+        assertEquals(suggested.copy(warnings = result.warnings), result.plan)
     }
 
     @Test
@@ -99,39 +115,85 @@ class GoalEngineTest {
     }
 
     @Test
-    fun `protein and fat floors are respected in the resulting macros`() {
+    fun `floors are relaxed with a warning when calories cannot fit them`() {
         val input = adult()
         val suggested = OnboardingPlanner.plan(input)
         val result = GoalEngine.recalculate(suggested, GoalOverride(100), profile(input), false)
 
-        val expectedProtein = MacroPlanner.proteinPerKgFatFreeMass(GoalType.MAINTAIN, ProteinTier.MODERATE) *
-            0.75 * input.weightKg
-        assertEquals(expectedProtein, result.plan.proteinG.toDouble(), 1.0)
-        assertTrue(result.plan.fatG >= 0.5 * input.weightKg)
-        assertEquals(suggested.proteinG, result.plan.proteinG)
+        val total = result.plan.proteinG * 4.0 + result.plan.fatG * 9.0 + result.plan.carbG * 4.0
+        assertEquals(100.0, total, 2.0)
+        assertTrue(result.plan.proteinG >= 0 && result.plan.fatG >= 0 && result.plan.carbG >= 0)
+        assertTrue(result.warnings.any { it.contains("reduzidas") })
+        assertTrue(result.plan.warnings.any { it.contains("reduzidas") })
     }
 
     @Test
-    fun `adult weekly rate above reference is a warning only`() {
-        val input = adult(weightKg = 90.0)
+    fun `target weight and deadline drive the applied kcal in the editor`() {
+        val input = adult(weightKg = 78.0)
         val suggested = OnboardingPlanner.plan(input)
-        val requested = suggested.dailyKcal.roundToInt() - 100
+        // Mifflin-St Jeor 1727.5 * 1.55 = 2677.625; 1.0 kg/week costs 7716/7 = 1102.29.
+        assertEquals(2677.625, suggested.tdee, 0.001)
         val result = GoalEngine.recalculate(
             suggested,
-            GoalOverride(requested, targetWeightKg = 80.0, weeks = 2),
+            GoalOverride(2246, targetWeightKg = 70.0, weeks = 8),
             profile(input),
             false,
         )
 
+        assertEquals(1575, result.appliedKcal)
+        assertEquals(1575.0, result.plan.dailyKcal, 0.001)
         assertFalse(result.didClamp)
-        assertEquals(requested, result.appliedKcal)
-        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
-        assertTrue(result.warnings.any { it.contains("0,5") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
+        val impliedRate = (suggested.tdee - result.plan.dailyKcal) * 7.0 / Expenditure.KCAL_PER_KG
+        assertEquals(1.0, impliedRate, 0.001)
     }
 
     @Test
-    fun `minor weekly rate above reference is a warning only`() {
+    fun `manual kcal with no deadline remains pinned`() {
+        val input = adult()
+        val suggested = OnboardingPlanner.plan(input)
+        val result = GoalEngine.recalculate(suggested, GoalOverride(1_900), profile(input), false)
+
+        assertEquals(1_900, result.appliedKcal)
+        assertEquals(1_900.0, result.plan.dailyKcal, 0.0001)
+        assertFalse(result.didClamp)
+    }
+
+    @Test
+    fun `follow expenditure recomputes the goal from current expenditure`() {
+        val input = adult()
+        val suggested = OnboardingPlanner.plan(input)
+        val current = suggested.copy(tdee = suggested.tdee * 1.1)
+        val result = GoalEngine.recalculate(
+            current,
+            GoalOverride(999, followExpenditure = true),
+            profile(input),
+            false,
+        )
+
+        assertEquals(2_945, result.appliedKcal)
+        assertEquals(current.tdee, result.plan.dailyKcal, 1.0)
+        assertFalse(result.didClamp)
+    }
+
+    @Test
+    fun `unreachable deadline is clamped to zero and reported`() {
+        val input = adult(weightKg = 90.0)
+        val suggested = OnboardingPlanner.plan(input)
+        val result = GoalEngine.recalculate(
+            suggested,
+            GoalOverride(2_000, targetWeightKg = 80.0, weeks = 2),
+            profile(input),
+            false,
+        )
+
+        assertEquals(0, result.appliedKcal)
+        assertTrue(result.didClamp)
+        assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
+        assertTrue(result.warnings.any { it.contains("0,5") })
+    }
+
+    @Test
+    fun `minor weekly rate above reference is clamped and warned about`() {
         val input = minor()
         val suggested = OnboardingPlanner.plan(input)
         val result = GoalEngine.recalculate(
@@ -141,11 +203,10 @@ class GoalEngineTest {
             true,
         )
 
-        assertFalse(result.didClamp)
-        assertEquals(1_000, result.appliedKcal)
+        assertTrue(result.didClamp)
+        assertEquals(0, result.appliedKcal)
         assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
         assertTrue(result.warnings.any { it.contains("0,25") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
     }
 
     @Test
@@ -279,21 +340,21 @@ class GoalEngineTest {
     }
 
     @Test
-    fun `two week target above one kilo per week is honored with a rate warning`() {
+    fun `two week target above one kilo per week computes the required kcal`() {
         val input = adult(weightKg = 90.0)
         val suggested = OnboardingPlanner.plan(input)
-        val requested = suggested.dailyKcal.roundToInt()
+        // 2863.625 - 2.0 * 7716 / 7 = 659.05 kcal/day.
         val result = GoalEngine.recalculate(
             suggested,
-            GoalOverride(requested, targetWeightKg = 86.0, weeks = 2),
+            GoalOverride(suggested.dailyKcal.roundToInt(), targetWeightKg = 86.0, weeks = 2),
             profile(input),
             false,
         )
 
+        assertEquals(659, result.appliedKcal)
+        assertEquals(659.0, result.plan.dailyKcal, 0.001)
         assertFalse(result.didClamp)
-        assertEquals(requested, result.appliedKcal)
         assertTrue(result.warnings.any { it.startsWith("Ritmo solicitado") })
         assertTrue(result.warnings.any { it.contains("0,5") })
-        assertFalse(result.warnings.any { it.contains("estendido") })
     }
 }

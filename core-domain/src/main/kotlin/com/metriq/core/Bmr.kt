@@ -1,30 +1,28 @@
 package com.metriq.core
 
 /**
- * Basal metabolic rate. The three published Metriq-compatible equations, plus the
- * deficit / below-peak corrections. All results are kcal/day.
+ * Basal metabolic rate. Two published equations, plus the deficit / below-peak
+ * corrections. All results are kcal/day.
  */
 object Bmr {
 
-    /** Weight + height form. */
-    fun fromBody(weightKg: Double, heightCm: Double, age: Int, sex: Sex): Double {
-        val ageCoef = if (age > 60) 4.9 else 1.96
-        val sexCoef = if (sex == Sex.MALE) 0.0 else 213.8
-        return 129.6 * Math.pow(weightKg, 0.55) +
-            0.011 * heightCm * heightCm -
-            ageCoef * age -
-            sexCoef
-    }
+    /**
+     * Mifflin-St Jeor (1990), the validated weight/height/age/sex equation.
+     * `10 * kg + 6.25 * cm - 5 * age + (5 male / -161 female)`.
+     * Age is linear throughout life: there is no discontinuity at 60.
+     */
+    fun fromBody(weightKg: Double, heightCm: Double, age: Int, sex: Sex): Double =
+        10.0 * weightKg + 6.25 * heightCm - 5.0 * age +
+            if (sex == Sex.MALE) 5.0 else -161.0
 
-    /** Fat-free mass + fat mass form. */
-    fun fromComposition(ffmKg: Double, fatMassKg: Double, age: Int): Double {
-        val ageCoef = if (age > 60) 2.75 else 1.1
-        val ffm = Math.pow(ffmKg, 0.7)
-        return 50.2 * ffm + 40.5 * (ffm * Math.pow(fatMassKg, 0.066)) - ageCoef * age
-    }
-
-    /** Athlete form (>= 7 h/week of intense exercise). */
-    fun athlete(ffmKg: Double): Double = 40.4 * Math.pow(ffmKg, 0.932)
+    /**
+     * Katch-McArdle, the validated fat-free-mass equation: `370 + 21.6 * FFM`.
+     * Fat mass and age are retained in the signature for source compatibility but do
+     * not enter the published equation.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun fromComposition(ffmKg: Double, fatMassKg: Double, age: Int): Double =
+        370.0 + 21.6 * ffmKg
 
     /**
      * Corrections applied after the base equation: 5% down in a deficit, 3% down when the
@@ -39,12 +37,21 @@ object Bmr {
 
     fun isBelowPeak(currentKg: Double, peakKg: Double): Boolean = currentKg < peakKg * 0.9
 
-    /** Best available estimate for a profile. */
-    fun forProfile(profile: Profile, peakKg: Double = profile.weightKg, inDeficit: Boolean = false): Double {
+    /**
+     * Best available estimate for a profile. [peakKg] may be supplied from the real
+     * weigh-in history; when null (or invalid) the current weight is used as the peak,
+     * preserving the previous behaviour.
+     */
+    fun forProfile(
+        profile: Profile,
+        peakKg: Double? = null,
+        inDeficit: Boolean = false,
+    ): Double {
         val ffm = profile.fatFreeMassKg
         val fm = profile.fatMassKg
         val base = if (ffm != null && fm != null) fromComposition(ffm, fm, profile.age)
         else fromBody(profile.weightKg, profile.heightCm, profile.age, profile.sex)
-        return corrected(base, inDeficit, isBelowPeak(profile.weightKg, peakKg))
+        val effectivePeak = peakKg?.takeIf { it.isFinite() && it > 0.0 } ?: profile.weightKg
+        return corrected(base, inDeficit, isBelowPeak(profile.weightKg, effectivePeak))
     }
 }

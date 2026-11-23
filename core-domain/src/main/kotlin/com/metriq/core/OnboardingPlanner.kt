@@ -187,6 +187,9 @@ object OnboardingPlanner {
             tier = ProteinTier.MODERATE,
             diet = input.diet,
         )
+        if (macros.floorsRelaxed) {
+            warnings += "Metas de proteína e gordura reduzidas para caber no alvo calórico."
+        }
 
         val proteinFloorG = MacroPlanner.proteinPerKgFatFreeMass(input.goal, ProteinTier.MODERATE) *
             (profile.fatFreeMassKg ?: 0.75 * weightKg)

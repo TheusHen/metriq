@@ -35,25 +35,43 @@ object HevyKeyStore {
         }
     }
 
+    /** A keystore reset makes the cached EncryptedSharedPreferences unusable until rebuilt. */
+    private fun invalidate() {
+        cachedPrefs = null
+    }
+
     /** Returns false when the keystore is unavailable, so the caller can tell the user. */
     fun save(context: Context, apiKey: String): Boolean {
         val value = apiKey.trim()
         if (value.isEmpty()) {
             return clear(context)
         }
-        return runCatching {
+        val committed = try {
             prefs(context)?.edit()?.putString(KEY_API, value)?.commit() ?: false
-        }.getOrDefault(false)
+        } catch (_: Exception) {
+            false
+        }
+        if (!committed) invalidate()
+        return committed
     }
 
     fun read(context: Context): String? {
-        val value = runCatching {
+        val value = try {
             prefs(context)?.getString(KEY_API, null)
-        }.getOrNull()
+        } catch (_: Exception) {
+            invalidate()
+            null
+        }
         return value?.trim()?.takeIf { it.isNotEmpty() }
     }
 
-    fun clear(context: Context): Boolean = runCatching {
-        prefs(context)?.edit()?.remove(KEY_API)?.commit() ?: false
-    }.getOrDefault(false)
+    fun clear(context: Context): Boolean {
+        val committed = try {
+            prefs(context)?.edit()?.remove(KEY_API)?.commit() ?: false
+        } catch (_: Exception) {
+            false
+        }
+        if (!committed) invalidate()
+        return committed
+    }
 }

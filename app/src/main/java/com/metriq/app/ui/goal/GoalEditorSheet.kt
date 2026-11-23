@@ -25,7 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,14 +88,14 @@ fun GoalEditorSheet(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Editar meta",
+                    text = stringResource(R.string.home_edit_goal),
                     style = MaterialTheme.typography.h2,
                     color = MetriqColors.ink,
                     maxLines = 1,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "Fechar",
+                    text = stringResource(R.string.close),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -105,7 +107,7 @@ fun GoalEditorSheet(
             Spacer(Modifier.height(14.dp))
 
             Text(
-                text = "Sugerido pelo seu perfil: ${formatCount(suggestedKcal)} kcal/dia",
+                text = stringResource(R.string.goal_editor_suggested, formatCount(suggestedKcal)),
                 style = MaterialTheme.typography.bodyStrong,
                 color = MetriqColors.ink,
                 maxLines = 2,
@@ -115,7 +117,7 @@ fun GoalEditorSheet(
             Field(
                 value = kcalText.value,
                 onValueChange = { kcalText.value = it },
-                label = "Meta calórica (kcal/dia)",
+                label = stringResource(R.string.goal_editor_kcal),
                 keyboardType = KeyboardType.Number,
             )
             Spacer(Modifier.height(10.dp))
@@ -123,14 +125,14 @@ fun GoalEditorSheet(
                 Field(
                     value = weightText.value,
                     onValueChange = { weightText.value = it },
-                    label = "Peso alvo (kg, opcional)",
+                    label = stringResource(R.string.goal_editor_weight),
                     keyboardType = KeyboardType.Decimal,
                     modifier = Modifier.weight(1f),
                 )
                 Field(
                     value = weeksText.value,
                     onValueChange = { weeksText.value = it },
-                    label = "Semanas (opcional)",
+                    label = stringResource(R.string.goal_editor_weeks),
                     keyboardType = KeyboardType.Number,
                     modifier = Modifier.weight(1f),
                 )
@@ -138,8 +140,11 @@ fun GoalEditorSheet(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = "Antes: ${formatCount(suggestedKcal)} kcal/dia  →  Depois: " +
-                    (enteredKcal?.let { "${formatCount(it)} kcal/dia" } ?: "—"),
+                text = stringResource(
+                R.string.goal_editor_before,
+                formatCount(suggestedKcal),
+                enteredKcal?.let { formatCount(it) } ?: "—",
+            ),
                 style = MaterialTheme.typography.bodyStrong,
                 color = MetriqColors.ink,
                 maxLines = 2,
@@ -147,7 +152,7 @@ fun GoalEditorSheet(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Os macronutrientes são recalculados automaticamente a partir da nova meta.",
+                text = stringResource(R.string.goal_editor_macros),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink2,
                 maxLines = 2,
@@ -155,7 +160,7 @@ fun GoalEditorSheet(
             if (isMinor) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Menor de 18: o app sugere até 10% de déficit, mas podes ajustar. Pede orientação a um responsável.",
+                    text = stringResource(R.string.goal_editor_minor),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -180,7 +185,7 @@ fun GoalEditorSheet(
             Spacer(Modifier.height(14.dp))
 
             MetriqButton(
-                text = "Aplicar meta",
+                text = stringResource(R.string.goal_editor_apply),
                 onClick = {
                     val kcal = enteredKcal ?: return@MetriqButton
                     onApply(
@@ -197,7 +202,7 @@ fun GoalEditorSheet(
             )
             Spacer(Modifier.height(8.dp))
             MetriqButton(
-                text = "Voltar ao sugerido",
+                text = stringResource(R.string.goal_editor_back),
                 onClick = onReset,
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,

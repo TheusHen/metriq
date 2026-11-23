@@ -16,12 +16,18 @@ import com.metriq.data.db.MetriqDatabase
 object MetriqMigrations {
 
     /** Schema version 1 is the legacy, unversioned database. */
-    const val VERSION = 2L
+    const val VERSION = 3L
 
     /** Maps the version being upgraded FROM to the SQL applied on the way to the next version. */
     private val STEPS: Map<Long, List<String>> = mapOf(
         1L to listOf(
             "CREATE TABLE IF NOT EXISTS foodMicros(foodId INTEGER PRIMARY KEY REFERENCES food(id), json TEXT NOT NULL)",
+        ),
+        2L to listOf(
+            // SQLite cannot ALTER a table to add UNIQUE, so clean up legacy duplicates
+            // first and then add the constraint as an index (additive, data-preserving).
+            "DELETE FROM nutrientTarget WHERE id NOT IN (SELECT MIN(id) FROM nutrientTarget GROUP BY nutrient)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS nutrientTarget_nutrient ON nutrientTarget(nutrient)",
         ),
     )
 

@@ -98,6 +98,17 @@ class TrainingEngineTest {
     }
 
     @Test
+    fun `hevy rest guard matches the shared macro engine thresholds`() {
+        val noDuration = TrainingEngine.fromHevy(200.0, null, 0.0, 0, emptySet(), 1, 80.0)
+        val noEnergy = TrainingEngine.fromHevy(0.0, null, 0.0, 30, emptySet(), 1, 80.0)
+
+        assertEquals(MacroEngine.intensityOf(200.0, 0, 1, 80.0), noDuration.intensity)
+        assertEquals(MacroEngine.intensityOf(0.0, 30, 1, 80.0), noEnergy.intensity)
+        assertEquals(TrainingIntensity.REST, noDuration.intensity)
+        assertEquals(TrainingIntensity.REST, noEnergy.intensity)
+    }
+
+    @Test
     fun `hevy normalizes muscle names and clamps bad numbers`() {
         val result = TrainingEngine.fromHevy(
             activeKcal = Double.NEGATIVE_INFINITY,

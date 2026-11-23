@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.metriq.app.AppGraph
 import com.metriq.app.AppSettings
 import com.metriq.app.DefaultProfile
+import com.metriq.app.GoalStore
 import com.metriq.core.ActivityLevel
 import com.metriq.core.DietStyle
 import com.metriq.core.GoalType
@@ -15,6 +16,12 @@ import com.metriq.core.Sex
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
+/** Health Connect status shown on the optional integrations step. */
+enum class OnboardingHealthStatus { CHECKING, NOT_INSTALLED, AVAILABLE, CONNECTED, DENIED }
+
+/** Hevy status shown on the optional integrations step. A typed key is never a connection. */
+enum class OnboardingHevyStatus { IDLE, CONNECTING, CONNECTED, FAILED, KEY_SAVE_FAILED }
 
 /** One screen per step; the last step is the plan review. */
 data class OnboardingState(
@@ -32,6 +39,13 @@ data class OnboardingState(
     val guardianAcknowledged: Boolean,
     val plan: PlanResult?,
     val isMinor: Boolean,
+    // Integration answers live here (not in remember) so rotation keeps them.
+    val healthStatus: OnboardingHealthStatus = OnboardingHealthStatus.CHECKING,
+    val healthImported: Int? = null,
+    val hevyApiKey: String = "",
+    val hevyStatus: OnboardingHevyStatus = OnboardingHevyStatus.IDLE,
+    val hevyMessage: String? = null,
+    val integrationsSkipped: Boolean = false,
 )
 
 /**
@@ -41,7 +55,7 @@ data class OnboardingState(
 class OnboardingViewModel : ViewModel() {
 
     companion object {
-        const val TOTAL_STEPS = 7
+        const val TOTAL_STEPS = 8
         const val LAST_STEP = TOTAL_STEPS - 1
         private const val MINOR_AGE = 18
     }
@@ -85,6 +99,20 @@ class OnboardingViewModel : ViewModel() {
         ),
     )
 
+    /** Current planner input, shared with the deadline feedback helper. */
+    internal fun input(current: OnboardingState = _state.value): OnboardingInput = OnboardingInput(
+        sex = current.sex,
+        age = current.age,
+        heightCm = current.heightCm,
+        weightKg = current.weightKg,
+        bodyFatPercent = current.bodyFatPercent,
+        activityLevel = current.activityLevel,
+        goal = current.goal,
+        diet = current.diet,
+        targetWeightKg = current.targetWeightKg,
+        weeks = current.weeks,
+    )
+
     /** Every answer change re-derives `isMinor` and the plan in one atomic update. */
     private fun update(transform: (OnboardingState) -> OnboardingState) {
         val next = transform(_state.value)
@@ -125,6 +153,58 @@ class OnboardingViewModel : ViewModel() {
 
     fun previousStep() = update { it.copy(step = (it.step - 1).coerceAtLeast(0)) }
 
+    // --- Optional integrations -------------------------------------------------
+
+    /** Called when the integrations step appears, after checking availability/permissions. */
+    fun refreshHealthStatus(available: Boolean, connected: Boolean) = update { state ->
+        state.copy(
+            healthStatus = when {
+                !available -> OnboardingHealthStatus.NOT_INSTALLED
+                connected -> OnboardingHealthStatus.CONNECTED
+                state.healthStatus == OnboardingHealthStatus.DENIED -> OnboardingHealthStatus.DENIED
+                else -> OnboardingHealthStatus.AVAILABLE
+            },
+            healthImported = if (connected) state.healthImported else null,
+        )
+    }
+
+    fun onHealthPermissionResult(granted: Boolean) = update { state ->
+        state.copy(
+            healthStatus = if (granted) OnboardingHealthStatus.CONNECTED else OnboardingHealthStatus.DENIED,
+            healthImported = if (granted) state.healthImported else null,
+        )
+    }
+
+    fun onHealthImport(count: Int) = update { it.copy(healthImported = count) }
+
+    fun setHevyKey(value: String) = update {
+        it.copy(hevyApiKey = value, hevyStatus = OnboardingHevyStatus.IDLE, hevyMessage = null)
+    }
+
+    fun onHevyConnecting() = update {
+        it.copy(hevyStatus = OnboardingHevyStatus.CONNECTING, hevyMessage = null)
+    }
+
+    fun onHevyConnected(message: String) = update {
+        it.copy(hevyStatus = OnboardingHevyStatus.CONNECTED, hevyMessage = message)
+    }
+
+    fun onHevyFailed(message: String) = update {
+        it.copy(hevyStatus = OnboardingHevyStatus.FAILED, hevyMessage = message)
+    }
+
+    fun onHevyKeySaveFailed() = update {
+        it.copy(hevyStatus = OnboardingHevyStatus.KEY_SAVE_FAILED, hevyMessage = null)
+    }
+
+    /** Records the skip and moves on; skipping never blocks completion. */
+    fun skipIntegrations() = update {
+        it.copy(
+            integrationsSkipped = true,
+            step = (it.step + 1).coerceAtMost(LAST_STEP),
+        )
+    }
+
     /** Persists the finished profile and marks onboarding done, locally only. */
     fun complete() {
         val current = _state.value
@@ -140,6 +220,12 @@ class OnboardingViewModel : ViewModel() {
             proteinTier = DefaultProfile.PROFILE.proteinTier,
         )
         AppGraph.store.profile.save(profile, current.targetWeightKg)
+        // Keep the reviewed plan as the active goal. With a deadline the override asks the
+        // dashboard to re-derive kcal from current expenditure instead of pinning this number.
+        buildOnboardingGoal(current.plan, current.targetWeightKg, current.weeks)
+            ?.let { GoalStore.write(it) }
+        // Health Connect import flags stay at their defaults; the UI already enqueued the
+        // sync on grant. Hevy persists HEVY_CONNECTED itself when its sync succeeds.
         AppGraph.store.settings.set(AppSettings.ONBOARDING_COMPLETE, "true")
     }
 }

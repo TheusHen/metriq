@@ -4,7 +4,7 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
-import kotlin.math.round
+import kotlin.math.max
 
 /** A manual kcal target (and optionally a weight deadline) requested by the user. */
 data class GoalOverride(
@@ -12,6 +12,8 @@ data class GoalOverride(
     val targetWeightKg: Double? = null,
     val weeks: Int? = null,
     val reason: String? = null,
+    /** Recompute the goal from current expenditure instead of pinning [dailyKcal]. */
+    val followExpenditure: Boolean = false,
 )
 
 /** Result of re-running the onboarding maths on top of a manual goal. */
@@ -27,9 +29,12 @@ data class RecalculatedPlan(
 /**
  * Manual-goal recalculation using the same maths as [OnboardingPlanner].
  *
- * The user's requested kcal is always applied as entered (only a non-negative
- * guard is kept). Below-floor targets, aggressive deficits for minors and
- * unreachable deadlines produce advisory warnings only — no number is changed.
+ * A valid target weight + deadline is authoritative: the required daily kcal is derived
+ * from current expenditure and the weekly rate, then passed through a safety clamp.
+ * Without a deadline the manual kcal is applied as entered (only a non-negative guard is
+ * kept), unless [GoalOverride.followExpenditure] asks for a fresh expenditure-based goal.
+ * Unsafe rates and floor breaches remain advisory warnings.
+ *
  * The function is pure: no clock, I/O or Android APIs.
  */
 object GoalEngine {
@@ -43,6 +48,7 @@ object GoalEngine {
     private const val REFERENCE_ADULT_RATE_KG_PER_WEEK = 0.5
     private const val REFERENCE_MINOR_RATE_KG_PER_WEEK = 0.25
     private const val DEFAULT_ACTIVITY_FACTOR = 1.55
+    private const val MAX_EXPENDITURE_FACTOR = 2.0
 
     fun recalculate(
         suggested: PlanResult,
@@ -78,6 +84,10 @@ object GoalEngine {
         val adultFloorKcal = maxOf(bmr * ADULT_BMR_FACTOR, macroFloorKcal)
         val floorKcal = if (adultFloorKcal.isFinite()) ceil(adultFloorKcal).toInt().coerceAtLeast(0) else 0
 
+        val target = override.targetWeightKg?.let { if (it.isFinite() && it > 0.0) it else null }
+        val weeks = override.weeks?.takeIf { it >= 1 }
+        val hasDeadline = target != null && weeks != null
+
         val warnings = ArrayList<String>(suggested.warnings)
         warnings.addAll(rateWarnings(override, weightKg, minor))
 
@@ -94,6 +104,36 @@ object GoalEngine {
             warnings += "Composição corporal inconsistente; estimativa feita pelo peso corporal."
         }
 
+        var didClamp = false
+        val upperKcal = max(0, ceil(maxOf(tdee, bmr) * MAX_EXPENDITURE_FACTOR).toInt())
+        fun clamp(raw: Int): Int {
+            val clamped = raw.coerceIn(0, upperKcal)
+            if (clamped != raw) didClamp = true
+            return clamped
+        }
+
+        // A valid deadline is authoritative: rate * 7716 kcal/kg spread over 7 days.
+        val deadlineKcal = if (target != null && weeks != null) {
+            val weeklyRateKg = abs(weightKg - target) / weeks.toDouble()
+            val signedRate = if (target < weightKg) -weeklyRateKg else weeklyRateKg
+            val raw = tdee + signedRate * Expenditure.KCAL_PER_KG / 7.0
+            clamp(if (raw.isFinite()) Math.round(raw).toInt() else suggestedKcal)
+        } else {
+            null
+        }
+
+        // No deadline: optionally rebuild the goal from current expenditure instead of
+        // honoring the pinned kcal. The suggested plan's goal aggressiveness is kept.
+        val followKcal = if (deadlineKcal == null && override.followExpenditure) {
+            val aggressiveness = if (minor) Aggressiveness.CONSERVATIVE else Aggressiveness.MODERATE
+            val raw = CaloriePlan.target(tdee, profile.goal, aggressiveness).dailyKcal
+            clamp(if (raw.isFinite()) Math.round(raw).toInt() else suggestedKcal)
+        } else {
+            null
+        }
+
+        val appliedKcal = deadlineKcal ?: followKcal ?: requestedKcal
+
         if (minor) {
             if (warnings.none { it.contains("profissional de saúde") }) {
                 warnings += "Este cálculo não substitui orientação de um responsável ou profissional de saúde."
@@ -101,22 +141,22 @@ object GoalEngine {
             if (profile.diet == DietStyle.KETO) {
                 warnings += "Dietas cetogênicas não são indicadas para menores; acompanhe com um responsável/profissional."
             }
-            if (requestedKcal < tdee * (1.0 - MINOR_MAX_DEFICIT_SHARE)) {
+            if (appliedKcal < tdee * (1.0 - MINOR_MAX_DEFICIT_SHARE)) {
                 warnings += "Deficit acima de 10% do gasto: acompanhe com responsavel/profissional."
             }
-        } else if (requestedKcal < floorKcal) {
+        } else if (appliedKcal < floorKcal) {
             warnings += "Meta abaixo do piso estimado de $floorKcal kcal/dia: " +
                 "o cálculo substitui orientação profissional? Consulte um profissional de saúde."
         }
 
-        if (requestedKcal.toDouble() < macroFloorKcal) {
+        if (appliedKcal.toDouble() < macroFloorKcal) {
             warnings += "Calorias insuficientes para proteína e gordura mínimas; carboidratos zerados."
         }
         override.reason?.takeIf { it.isNotBlank() }?.let { warnings += "Motivo informado: ${it.trim()}" }
 
-        if (requestedKcal == suggestedKcal) {
+        if (deadlineKcal == null && followKcal == null && requestedKcal == suggestedKcal) {
             return RecalculatedPlan(
-                plan = suggested,
+                plan = suggested.copy(warnings = warnings),
                 suggestedKcal = suggestedKcal,
                 appliedKcal = suggestedKcal,
                 warnings = warnings,
@@ -125,8 +165,6 @@ object GoalEngine {
             )
         }
 
-        // The requested value is the applied value: no floor, no rate-driven adjustment.
-        val appliedKcal = requestedKcal
         val macros = MacroPlanner.plan(
             kcal = appliedKcal.toDouble(),
             bodyWeightKg = weightKg,
@@ -135,10 +173,20 @@ object GoalEngine {
             tier = ProteinTier.MODERATE,
             diet = profile.diet,
         )
+        if (macros.floorsRelaxed) {
+            warnings += "Metas de proteína e gordura reduzidas para caber no alvo calórico."
+        }
 
         val explanation = buildString {
             append(suggested.explanation)
-            append(" Meta ajustada manualmente para ${number(appliedKcal)} kcal/dia.")
+            if (deadlineKcal != null && target != null && weeks != null) {
+                append(" Meta recalculada de ${number(weightKg)} kg para ${number(target)} kg em $weeks semanas: ")
+                append("${number(appliedKcal)} kcal/dia.")
+            } else if (followKcal != null) {
+                append(" Meta recalculada a partir do gasto atual: ${number(appliedKcal)} kcal/dia.")
+            } else {
+                append(" Meta ajustada manualmente para ${number(appliedKcal)} kcal/dia.")
+            }
         }
         val planned = suggested.copy(
             dailyKcal = appliedKcal.toDouble(),
@@ -163,7 +211,7 @@ object GoalEngine {
             suggestedKcal = suggestedKcal,
             appliedKcal = appliedKcal,
             warnings = warnings,
-            didClamp = false,
+            didClamp = didClamp,
             summary = summary,
         )
     }
@@ -195,7 +243,7 @@ object GoalEngine {
         }
         if (neededRate > referenceRate) {
             result += "Ritmo solicitado ${number(neededRate, 2)} kg/semana acima do referencial de " +
-                "${number(referenceRate, 2)} kg/semana; meta e prazo mantidos conforme informados."
+                "${number(referenceRate, 2)} kg/semana; meta calculada com o prazo informado."
         }
         return result
     }
@@ -214,6 +262,6 @@ object GoalEngine {
 
     private fun safeKcal(value: Double): Int {
         val safe = safeDouble(value, 0.0)
-        return if (safe.isFinite() && safe <= Int.MAX_VALUE) round(safe).toInt() else 0
+        return if (safe.isFinite() && safe <= Int.MAX_VALUE) Math.round(safe).toInt() else 0
     }
 }

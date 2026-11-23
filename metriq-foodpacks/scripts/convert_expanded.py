@@ -17,6 +17,8 @@ from process_off import mg
 
 # FDC nutrient id -> pack column. Same ids as config/usda_nutrients.yaml; kept
 # here so a fixture-driven test never has to read the config from disk.
+# Values must be common.FIELDS columns. Phosphorus (FDC id 1091) is intentionally
+# not mapped because the pack schema has no phosphorus column.
 USDA_NUTRIENTS = {
     "1008": "kcal", "1003": "protein", "1004": "fat", "1005": "carbs",
     "1079": "fiber", "2000": "sugar", "1093": "sodium",

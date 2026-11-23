@@ -55,6 +55,11 @@ internal fun darkFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedPlaceholderColor = MetriqColors.ink3,
 )
 
+/** Shared number parsing for every gram/quantity field in the log screens. */
+internal fun parseNumberLoose(raw: String?): Double? = com.metriq.app.util.parseDoubleLoose(raw)
+
+internal fun parseWholeNumberLoose(raw: String?): Int? = com.metriq.app.util.parseIntLoose(raw)
+
 internal fun fmt0(value: Double): String = String.format(Locale.ENGLISH, "%.0f", value)
 
 internal fun macroMeta(calories: Double, protein: Double, carbs: Double, fat: Double): String =

@@ -26,9 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.metriq.app.R
 import com.metriq.app.ui.common.SubScreen
+import com.metriq.app.util.parseDoubleLoose
+import com.metriq.app.util.parseIntLoose
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.Panel
 import com.metriq.app.ui.components.SectionHeader
@@ -76,71 +80,76 @@ fun ProfileScreen(
     LaunchedEffect(importSteps) { localImportSteps = importSteps }
     LaunchedEffect(importWeight) { localImportWeight = importWeight }
 
-    SubScreen("O teu perfil", onBack) {
+    SubScreen(stringResource(R.string.profile_title), onBack) {
         Text(
-            "As tuas estatísticas e metas definem todas as metas diárias no Metriq.",
+            stringResource(R.string.profile_intro),
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
         )
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Basics")
+        SectionHeader(title = stringResource(R.string.profile_basics))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             ChoiceSegmented(
-                label = "Sex",
-                options = listOf("Female" to Sex.FEMALE, "Male" to Sex.MALE),
+                label = stringResource(R.string.profile_sex),
+                options = listOf(
+                    stringResource(R.string.profile_female) to Sex.FEMALE,
+                    stringResource(R.string.profile_male) to Sex.MALE,
+                ),
                 selected = sex,
                 onSelect = { sex = it },
             )
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Field("Age", age, Modifier.weight(1f)) { age = it }
-                Field("Height cm", height, Modifier.weight(1f)) { height = it }
+                Field(stringResource(R.string.profile_age), age, Modifier.weight(1f)) { age = it }
+                Field(stringResource(R.string.profile_height), height, Modifier.weight(1f)) { height = it }
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Field("Peso kg", weight, Modifier.weight(1f)) { weight = it }
-                Field("Gordura corporal %", bodyFat, Modifier.weight(1f)) { bodyFat = it }
+                Field(stringResource(R.string.profile_weight), weight, Modifier.weight(1f)) { weight = it }
+                Field(stringResource(R.string.profile_body_fat), bodyFat, Modifier.weight(1f)) { bodyFat = it }
             }
             Spacer(Modifier.height(10.dp))
-            Field("Peso-alvo kg (opcional)", target) { target = it }
+            Field(stringResource(R.string.profile_target), target) { target = it }
         }
         Spacer(Modifier.height(18.dp))
 
-        SectionHeader(title = "Plan")
+        SectionHeader(title = stringResource(R.string.profile_plan))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             ChoiceSegmented(
-                label = "Objetivo",
-                options = listOf("Cut" to GoalType.CUT, "Maintain" to GoalType.MAINTAIN, "Bulk" to GoalType.BULK),
+                label = stringResource(R.string.profile_goal),
+                options = listOf(
+                    stringResource(R.string.goal_cut) to GoalType.CUT,
+                    stringResource(R.string.goal_maintain) to GoalType.MAINTAIN,
+                    stringResource(R.string.goal_bulk) to GoalType.BULK,
+                ),
                 selected = goal,
                 onSelect = { goal = it },
             )
             Spacer(Modifier.height(14.dp))
             ChoiceSegmented(
-                label = "Activity",
-                options = ActivityLevel.entries.map {
-                    it.name.lowercase().replaceFirstChar { c -> c.uppercase() } to it
-                },
+                label = stringResource(R.string.profile_activity),
+                options = ActivityLevel.entries.map { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } to it },
                 selected = activity,
                 onSelect = { activity = it },
             )
             Spacer(Modifier.height(14.dp))
             ChoiceSegmented(
-                label = "Diet",
+                label = stringResource(R.string.profile_diet),
                 options = listOf(
-                    "Balanced" to DietStyle.BALANCED,
-                    "Low carb" to DietStyle.LOW_CARB_HIGH_FAT,
-                    "High carb" to DietStyle.HIGH_CARB_LOW_FAT,
-                    "Keto" to DietStyle.KETO,
+                    stringResource(R.string.profile_balanced) to DietStyle.BALANCED,
+                    stringResource(R.string.profile_low_carb) to DietStyle.LOW_CARB_HIGH_FAT,
+                    stringResource(R.string.profile_high_carb) to DietStyle.HIGH_CARB_LOW_FAT,
+                    stringResource(R.string.profile_keto) to DietStyle.KETO,
                 ),
                 selected = diet,
                 onSelect = { diet = it },
             )
             Spacer(Modifier.height(14.dp))
             ChoiceSegmented(
-                label = "Proteína",
+                label = stringResource(R.string.profile_protein),
                 options = ProteinTier.entries.map {
                     it.name.lowercase().replaceFirstChar { c -> c.uppercase() } to it
                 },
@@ -150,38 +159,38 @@ fun ProfileScreen(
         }
         Spacer(Modifier.height(14.dp))
         MetriqButton(
-            text = "Guardar perfil",
+            text = stringResource(R.string.profile_save),
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 onSave(
                     Profile(
                         sex = sex,
-                        age = age.toIntOrNull() ?: 30,
-                        heightCm = height.toDoubleOrNull() ?: 178.0,
-                        weightKg = weight.toDoubleOrNull() ?: 80.0,
-                        bodyFatPercent = bodyFat.toDoubleOrNull(),
+                        age = parseIntLoose(age) ?: 30,
+                        heightCm = parseDoubleLoose(height) ?: 178.0,
+                        weightKg = parseDoubleLoose(weight) ?: 80.0,
+                        bodyFatPercent = parseDoubleLoose(bodyFat),
                         activityLevel = activity,
                         goal = goal,
                         diet = diet,
                         proteinTier = tier,
                     ),
-                    target.toDoubleOrNull(),
+                    parseDoubleLoose(target),
                 )
             },
         )
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Dados")
+        SectionHeader(title = stringResource(R.string.profile_data))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
-                "Exporta os teus registos de alimentos, peso e corpo num ficheiro CSV.",
+                stringResource(R.string.profile_export_info),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
             Spacer(Modifier.height(12.dp))
             MetriqButton(
-                text = "Exportar CSV",
+                text = stringResource(R.string.export_csv),
                 onClick = onExport,
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,
@@ -198,7 +207,7 @@ fun ProfileScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "Todas as definições",
+                        stringResource(R.string.profile_all_settings),
                         style = MaterialTheme.typography.bodyStrong,
                         color = MetriqColors.ink,
                         maxLines = 1,
@@ -206,7 +215,7 @@ fun ProfileScreen(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        "Unidades, sincronização, análise e privacidade",
+                        stringResource(R.string.profile_settings_subtitle),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                         maxLines = 1,
@@ -224,7 +233,7 @@ fun ProfileScreen(
         }
 
         Spacer(Modifier.height(18.dp))
-        SectionHeader(title = "Health Connect")
+        SectionHeader(title = stringResource(R.string.health_connect))
         Spacer(Modifier.height(8.dp))
         Panel(Modifier.fillMaxWidth()) {
             Text(
@@ -235,7 +244,7 @@ fun ProfileScreen(
             lastHealthSync?.let {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Última sincronização: $it",
+                    stringResource(R.string.profile_last_sync, it),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink3,
                 )
@@ -244,8 +253,8 @@ fun ProfileScreen(
             Hairline()
             Spacer(Modifier.height(6.dp))
             SettingToggle(
-                label = "Importar passos",
-                subtitle = "Importar passos do Health Connect",
+                label = stringResource(R.string.profile_import_steps),
+                subtitle = stringResource(R.string.profile_import_steps_hc),
                 checked = localImportSteps,
                 onChange = { enabled ->
                     localImportSteps = enabled
@@ -253,8 +262,8 @@ fun ProfileScreen(
                 },
             )
             SettingToggle(
-                label = "Importar peso",
-                subtitle = "Importar pesagens do Health Connect",
+                label = stringResource(R.string.profile_import_weight),
+                subtitle = stringResource(R.string.profile_import_weight_hc),
                 checked = localImportWeight,
                 onChange = { enabled ->
                     localImportWeight = enabled
@@ -264,13 +273,13 @@ fun ProfileScreen(
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetriqButton(
-                    text = "Ligar",
+                    text = stringResource(R.string.profile_connect),
                     onClick = onConnectHealth,
                     modifier = Modifier.weight(1f),
                     primary = false,
                 )
                 MetriqButton(
-                    text = "Sincronizar agora",
+                    text = stringResource(R.string.sync_now),
                     onClick = onSyncHealth,
                     modifier = Modifier.weight(1f),
                     primary = false,

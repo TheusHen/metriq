@@ -16,7 +16,9 @@ import com.metriq.data.LogItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -75,8 +77,11 @@ private val METRICS = listOf(
     MetricDef("sodium", "Sódio", "mg", MetriqColors.energy, Aggregation.SUM, 0),
 )
 
-private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("pt-PT"))
+private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
 private val VALID_RANGES = setOf(0, 7, 30, 90, 365)
+
+/** "Tudo" still needs a bounded expenditure loop: one year of daily estimates is plenty. */
+private const val MAX_EXPENDITURE_DAYS = 365
 
 /** Shared number/unit formatting so chart, table and stats never disagree. */
 object AnalyticsFormat {
@@ -142,14 +147,27 @@ class AnalyticsViewModel : ViewModel() {
     )
     val state: StateFlow<AnalyticsState> = _state.asStateFlow()
 
+    // Only the newest requested snapshot may be published; older IO builds are discarded.
+    private var buildSequence = 0
+
+    private fun publish(block: suspend () -> AnalyticsState) {
+        val sequence = ++buildSequence
+        viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.IO) { block() }
+            if (sequence == buildSequence) _state.value = snapshot
+        }
+    }
+
     init {
         val savedRange = AppSettings.get(AppSettings.ANALYTICS_RANGE).toIntOrNull()
         val savedMetric = AppSettings.get(AppSettings.ANALYTICS_METRIC)
-        _state.value = buildState(
-            metricId = savedMetric.takeIf { id -> METRICS.any { it.id == id } } ?: "intake",
-            rangeDays = savedRange?.takeIf { it in VALID_RANGES } ?: 30,
-            selectedIndex = null,
-        )
+        publish {
+            buildState(
+                metricId = savedMetric.takeIf { id -> METRICS.any { it.id == id } } ?: "intake",
+                rangeDays = savedRange?.takeIf { it in VALID_RANGES } ?: 30,
+                selectedIndex = null,
+            )
+        }
         viewModelScope.launch {
             AppGraph.store.notifier.events.collect { refresh() }
         }
@@ -158,28 +176,28 @@ class AnalyticsViewModel : ViewModel() {
     fun setMetric(id: String) {
         val next = id.takeIf { candidate -> METRICS.any { it.id == candidate } } ?: "intake"
         AppGraph.store.settings.set(AppSettings.ANALYTICS_METRIC, next)
-        _state.value = buildState(metricId = next)
+        publish { buildState(metricId = next) }
     }
 
     fun setRange(days: Int) {
         val next = days.takeIf { it in VALID_RANGES } ?: 30
         AppGraph.store.settings.set(AppSettings.ANALYTICS_RANGE, next.toString())
-        _state.value = buildState(rangeDays = next)
+        publish { buildState(rangeDays = next) }
     }
 
     fun setGranularity(value: String) {
         val next = if (value in setOf("day", "week", "month")) value else "day"
-        _state.value = buildState(granularity = next)
+        publish { buildState(granularity = next) }
     }
 
     fun setChartType(value: String) {
         val next = if (value == "bar") "bar" else "line"
-        _state.value = buildState(chartType = next)
+        publish { buildState(chartType = next) }
     }
 
     fun setCompare(metricId: String?) {
         val next = metricId?.takeIf { candidate -> METRICS.any { it.id == candidate } }
-        _state.value = buildState(compareId = next)
+        publish { buildState(compareId = next) }
     }
 
     fun selectPoint(index: Int?) {
@@ -188,7 +206,8 @@ class AnalyticsViewModel : ViewModel() {
     }
 
     fun refresh() {
-        _state.value = buildState(selectedIndex = _state.value.selectedIndex)
+        val selected = _state.value.selectedIndex
+        publish { buildState(selectedIndex = selected) }
     }
 
     /**
@@ -310,21 +329,33 @@ class AnalyticsViewModel : ViewModel() {
 
         // Trend is computed once over the widest useful window: expenditure needs 14 days
         // of look-back before the first visible day.
-        val trendFrom = minOf(from, weightEntries.firstOrNull()?.date ?: from).minusDays(14)
+        val analysisFrom = maxOf(from, today.minusDays(MAX_EXPENDITURE_DAYS - 1L))
+        val trendFrom = minOf(analysisFrom, weightEntries.firstOrNull()?.date ?: analysisFrom).minusDays(14)
         val trend = if (weightMap.size >= 2) TrendWeight.compute(weightMap, trendFrom, today) else emptyMap()
-        val profile = (store.profile.get() ?: DefaultProfile.PROFILE).let { base ->
-            base.copy(weightKg = weightEntries.lastOrNull()?.kg ?: base.weightKg)
-        }
-        val bmr = Bmr.forProfile(profile)
+        val baseProfile = store.profile.get() ?: DefaultProfile.PROFILE
+        val profile = baseProfile.copy(weightKg = weightEntries.lastOrNull()?.kg ?: baseProfile.weightKg)
+        // Same peak correction as the dashboard, so both screens agree on expenditure.
+        val peakKg = weightEntries.maxOfOrNull { it.kg } ?: baseProfile.weightKg
+        val bmr = Bmr.forProfile(profile, peakKg)
+        // Measured output affects confidence only, never the kcal value.
+        val observedActiveKcal = store.settings.get("health_active_calories")?.toDoubleOrNull()
 
         val expenditureDaily = LinkedHashMap<LocalDate, Double>()
         if (trend.isNotEmpty()) {
             var previous: ExpenditureResult? = null
-            var day = from
+            var day = analysisFrom
             while (!day.isAfter(today)) {
                 val eaten = intakeAll[day]
                 if (eaten != null && trend.containsKey(day)) {
-                    val result = Expenditure.estimate(day, intakeAll, trend, bmr, previous)
+                    val result = Expenditure.estimate(
+                        date = day,
+                        intake = intakeAll,
+                        trend = trend,
+                        bmr = bmr,
+                        weights = weightMap,
+                        previous = previous,
+                        observedActiveKcal = observedActiveKcal,
+                    )
                     previous = result
                     // Low-confidence fallbacks are carried estimates, not measurements.
                     if (result.updated) expenditureDaily[day] = result.kcal
@@ -488,16 +519,16 @@ class AnalyticsViewModel : ViewModel() {
                     rate == null || current == null -> "São necessários ~20 dias de pesagens para uma estimativa"
                     abs(rate) < 0.01 -> "Tendência de peso estável — sem estimativa"
                     else -> {
-                        val pt = Locale.forLanguageTag("pt-PT")
+                        val locale = Locale.getDefault()
                         val target = targetWeight
                         val remaining = current - target
-                        val targetText = "%.1f".format(pt, target)
-                        val rateText = "%.2f".format(pt, abs(rate))
+                        val targetText = "%.1f".format(locale, target)
+                        val rateText = "%.2f".format(locale, abs(rate))
                         when {
                             abs(remaining) < 0.1 -> "Meta atingida — $targetText kg"
                             remaining * rate > 0.0 -> "A afastar-se da meta ($rateText kg/semana)"
                             else -> {
-                                val weeks = "%.1f".format(pt, abs(remaining) / abs(rate))
+                                val weeks = "%.1f".format(locale, abs(remaining) / abs(rate))
                                 "≈ $weeks semanas até $targetText kg a $rateText kg/semana"
                             }
                         }

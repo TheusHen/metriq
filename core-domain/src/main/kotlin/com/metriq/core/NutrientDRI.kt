@@ -29,13 +29,28 @@ object NutrientDRI {
         NutrientDef("water", "Water", "ml", 2500.0),
     )
 
+    /** Adult female RDAs that differ from the male/default list above. */
+    private val FEMALE_VALUES = mapOf(
+        "fiber" to 25.0,
+        "vitaminA" to 700.0,
+        "vitaminC" to 75.0,
+        "vitaminE" to 15.0,
+        "vitaminK" to 90.0,
+        "magnesium" to 310.0,
+        "zinc" to 8.0,
+        "vitaminB1" to 1.1,
+        "vitaminB2" to 1.1,
+        "vitaminB3" to 14.0,
+        "vitaminB6" to 1.3,
+        "vitaminB9" to 400.0,
+        "vitaminB12" to 2.4,
+    )
+
     fun value(key: String, sex: Sex = Sex.MALE, age: Int = 30): Double {
         val base = NUTRIENTS.firstOrNull { it.key == key }?.adultValue ?: return 0.0
-        return when (key) {
-            "iron" -> if (sex == Sex.FEMALE && age < 51) 18.0 else 8.0
-            "fiber" -> if (sex == Sex.FEMALE) 25.0 else base
-            else -> base
-        }
+        // Iron keeps its age-dependent rule: 18 mg for women under 51, 8 mg otherwise.
+        if (key == "iron") return if (sex == Sex.FEMALE && age < 51) 18.0 else 8.0
+        return if (sex == Sex.FEMALE) FEMALE_VALUES[key] ?: base else base
     }
 }
 

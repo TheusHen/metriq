@@ -1,10 +1,16 @@
 package com.metriq.core
 
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.min
+
 data class MacroTargets(
     val kcal: Int,
     val proteinG: Int,
     val fatG: Int,
     val carbG: Int,
+    /** True when the protein/fat floors had to be broken to fit the calorie target. */
+    val floorsRelaxed: Boolean = false,
 )
 
 data class CalorieTargets(
@@ -57,6 +63,11 @@ object MacroPlanner {
 
     const val KETO_MAX_CARB_G = 30.0
 
+    private const val FAT_FLOOR_PER_KG = 0.5
+    /** Absolute lower bound fat is only reduced past when the kcal target leaves no alternative. */
+    private const val MIN_SURVIVAL_FAT_G = 10.0
+    private const val SURVIVAL_FAT_G_PER_KG = 0.2
+
     fun proteinPerKgFatFreeMass(goal: GoalType, tier: ProteinTier): Double =
         if (goal == GoalType.CUT) CUT_PROTEIN.getValue(tier) else OTHER_PROTEIN.getValue(tier)
 
@@ -68,17 +79,23 @@ object MacroPlanner {
         tier: ProteinTier,
         diet: DietStyle,
     ): MacroTargets {
+        val safeKcal = if (kcal.isFinite()) kcal.coerceAtLeast(0.0) else 0.0
         val perKgFfm = proteinPerKgFatFreeMass(goal, tier)
-        val proteinG = if (fatFreeMassKg != null) perKgFfm * fatFreeMassKg
-        else perKgFfm * 0.75 * bodyWeightKg
+        // Mirror GoalEngine: impossible or non-finite composition falls back to a
+        // fraction of body weight so protein can never go negative.
+        val usableFfm = fatFreeMassKg?.takeIf { it.isFinite() && it > 0.0 }
+        val proteinG = if (usableFfm != null) perKgFfm * usableFfm
+        else perKgFfm * 0.75 * (if (bodyWeightKg.isFinite()) bodyWeightKg.coerceAtLeast(0.0) else 0.0)
 
-        val fatFloorG = 0.5 * bodyWeightKg
-        var fatG = maxOf(kcal * diet.fatShare / 9.0, fatFloorG)
-        var carbG = (kcal - proteinG * 4.0 - fatG * 9.0) / 4.0
+        // Same ceiling as MacroEngine.buildAdaptation, so a planned day never sits
+        // below the floor the adaptation step will apply.
+        val fatFloorG = ceil(FAT_FLOOR_PER_KG * (if (bodyWeightKg.isFinite()) bodyWeightKg.coerceAtLeast(0.0) else 0.0))
+        var fatG = maxOf(safeKcal * diet.fatShare / 9.0, fatFloorG)
+        var carbG = (safeKcal - proteinG * 4.0 - fatG * 9.0) / 4.0
 
         if (carbG < 0.0) {
             fatG = fatFloorG
-            carbG = (kcal - proteinG * 4.0 - fatG * 9.0) / 4.0
+            carbG = (safeKcal - proteinG * 4.0 - fatG * 9.0) / 4.0
         }
         if (carbG < 0.0) {
             carbG = 0.0
@@ -89,11 +106,66 @@ object MacroPlanner {
             fatG += excessKcal / 9.0
         }
 
+        if (proteinG * 4.0 + fatG * 9.0 + carbG * 4.0 > safeKcal + 0.0001) {
+            return fitToKcal(proteinG, fatG, safeKcal, bodyWeightKg)
+        }
+
         return MacroTargets(
-            kcal = Math.round(kcal).toInt(),
+            kcal = Math.round(safeKcal).toInt(),
             proteinG = Math.round(proteinG).toInt(),
             fatG = Math.round(fatG).toInt(),
             carbG = Math.round(carbG).toInt(),
+        )
+    }
+
+    /**
+     * Floors cannot fit inside the calorie budget. Reduce fat toward the minimal
+     * survival floor first, then protein, then (only if the target is below even that)
+     * fat below the survival floor. Carbohydrates absorb the rounding remainder so the
+     * integer macros add back to the target within 2 kcal.
+     */
+    private fun fitToKcal(
+        proteinG: Double,
+        fatG: Double,
+        kcal: Double,
+        bodyWeightKg: Double,
+    ): MacroTargets {
+        val survivalFatG = maxOf(
+            MIN_SURVIVAL_FAT_G,
+            SURVIVAL_FAT_G_PER_KG * (if (bodyWeightKg.isFinite()) bodyWeightKg.coerceAtLeast(0.0) else 0.0),
+        )
+        var protein = proteinG.coerceAtLeast(0.0)
+        var fat = fatG.coerceAtLeast(0.0)
+        var energy = 4.0 * protein + 9.0 * fat
+
+        if (energy > kcal) {
+            val reduction = min((energy - kcal) / 9.0, (fat - survivalFatG).coerceAtLeast(0.0))
+            fat -= reduction
+            energy -= reduction * 9.0
+        }
+        if (energy > kcal) {
+            val reduction = min((energy - kcal) / 4.0, protein)
+            protein -= reduction
+            energy -= reduction * 4.0
+        }
+        if (energy > kcal) {
+            fat = (kcal / 9.0).coerceAtLeast(0.0)
+            energy = 9.0 * fat
+        }
+
+        // Floor protein and fat so rounding can only leave energy unused, which the
+        // carbohydrate rounding then picks back up.
+        val roundedProtein = floor(protein).toInt().coerceAtLeast(0)
+        val roundedFat = floor(fat).toInt().coerceAtLeast(0)
+        val roundedCarb = Math.round((kcal - 4.0 * roundedProtein - 9.0 * roundedFat) / 4.0)
+            .toInt().coerceAtLeast(0)
+
+        return MacroTargets(
+            kcal = Math.round(kcal).toInt(),
+            proteinG = roundedProtein,
+            fatG = roundedFat,
+            carbG = roundedCarb,
+            floorsRelaxed = true,
         )
     }
 }

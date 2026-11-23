@@ -21,7 +21,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metriq.app.AppSettings
 import com.metriq.app.ui.components.MetriqButton
@@ -42,6 +45,7 @@ fun WeightScreen(
     onAdd: (String, Double) -> Unit,
     onDelete: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     var kg by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayIso) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -58,8 +62,8 @@ fun WeightScreen(
 
     FramedColumn {
         ScreenHeader(
-            title = "Peso",
-            subtitle = "Acompanha a tua tendência",
+            title = stringResource(R.string.weight_title),
+            subtitle = stringResource(R.string.weight_follow),
             onBack = onBack,
         )
 
@@ -71,7 +75,7 @@ fun WeightScreen(
                 .padding(horizontal = 16.dp),
         ) {
             Panel(Modifier.fillMaxWidth()) {
-                Text("PESO ATUAL", style = MaterialTheme.typography.labelSmall, color = MetriqColors.ink3)
+                Text(stringResource(R.string.weight_current), style = MaterialTheme.typography.labelSmall, color = MetriqColors.ink3)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     latest?.let { String.format(Locale.ENGLISH, "%.1f", it.kg * unitFactor) } ?: "—",
@@ -79,7 +83,7 @@ fun WeightScreen(
                     color = MetriqColors.accent,
                 )
                 Text(
-                    if (latest != null) "$unitLabel · ${latest.date}" else "Regista a primeira pesagem para começar",
+                    if (latest != null) "$unitLabel · ${latest.date}" else stringResource(R.string.weight_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MetriqColors.ink2,
                 )
@@ -87,14 +91,14 @@ fun WeightScreen(
 
             Spacer(Modifier.height(18.dp))
             Panel(Modifier.fillMaxWidth()) {
-                Text("ADICIONAR PESAGEM", style = MaterialTheme.typography.labelSmall, color = MetriqColors.accent)
+                Text(stringResource(R.string.weight_add), style = MaterialTheme.typography.labelSmall, color = MetriqColors.accent)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
-                    Field("Peso (kg)", kg, Modifier.weight(1f)) { kg = it; error = null }
-                    Field("Date", date, Modifier.weight(1.2f)) { date = it; error = null }
+                    Field(stringResource(R.string.weight_field), kg, Modifier.weight(1f)) { kg = it; error = null }
+                    Field(stringResource(R.string.date), date, Modifier.weight(1.2f)) { date = it; error = null }
                 }
                 Spacer(Modifier.height(6.dp))
-                Text("Date format: YYYY-MM-DD", style = MaterialTheme.typography.labelSmall, color = MetriqColors.ink3)
+                Text(stringResource(R.string.weight_date_info), style = MaterialTheme.typography.labelSmall, color = MetriqColors.ink3)
 
                 error?.let { message ->
                     Spacer(Modifier.height(8.dp))
@@ -103,16 +107,16 @@ fun WeightScreen(
 
                 Spacer(Modifier.height(14.dp))
                 MetriqButton(
-                    text = "Guardar pesagem",
+                    text = stringResource(R.string.weight_save),
                     onClick = {
                         val value = kg.replace(',', '.').toDoubleOrNull()
                         val validDate = com.metriq.app.util.DateInput.parse(date)
                         when {
                             value == null || value <= 0 -> {
-                                error = "Introduz um peso superior a zero."
+                                error = context.getString(R.string.weight_value_error)
                             }
                             validDate == null -> {
-                                error = "Introduz a data no formato AAAA-MM-DD (por exemplo 2026-01-05)."
+                                error = context.getString(R.string.weight_date_error)
                             }
                             else -> {
                                 onAdd(validDate.toString(), value)
@@ -128,12 +132,12 @@ fun WeightScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            SectionHeader(title = "Weigh-ins", action = "${entries.size} total")
+            SectionHeader(title = stringResource(R.string.weight_title), action = stringResource(R.string.weight_total, entries.size))
             Spacer(Modifier.height(10.dp))
             Panel(Modifier.fillMaxWidth()) {
                 if (reversed.isEmpty()) {
                     Text(
-                        "No weigh-ins yet.",
+                        stringResource(R.string.weight_no_entries),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MetriqColors.ink2,
                         modifier = Modifier.padding(vertical = 8.dp),
@@ -155,7 +159,7 @@ fun WeightScreen(
                                 )
                             }
                             IconButton(onClick = { onDelete(entry.date.toString()) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar pesagem", tint = MetriqColors.danger)
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.weight_delete), tint = MetriqColors.danger)
                             }
                         }
                         if (index < reversed.lastIndex) {

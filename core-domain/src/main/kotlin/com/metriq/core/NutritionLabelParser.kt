@@ -17,8 +17,11 @@ class NutritionLabelParser {
     )
 
     fun parse(raw: String): ParsedLabel {
+        // A comma/dot followed by exactly three digits is a thousands separator,
+        // not a decimal point ("1,000" / "1.000" both mean one thousand).
+        val withoutThousands = Regex("(?<=\\d)[,.](\\d{3})(?=\\D|$)").replace(raw) { it.groupValues[1] }
         // "Calories from Fat" is a breakdown line, not the total calories for the serving.
-        val text = raw.replace(',', '.')
+        val text = withoutThousands.replace(',', '.')
             .replace(
                 Regex(".*\\bcalories\\s+from\\s+fat\\b.*", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
                 "",

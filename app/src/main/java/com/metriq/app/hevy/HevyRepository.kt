@@ -40,9 +40,14 @@ class HevyRepository(private val context: Context) {
     @Volatile
     private var cachedWorkouts: List<HevyWorkout>? = null
 
+    /** Bumped by [clear] so an in-flight sync cannot resurrect data after a disconnect. */
+    @Volatile
+    private var generation = 0
+
     fun hasKey(): Boolean = HevyKeyStore.read(appContext) != null
 
     suspend fun sync(): HevySyncResult = withContext(Dispatchers.IO) {
+        val startedGeneration = generation
         val apiKey = HevyKeyStore.read(appContext)
         if (apiKey == null) {
             runCatching { settings.set(AppSettings.HEVY_LAST_ERROR, "Chave de API não configurada") }
@@ -57,18 +62,21 @@ class HevyRepository(private val context: Context) {
         var cached = workouts()
         var imported = 0
         var anySuccess = false
+        var sawInvalidKey = false
         var errorMessage: String? = null
 
-        for (page in 1..MAX_PAGES) {
-            when (val result = HevyApi.fetchWorkouts(apiKey, page = page, pageSize = PAGE_SIZE)) {
+        for (page in 1..HevyPaging.MAX_PAGES) {
+            when (val result = HevyApi.fetchWorkouts(apiKey, page = page, pageSize = HevyPaging.PAGE_SIZE)) {
                 is HevyResult.Success -> {
                     anySuccess = true
-                    val merged = HevyCacheCodec.merge(cached, result.value)
+                    val fetched = result.value
+                    val merged = HevyCacheCodec.merge(cached, fetched.workouts)
                     cached = merged.workouts
                     imported += merged.imported
-                    if (result.value.size < PAGE_SIZE) break
+                    if (HevyPaging.shouldStop(page, fetched.workouts.size, cached.size, fetched.pageCount)) break
                 }
                 else -> {
+                    if (result is HevyResult.InvalidKey) sawInvalidKey = true
                     errorMessage = describe(result)
                     break
                 }
@@ -77,7 +85,12 @@ class HevyRepository(private val context: Context) {
 
         if (!anySuccess) {
             val message = errorMessage ?: "Nenhum treino importado"
-            runCatching { settings.set(AppSettings.HEVY_LAST_ERROR, message) }
+            runCatching {
+                settings.set(AppSettings.HEVY_LAST_ERROR, message)
+                if (HevySyncGuard.shouldClearConnected(sawInvalidKey, anySuccess)) {
+                    settings.set(AppSettings.HEVY_CONNECTED, "false")
+                }
+            }
             return@withContext HevySyncResult(
                 imported = 0,
                 totalStored = cached.size,
@@ -85,8 +98,16 @@ class HevyRepository(private val context: Context) {
             )
         }
 
-        val newest = HevyCacheCodec.cap(cached, CACHE_LIMIT)
+        val newest = HevyCacheCodec.cap(cached, HevyPaging.CACHE_LIMIT)
         val encoded = HevyCacheCodec.encode(newest)
+        // A disconnect (or key invalidation) during the network calls must win over this write.
+        if (HevySyncGuard.isStale(startedGeneration, generation, HevyKeyStore.read(appContext) != null)) {
+            return@withContext HevySyncResult(
+                imported = 0,
+                totalStored = workouts().size,
+                message = "Sincronização cancelada",
+            )
+        }
         val persisted = encoded != null && runCatching {
             settings.set(AppSettings.HEVY_WORKOUTS_JSON, encoded)
             settings.set(AppSettings.HEVY_LAST_SYNC, Instant.now().toString())
@@ -158,7 +179,9 @@ class HevyRepository(private val context: Context) {
     }.getOrNull()
 
     /** Returns false if any local value could not be cleared, so the UI can say so. */
-    fun clear(): Boolean {
+    suspend fun clear(): Boolean = withContext(Dispatchers.IO) {
+        // Invalidate any in-flight sync before touching the key or the settings.
+        generation++
         val keyCleared = HevyKeyStore.clear(appContext)
         val settingsCleared = runCatching {
             AppGraph.ensure(appContext)
@@ -169,7 +192,7 @@ class HevyRepository(private val context: Context) {
         }.isSuccess
         // Keep the snapshot only if the on-disk cache could not be cleared.
         if (settingsCleared) cachedWorkouts = emptyList()
-        return settingsCleared && keyCleared
+        settingsCleared && keyCleared
     }
 
     private fun describe(result: HevyResult<*>): String = when (result) {
@@ -202,9 +225,4 @@ class HevyRepository(private val context: Context) {
         }
     }
 
-    private companion object {
-        const val MAX_PAGES = 3
-        const val PAGE_SIZE = 25
-        const val CACHE_LIMIT = 120
-    }
 }

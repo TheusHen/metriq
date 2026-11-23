@@ -50,6 +50,7 @@ import com.metriq.app.ui.theme.bodyStrong
 import com.metriq.app.ui.theme.caption
 import com.metriq.app.ui.theme.label
 import com.metriq.app.ui.theme.number24
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -84,6 +85,7 @@ fun AiModelsScreen(
     var urlText by remember { mutableStateOf(value(AppSettings.AI_MODEL_URL)) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var downloadJob by remember { mutableStateOf<Job?>(null) }
 
     fun refreshInstalled() {
         installed = manager.installed()
@@ -117,22 +119,34 @@ fun AiModelsScreen(
     }
 
     fun commitDownload(id: String) {
-        scope.launch {
-            progress = 0f
-            val outcome = manager.download(id, urlText) { progress = it }
-            outcome.fold(
-                onSuccess = {
-                    refreshInstalled()
-                    notice = "'$id' instalado. Não é o motor ativo até o selecionares."
-                    downloadingId = null
-                    progress = null
-                },
-                onFailure = {
-                    notice = it.message ?: "Falha no download."
-                    progress = null
-                },
-            )
+        downloadJob?.cancel()
+        downloadJob = scope.launch {
+            try {
+                progress = 0f
+                val outcome = manager.download(id, urlText, budgetMb) { progress = it }
+                outcome.fold(
+                    onSuccess = {
+                        refreshInstalled()
+                        notice = "'$id' instalado. Não é o motor ativo até o selecionares."
+                        downloadingId = null
+                        progress = null
+                    },
+                    onFailure = {
+                        notice = it.message ?: "Falha no download."
+                        progress = null
+                    },
+                )
+            } finally {
+                downloadJob = null
+            }
         }
+    }
+
+    fun cancelDownload() {
+        downloadJob?.cancel()
+        downloadJob = null
+        downloadingId = null
+        progress = null
     }
 
     fun removeModel(id: String) {
@@ -284,7 +298,7 @@ fun AiModelsScreen(
                 },
                 onInstall = { startDownload(spec.id) },
                 onDownload = { commitDownload(spec.id) },
-                onCancel = { downloadingId = null; progress = null },
+                onCancel = { cancelDownload() },
                 onRemove = { removeModel(spec.id) },
                 onSelect = { selectModel(spec.id) },
             )

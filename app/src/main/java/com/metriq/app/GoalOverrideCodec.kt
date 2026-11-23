@@ -14,6 +14,9 @@ internal object GoalOverrideCodec {
                 targetWeightKg = if (json.isNull("targetWeightKg")) null else json.optDouble("targetWeightKg"),
                 weeks = if (json.isNull("weeks")) null else json.optInt("weeks", 0),
                 reason = json.optString("reason").ifBlank { null },
+                // Backward compatibility: legacy JSON predates this field, so a missing
+                // value must decode to a manual (fixed) goal.
+                followExpenditure = json.optBoolean("followExpenditure", false),
             ).takeIf { it.dailyKcal > 0 }
         }.getOrNull()
     }
@@ -23,5 +26,6 @@ internal object GoalOverrideCodec {
         put("targetWeightKg", goal.targetWeightKg ?: JSONObject.NULL)
         put("weeks", goal.weeks ?: JSONObject.NULL)
         put("reason", goal.reason.orEmpty())
+        put("followExpenditure", goal.followExpenditure)
     }.toString()
 }

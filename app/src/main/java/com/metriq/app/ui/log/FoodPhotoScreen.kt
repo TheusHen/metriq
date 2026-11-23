@@ -34,10 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metriq.app.AppGraph
+import com.metriq.app.R
+import com.metriq.app.util.parseDoubleLoose
 import com.metriq.app.log.FoodRecognitionManager
 import com.metriq.app.ui.components.FoodIcon
 import com.metriq.app.ui.components.MetriqButton
@@ -73,7 +76,8 @@ fun FoodPhotoScreen(
     val items = suggestions + manualItems
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Carrega uma foto ou procura manualmente abaixo.") }
+    val initialMessage = stringResource(R.string.photo_initial)
+    var message by remember { mutableStateOf(initialMessage) }
     var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var gramsById by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
@@ -90,7 +94,7 @@ fun FoodPhotoScreen(
     }
 
     fun gramsFor(index: Int, suggestion: FoodRecognitionManager.Suggestion): Double =
-        gramsById[index]?.toDoubleOrNull()
+        parseDoubleLoose(gramsById[index])
             ?: suggestion.food?.servingGrams
             ?: 100.0
 
@@ -105,14 +109,14 @@ fun FoodPhotoScreen(
         gramsById = gramsById + (index to fmt0(hit.servingGrams ?: 100.0))
         manualQuery = ""
         manualResults = emptyList()
-        message = "Added ${hit.name}. Set grams below."
+        message = context.getString(R.string.photo_added, hit.name)
     }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             busy = true
             error = false
-            message = "Identifying foods on-device…"
+            message = context.getString(R.string.photo_identifying)
             scope.launch {
                 try {
                     val result = withContext(Dispatchers.Default) {
@@ -128,9 +132,9 @@ fun FoodPhotoScreen(
                         index to fmt0(item.food?.servingGrams ?: 100.0)
                     }.toMap()
                     message = if (result.isEmpty()) {
-                        "Sem correspondência na biblioteca — procura manualmente abaixo."
+                        context.getString(R.string.photo_no_match)
                     } else {
-                        "Revê as correspondências e escolhe o que registar."
+                        context.getString(R.string.photo_review)
                     }
                 } catch (_: Exception) {
                     suggestions = emptyList()
@@ -140,7 +144,7 @@ fun FoodPhotoScreen(
                         index to fmt0(item.food?.servingGrams ?: 100.0)
                     }.toMap()
                     error = true
-                    message = "Não foi possível ler a imagem. Ainda podes procurar manualmente abaixo."
+                    message = context.getString(R.string.photo_image_error)
                 } finally {
                     busy = false
                 }
@@ -156,8 +160,8 @@ fun FoodPhotoScreen(
 
     FramedColumn {
         ScreenHeader(
-            title = "Foto de comida com IA",
-            subtitle = "On-device recognition",
+            title = stringResource(R.string.photo_title),
+            subtitle = stringResource(R.string.photo_subtitle),
             onBack = onBack,
         )
 
@@ -171,13 +175,13 @@ fun FoodPhotoScreen(
             Spacer(Modifier.height(18.dp))
             Panel(Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Escolhe uma foto da tua refeição. A correspondência ocorre no dispositivo — nada é enviado.",
+                    text = stringResource(R.string.photo_intro),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                 )
                 Spacer(Modifier.height(14.dp))
                 MetriqButton(
-                    text = if (busy) "Identifying…" else "Carregar foto",
+                    text = if (busy) stringResource(R.string.photo_identifying) else stringResource(R.string.photo_pick),
                     onClick = { if (!busy) pick.launch("image/*") },
                     primary = true,
                 )
@@ -185,14 +189,14 @@ fun FoodPhotoScreen(
 
             Spacer(Modifier.height(22.dp))
             SectionHeader(
-                title = "Suggestions",
-                action = if (items.isEmpty()) null else "${items.size} found",
+                title = stringResource(R.string.photo_suggestions),
+                action = if (items.isEmpty()) null else stringResource(R.string.photo_found, items.size),
             )
             Spacer(Modifier.height(10.dp))
             Panel(Modifier.fillMaxWidth()) {
                 when {
                     busy -> Text(
-                        text = "Identifying foods on-device…",
+                        text = stringResource(R.string.photo_identifying),
                         style = MaterialTheme.typography.body,
                         color = MetriqColors.ink2,
                         modifier = Modifier.padding(vertical = 8.dp),
@@ -214,10 +218,9 @@ fun FoodPhotoScreen(
                         )
                         items.forEachIndexed { index, suggestion ->
                             val hit = suggestion.food
-                            val match = String.format(
-                                Locale.forLanguageTag("pt-PT"),
-                                "%.0f%% de correspondência",
-                                suggestion.confidence * 100,
+                            val match = stringResource(
+                                R.string.match_percent,
+                                (suggestion.confidence * 100).toInt(),
                             )
                             if (hit == null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -234,7 +237,7 @@ fun FoodPhotoScreen(
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                         Text(
-                                            text = "$match · Sem correspondência na biblioteca",
+                                            text = "$match · ${stringResource(R.string.photo_no_match)}",
                                             style = MaterialTheme.typography.caption,
                                             color = MetriqColors.ink3,
                                         )
@@ -275,7 +278,7 @@ fun FoodPhotoScreen(
                                     OutlinedTextField(
                                         value = gramsById[index] ?: fmt0(hit.servingGrams ?: 100.0),
                                         onValueChange = { value -> gramsById = gramsById + (index to value) },
-                                        label = { Text("Grams") },
+                                        label = { Text(stringResource(R.string.grams)) },
                                         singleLine = true,
                                         shape = RoundedCornerShape(12.dp),
                                         colors = darkFieldColors(),
@@ -303,14 +306,14 @@ fun FoodPhotoScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            SectionHeader(title = "Procurar manualmente")
+            SectionHeader(title = stringResource(R.string.photo_manual))
             Spacer(Modifier.height(10.dp))
             Panel(Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = manualQuery,
                     onValueChange = { manualQuery = it },
-                    placeholder = { Text("Nome do alimento", color = MetriqColors.ink3) },
-                    label = { Text("Adicionar um alimento pelo nome") },
+                    placeholder = { Text(stringResource(R.string.photo_name_placeholder), color = MetriqColors.ink3) },
+                    label = { Text(stringResource(R.string.photo_add_by_name)) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = darkFieldColors(),
@@ -320,13 +323,13 @@ fun FoodPhotoScreen(
                 val query = manualQuery.trim()
                 when {
                     query.length < 2 -> Text(
-                        text = "Escreve pelo menos 2 letras para procurar na biblioteca.",
+                        text = stringResource(R.string.photo_type_two),
                         style = MaterialTheme.typography.caption,
                         color = MetriqColors.ink3,
                     )
 
                     manualResults.isEmpty() -> Text(
-                        text = "Sem correspondência na biblioteca — experimenta outro nome.",
+                        text = stringResource(R.string.photo_no_library),
                         style = MaterialTheme.typography.body,
                         color = MetriqColors.ink2,
                     )
@@ -357,7 +360,7 @@ fun FoodPhotoScreen(
                             }
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Adicionar",
+                                text = stringResource(R.string.add),
                                 style = MaterialTheme.typography.label,
                                 color = MetriqColors.accent,
                             )
@@ -387,7 +390,7 @@ fun FoodPhotoScreen(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "${selected.size} selected",
+                    text = stringResource(R.string.photo_selected, selected.size),
                     style = MaterialTheme.typography.label,
                     color = MetriqColors.ink2,
                 )
@@ -399,7 +402,7 @@ fun FoodPhotoScreen(
             }
             Spacer(Modifier.width(12.dp))
             MetriqButton(
-                text = "Registar ${selected.size} alimentos",
+                text = stringResource(R.string.photo_log_many, selected.size),
                 primary = true,
                 onClick = {
                     val pairs = selected.toList().sorted().mapNotNull { index ->

@@ -3,6 +3,7 @@ package com.metriq.app.ai
 import android.content.Context
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -49,19 +50,25 @@ class ModelManager(private val context: Context) {
     suspend fun download(
         id: String,
         url: String,
+        budgetMb: Int,
         onProgress: (Float) -> Unit,
     ): Result<File> = withContext(Dispatchers.IO) {
         if (id.isBlank()) {
             return@withContext Result.failure(IllegalArgumentException("Model id is empty."))
         }
         val address = url.trim()
-        if (!address.startsWith("http://", ignoreCase = true) &&
-            !address.startsWith("https://", ignoreCase = true)
-        ) {
+        DownloadPolicy.urlError(address)?.let {
+            return@withContext Result.failure(IllegalArgumentException(it))
+        }
+        val budgetBytes = DownloadPolicy.budgetBytes(budgetMb)
+        if (budgetBytes <= 0L) {
             return@withContext Result.failure(
-                IllegalArgumentException("Introduz um URL http(s) válido para o ficheiro do modelo."),
+                IllegalArgumentException("Orçamento de armazenamento desligado — define um limite primeiro."),
             )
         }
+        fun budgetError(): IOException = IOException(
+            "Ficheiro excede o orçamento de $budgetMb MB e não foi guardado.",
+        )
 
         val finalFile = pathFor(id)
         val tempFile = File(modelsDir, fileNameFor(id).removeSuffix(".bin") + ".part")
@@ -81,15 +88,23 @@ class ModelManager(private val context: Context) {
             }
 
             val contentLength = connection.contentLength // -1 when unknown
+            if (contentLength > 0 && DownloadPolicy.exceeds(contentLength.toLong(), budgetBytes)) {
+                return@withContext Result.failure(budgetError())
+            }
             var total = 0L
             connection.inputStream.use { input ->
                 tempFile.outputStream().use { output ->
                     val buffer = ByteArray(16 * 1024)
                     while (true) {
+                        ensureActive() // cancellation must reach the blocking read loop
                         val read = input.read(buffer)
                         if (read <= 0) break
-                        output.write(buffer, 0, read)
                         total += read
+                        if (DownloadPolicy.exceeds(total, budgetBytes)) {
+                            tempFile.delete()
+                            return@withContext Result.failure(budgetError())
+                        }
+                        output.write(buffer, 0, read)
                         val fraction = if (contentLength > 0) {
                             total.toFloat() / contentLength.toFloat()
                         } else {

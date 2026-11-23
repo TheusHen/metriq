@@ -64,6 +64,8 @@ class MetriqApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashLog.install(this)
+        // CrashActivity runs in :crash; WorkManager/DatabaseFactory are main-process only.
+        if (!CrashLog.isMainProcess(this)) return
         AppGraph.init(this)
     }
 }

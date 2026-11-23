@@ -25,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.metriq.app.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -84,7 +86,7 @@ fun AnalyticsScreen(
                 .imePadding(),
         ) {
             ScreenHeader(
-                title = "Análise",
+                title = stringResource(R.string.analytics_title),
                 subtitle = "A partir dos teus registos",
                 onBack = onBack,
                 trailing = {
@@ -93,7 +95,7 @@ fun AnalyticsScreen(
             )
             state.etaText?.let { text ->
                 Text(
-                    text = "Objetivo · $text",
+                    text = stringResource(R.string.analytics_goal, text),
                     style = MaterialTheme.typography.caption,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -164,7 +166,7 @@ private fun QuickFilters(
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Métrica",
+                text = stringResource(R.string.analytics_metric),
                 style = MaterialTheme.typography.label,
                 color = MetriqColors.ink3,
             )
@@ -191,7 +193,7 @@ private fun QuickFilters(
         }
         Spacer(Modifier.height(14.dp))
         Text(
-            text = "Período",
+            text = stringResource(R.string.analytics_period),
             style = MaterialTheme.typography.label,
             color = MetriqColors.ink3,
         )
@@ -260,7 +262,7 @@ private fun FilterSheet(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Sobreponho uma segunda métrica, na escala dela.",
+                text = stringResource(R.string.analytics_compare),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -373,7 +375,7 @@ private fun ChartPanel(state: AnalyticsState, viewModel: AnalyticsViewModel, red
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Sem registos neste período.",
+                    text = stringResource(R.string.analytics_no_records),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink3,
                 )
@@ -401,7 +403,7 @@ private fun ChartPanel(state: AnalyticsState, viewModel: AnalyticsViewModel, red
             }
             Spacer(Modifier.height(Spacing.xs))
             Text(
-                text = "Toca ou arrasta no gráfico para ver um ponto.",
+                text = stringResource(R.string.analytics_tip),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -480,7 +482,7 @@ private fun MacroSplitPanel(split: List<Triple<String, Double, Color>>) {
         SectionHeader("Macro split")
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Gramas registadas no período atual.",
+            text = stringResource(R.string.analytics_macro_info),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
@@ -548,7 +550,7 @@ private fun ContributorsPanel(state: AnalyticsState) {
         Spacer(Modifier.height(4.dp))
         if (state.topContributors.isEmpty()) {
             Text(
-                text = "Sem dados alimentares para esta métrica neste período.",
+                text = stringResource(R.string.analytics_no_food),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -586,7 +588,7 @@ private fun AveragesPanel(state: AnalyticsState) {
         Spacer(Modifier.height(8.dp))
         if (state.averages.isEmpty()) {
             Text(
-                text = "Sem dados neste período.",
+                text = stringResource(R.string.no_data_period),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -636,7 +638,7 @@ private fun TimingPanel(state: AnalyticsState) {
         val timing = state.timing
         if (timing.isEmpty()) {
             Text(
-                text = "Sem dados de horários de refeições neste período.",
+                text = stringResource(R.string.analytics_timing_empty),
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
             )
@@ -697,7 +699,7 @@ private fun DataTablePanel(state: AnalyticsState, onSelect: (Int?) -> Unit) {
         SectionHeader("Dados")
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "${state.rows.size} ${if (state.rows.size == 1) "ponto" else "pontos"} · Δ vs anterior",
+            text = "${state.rows.size} ${if (state.rows.size == 1) "ponto" else "pontos"} · Δ ${stringResource(R.string.compare_previous)}",
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )

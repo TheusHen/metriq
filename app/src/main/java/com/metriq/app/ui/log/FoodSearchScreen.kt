@@ -43,8 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.metriq.app.AppGraph
+import com.metriq.app.R
 import com.metriq.app.ui.components.FoodRow
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.SectionHeader
@@ -184,7 +186,8 @@ fun FoodSearchScreen(
     val favorites = remember { AppGraph.store.food.favorites(6) }
     val picks = remember(results) { results.take(3) }
     val recent = remember { recentFromLogs() }
-    val selectedKcal = selected.sumOf { it.calories.toInt() }
+    // Preview must scale each hit to its serving, exactly like the logger does.
+    val selectedKcal = selected.previewKcal()
 
     // Meal scope is either supplied by the caller or the device's current time.
     var now by remember { mutableStateOf(LocalTime.now()) }
@@ -219,9 +222,9 @@ fun FoodSearchScreen(
     }
 
     val logLabel = if (selected.isEmpty()) {
-        "Registar"
+        stringResource(R.string.search_log)
     } else {
-        "Registar ${selected.size} · ${formatCount(selectedKcal)} kcal"
+        stringResource(R.string.search_log_many, selected.size, formatCount(selectedKcal))
     }
 
     FramedColumn {
@@ -233,19 +236,19 @@ fun FoodSearchScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Fechar", tint = MetriqColors.ink2)
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = MetriqColors.ink2)
             }
             Text(mealScope, style = MaterialTheme.typography.body, color = MetriqColors.ink2)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { onCopyFromDay(LocalDate.now().minusDays(1).toString()) }) {
                 Icon(
                     Icons.Default.ContentCopy,
-                    contentDescription = "Copiar ontem",
+                    contentDescription = stringResource(R.string.search_copy_yesterday),
                     tint = MetriqColors.ink2,
                 )
             }
             Text(
-                "Rápido",
+                stringResource(R.string.quick),
                 style = MaterialTheme.typography.label,
                 color = if (quickAddOpen) MetriqColors.accent else MetriqColors.ink2,
                 modifier = Modifier
@@ -254,7 +257,7 @@ fun FoodSearchScreen(
                     .padding(horizontal = 8.dp, vertical = 8.dp),
             )
             Text(
-                "Novo",
+                stringResource(R.string.search_new),
                 style = MaterialTheme.typography.label,
                 color = MetriqColors.ink2,
                 modifier = Modifier
@@ -265,7 +268,11 @@ fun FoodSearchScreen(
         }
 
         Segmented(
-            options = listOf("Procurar", "Digitalizar", "Descrever"),
+            options = listOf(
+                stringResource(R.string.search),
+                stringResource(R.string.search_mode_scan),
+                stringResource(R.string.search_mode_describe),
+            ),
             selectedIndex = mode,
             onSelect = { mode = it },
             modifier = Modifier
@@ -298,7 +305,7 @@ fun FoodSearchScreen(
                         onCarbs = { quickCarbs = it },
                         onFat = { quickFat = it },
                         onAdd = {
-                            fun parse(value: String) = value.replace(',', '.').toDoubleOrNull() ?: 0.0
+                            fun parse(value: String) = parseNumberLoose(value) ?: 0.0
                             onQuickAdd(
                                 parse(quickKcal),
                                 parse(quickProtein),
@@ -332,7 +339,7 @@ fun FoodSearchScreen(
                 }
 
                 if (favorites.isNotEmpty()) {
-                    SectionHeader(title = "Favoritos")
+                    SectionHeader(title = stringResource(R.string.search_favorites))
                     Spacer(Modifier.height(8.dp))
                     FavoriteRows(favorites, selected, ::toggle)
                     Spacer(Modifier.height(12.dp))
@@ -340,22 +347,22 @@ fun FoodSearchScreen(
 
                 // Smart history from real logs, shown alongside favorites and picks on an empty query.
                 if (query.isBlank() && recent.isNotEmpty()) {
-                    SectionHeader(title = "Recentes")
+                    SectionHeader(title = stringResource(R.string.recent))
                     Spacer(Modifier.height(8.dp))
                     RecentRows(recent, selected, ::toggle)
                     Spacer(Modifier.height(12.dp))
                 }
 
                 if (picks.isNotEmpty()) {
-                    SectionHeader(title = "Sugestões para $mealScope")
+                    SectionHeader(title = stringResource(R.string.search_suggestions, mealScope))
                     Spacer(Modifier.height(8.dp))
                     ResultRows(picks, selected, ::toggle)
                     Spacer(Modifier.height(12.dp))
                 }
 
                 SectionHeader(
-                    title = "Mais recentes",
-                    action = if (query.isBlank()) null else "${results.size} resultados",
+                    title = stringResource(R.string.search_latest),
+                    action = if (query.isBlank()) null else stringResource(R.string.search_result_count, results.size),
                 )
                 Spacer(Modifier.height(8.dp))
                 if (results.isEmpty() && !searching) {
@@ -366,7 +373,7 @@ fun FoodSearchScreen(
                             .padding(horizontal = 12.dp, vertical = 14.dp),
                     ) {
                         Text(
-                            "Nenhum alimento encontrado. Tenta outro nome ou cria um alimento personalizado.",
+                            stringResource(R.string.search_empty),
                             style = MaterialTheme.typography.body,
                             color = MetriqColors.ink3,
                         )
@@ -387,7 +394,7 @@ fun FoodSearchScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Dias", style = MaterialTheme.typography.label, color = MetriqColors.ink3)
+                Text(stringResource(R.string.day), style = MaterialTheme.typography.label, color = MetriqColors.ink3)
                 Spacer(Modifier.width(12.dp))
                 listOf(1, 3, 7).forEach { days ->
                     DayChip(
@@ -435,7 +442,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Mod
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
-        placeholder = { Text("Procurar alimentos", color = MetriqColors.ink3) },
+        placeholder = { Text(stringResource(R.string.search_placeholder), color = MetriqColors.ink3) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MetriqColors.ink3) },
         singleLine = true,
         shape = RoundedCornerShape(10.dp),
@@ -483,20 +490,20 @@ private fun QuickAddRow(
             .border(1.dp, MetriqColors.border, RoundedCornerShape(10.dp))
             .padding(12.dp),
     ) {
-        Text("MACROS RÁPIDOS", style = MaterialTheme.typography.labelSmall, color = MetriqColors.accent)
+        Text(stringResource(R.string.search_quick_macros), style = MaterialTheme.typography.labelSmall, color = MetriqColors.accent)
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             NumberField("kcal", kcal, onKcal, Modifier.weight(1f))
-            NumberField("P g", protein, onProtein, Modifier.weight(1f))
-            NumberField("C g", carbs, onCarbs, Modifier.weight(1f))
-            NumberField("F g", fat, onFat, Modifier.weight(1f))
+            NumberField(stringResource(R.string.search_p), protein, onProtein, Modifier.weight(1f))
+            NumberField(stringResource(R.string.search_c), carbs, onCarbs, Modifier.weight(1f))
+            NumberField(stringResource(R.string.search_f), fat, onFat, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            MetriqButton(text = "Adicionar", onClick = onAdd, primary = true)
+            MetriqButton(text = stringResource(R.string.add), onClick = onAdd, primary = true)
         }
     }
 }
@@ -595,18 +602,18 @@ private fun ScanMode(onScanLabel: () -> Unit, onScan: () -> Unit, onPhoto: () ->
             .background(MetriqColors.surface1)
             .padding(16.dp),
     ) {
-        Text("Digitalizar", style = MaterialTheme.typography.h2, color = MetriqColors.ink)
+        Text(stringResource(R.string.search_mode_scan), style = MaterialTheme.typography.h2, color = MetriqColors.ink)
         Spacer(Modifier.height(6.dp))
         Text(
-            "Escolhe o que queres ler. O reconhecimento corre no telemóvel; nada é enviado.",
+            stringResource(R.string.search_scan_text),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionChip("Etiqueta", Icons.AutoMirrored.Filled.Label, onScanLabel, Modifier.weight(1f))
-            ActionChip("Código", Icons.Default.QrCode, onScan, Modifier.weight(1f))
-            ActionChip("Foto", Icons.Default.PhotoCamera, onPhoto, Modifier.weight(1f))
+            ActionChip(stringResource(R.string.label), Icons.AutoMirrored.Filled.Label, onScanLabel, Modifier.weight(1f))
+            ActionChip(stringResource(R.string.search_barcode), Icons.Default.QrCode, onScan, Modifier.weight(1f))
+            ActionChip(stringResource(R.string.search_photo), Icons.Default.PhotoCamera, onPhoto, Modifier.weight(1f))
         }
     }
 }
@@ -620,15 +627,15 @@ private fun DescribeMode(onVoice: () -> Unit) {
             .background(MetriqColors.surface1)
             .padding(16.dp),
     ) {
-        Text("Descrever", style = MaterialTheme.typography.h2, color = MetriqColors.ink)
+        Text(stringResource(R.string.search_mode_describe), style = MaterialTheme.typography.h2, color = MetriqColors.ink)
         Spacer(Modifier.height(6.dp))
         Text(
-            "Diz ou escreve o que comeste. A conversão em alimentos acontece no dispositivo.",
+            stringResource(R.string.search_describe_text),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
         )
         Spacer(Modifier.height(14.dp))
-        MetriqButton(text = "Abrir microfone", onClick = onVoice, primary = true)
+        MetriqButton(text = stringResource(R.string.search_open_mic), onClick = onVoice, primary = true)
     }
 }
 
@@ -644,12 +651,12 @@ private fun RetryRow(onRetry: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "Sem ligação à pesquisa online.",
+            stringResource(R.string.offline),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
             modifier = Modifier.weight(1f),
         )
-        Text("Tentar de novo", style = MaterialTheme.typography.label, color = MetriqColors.accent)
+        Text(stringResource(R.string.retry), style = MaterialTheme.typography.label, color = MetriqColors.accent)
     }
 }
 

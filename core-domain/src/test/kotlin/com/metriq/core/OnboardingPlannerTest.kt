@@ -81,6 +81,15 @@ class OnboardingPlannerTest {
     }
 
     @Test
+    fun `relaxed macro floors are reported as a warning in the plan`() {
+        val result = OnboardingPlanner.plan(adult(GoalType.CUT, targetWeightKg = 70.0, weeks = 1))
+        assertEquals(0.0, result.dailyKcal, 0.0001)
+        val total = result.proteinG * 4.0 + result.fatG * 9.0 + result.carbG * 4.0
+        assertEquals(0.0, total, 2.0)
+        assertTrue(result.warnings.any { it.contains("reduzidas") })
+    }
+
+    @Test
     fun `minor cut from the requested deadline is not floored to ten percent`() {
         val result = OnboardingPlanner.plan(minor(GoalType.CUT, targetWeightKg = 57.0, weeks = 4))
         val expected = result.tdee - (3.0 / 4.0) * Expenditure.KCAL_PER_KG / 7.0

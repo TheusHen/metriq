@@ -48,11 +48,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.metriq.app.R
 import com.metriq.app.ui.components.FoodIcon
 import com.metriq.app.ui.components.MetriqButton
 import com.metriq.app.ui.components.Panel
@@ -63,6 +65,8 @@ import com.metriq.app.ui.log.FramedColumn
 import com.metriq.app.ui.log.darkFieldColors
 import com.metriq.app.ui.log.fmt0
 import com.metriq.app.ui.log.macroMeta
+import com.metriq.app.ui.log.toFoodDraft
+import com.metriq.app.util.parseDoubleLoose
 import com.metriq.app.ui.theme.MetriqColors
 import com.metriq.app.ui.theme.body
 import com.metriq.app.ui.theme.bodyStrong
@@ -92,11 +96,10 @@ fun VoiceLogScreen(
     var food by remember { mutableStateOf<Food?>(null) }
     var gramsText by remember { mutableStateOf("") }
     var listening by remember { mutableStateOf(false) }
+    val startHint = stringResource(R.string.voice_start_pt)
+    val unavailableHint = stringResource(R.string.voice_unavailable)
     var status by remember {
-        mutableStateOf(
-            if (available) "Toca no microfone ou escreve o que comeste e depois analisa."
-            else "O reconhecimento de voz não está disponível neste dispositivo. Escreve a frase abaixo.",
-        )
+        mutableStateOf(if (available) startHint else unavailableHint)
     }
 
     // Permission result is routed through a remembered slot so the launcher can be
@@ -119,18 +122,18 @@ fun VoiceLogScreen(
         if (result == null) {
             parsed = null
             food = null
-            status = "Couldn't match a food. Try a simpler phrase, like \"2 eggs\"."
+            status = context.getString(R.string.voice_no_match)
             return
         }
         parsed = result
         food = vm.foodFor(result.foodName)
         gramsText = fmt0(result.grams)
-        status = "Matched ${result.foodName}. Adjust grams if needed."
+        status = context.getString(R.string.voice_matched, result.foodName)
     }
 
     fun startListening(permissionChecked: Boolean = false) {
         if (!available) {
-            status = "O reconhecimento de voz não está disponível neste dispositivo. Escreve a frase."
+            status = context.getString(R.string.voice_unavailable)
             return
         }
         if (!permissionChecked &&
@@ -146,7 +149,7 @@ fun VoiceLogScreen(
         recognizerRef = recognizer
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
-                status = "Listening…"
+                status = context.getString(R.string.voice_listening)
             }
 
             override fun onBeginningOfSpeech() = Unit
@@ -161,10 +164,10 @@ fun VoiceLogScreen(
                 listening = false
                 status = when (error) {
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                        "A permissão do microfone está desligada. Escreve a frase."
+                        context.getString(R.string.voice_mic_permission_off)
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                        "Didn't catch that. Try again or type it."
-                    else -> "O reconhecimento de voz falhou. Escreve a frase."
+                        context.getString(R.string.voice_no_catch)
+                    else -> context.getString(R.string.voice_failed)
                 }
             }
 
@@ -176,7 +179,7 @@ fun VoiceLogScreen(
                     phrase = text
                     runParse(text)
                 } else {
-                    status = "Não percebi. Escreve a frase."
+                    status = context.getString(R.string.voice_not_understood)
                 }
             }
 
@@ -192,12 +195,12 @@ fun VoiceLogScreen(
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
         }
         listening = true
-        status = "Listening…"
+        status = context.getString(R.string.voice_listening)
         try {
             recognizer.startListening(intent)
         } catch (_: Exception) {
             listening = false
-            status = "Não foi possível iniciar o reconhecimento de voz. Escreve a frase."
+            status = context.getString(R.string.voice_cannot_start)
         }
     }
 
@@ -206,15 +209,15 @@ fun VoiceLogScreen(
             if (granted) {
                 startListening(permissionChecked = true)
             } else {
-                status = "Permissão do microfone negada. Escreve a frase."
+                status = context.getString(R.string.voice_permission_denied)
             }
         }
     }
 
     FramedColumn {
         ScreenHeader(
-            title = "Registo por voz",
-            subtitle = "On-device phrase parsing",
+            title = stringResource(R.string.voice_title),
+            subtitle = stringResource(R.string.voice_subtitle),
             onBack = onBack,
         )
 
@@ -227,13 +230,13 @@ fun VoiceLogScreen(
         ) {
             Spacer(Modifier.height(18.dp))
             Text(
-                text = "Descreve o que comeste",
+                text = stringResource(R.string.voice_intro),
                 style = MaterialTheme.typography.h2,
                 color = MetriqColors.ink,
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Try \"2 fatias de pão\", \"meia banana\" or \"half cup of milk\".",
+                text = stringResource(R.string.voice_example),
                 style = MaterialTheme.typography.body,
                 color = MetriqColors.ink2,
             )
@@ -244,7 +247,9 @@ fun VoiceLogScreen(
                     OutlinedTextField(
                         value = phrase,
                         onValueChange = { phrase = it },
-                        placeholder = { Text("Speak or type a phrase", color = MetriqColors.ink3) },
+                        placeholder = {
+                            Text(stringResource(R.string.voice_placeholder), color = MetriqColors.ink3)
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = darkFieldColors(),
@@ -278,7 +283,7 @@ fun VoiceLogScreen(
                 Spacer(Modifier.height(12.dp))
                 Row {
                     MetriqButton(
-                        text = "Parse phrase",
+                        text = stringResource(R.string.voice_parse),
                         onClick = { runParse(phrase) },
                         primary = true,
                         modifier = Modifier.weight(1f),
@@ -294,7 +299,7 @@ fun VoiceLogScreen(
 
             Spacer(Modifier.height(22.dp))
             SectionHeader(
-                title = "Preview",
+                title = stringResource(R.string.voice_preview),
                 action = parsed?.let { "${fmt0(it.grams)} g" },
             )
             Spacer(Modifier.height(10.dp))
@@ -303,7 +308,7 @@ fun VoiceLogScreen(
                 val f = food
                 if (p == null || f == null) {
                     Text(
-                        text = "Ainda nada analisado. Diz ou escreve uma frase e toca em Analisar para ver a pré-visualização.",
+                        text = stringResource(R.string.voice_no_parse),
                         style = MaterialTheme.typography.body,
                         color = MetriqColors.ink2,
                         modifier = Modifier.padding(vertical = 8.dp),
@@ -321,7 +326,8 @@ fun VoiceLogScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = "${fmt0(p.quantity)} ${p.unit} · ${(p.confidence * 100).toInt()}% match",
+                                text = "${fmt0(p.quantity)} ${p.unit} · " +
+                                    stringResource(R.string.match_percent, (p.confidence * 100).toInt()),
                                 style = MaterialTheme.typography.caption,
                                 color = MetriqColors.ink2,
                                 maxLines = 1,
@@ -332,13 +338,13 @@ fun VoiceLogScreen(
                     HorizontalDivider(thickness = 1.dp, color = MetriqColors.border)
                     Spacer(Modifier.height(14.dp))
 
-                    val effectiveGrams = gramsText.toDoubleOrNull() ?: p.grams
+                    val effectiveGrams = parseDoubleLoose(gramsText) ?: p.grams
                     val factor = effectiveGrams / 100.0
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = gramsText,
                             onValueChange = { gramsText = it },
-                            label = { Text("Grams") },
+                            label = { Text(stringResource(R.string.grams)) },
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             colors = darkFieldColors(),
@@ -377,6 +383,7 @@ fun VoiceLogScreen(
         }
 
         // Bottom action bar: stays visible above scrolled content and the keyboard.
+        val servingOne = stringResource(R.string.serving_one)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -391,28 +398,17 @@ fun VoiceLogScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MetriqButton(
-                text = "Guardar e registar",
+                text = stringResource(R.string.voice_save),
                 primary = true,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val p = parsed
                     val f = food
-                    val grams = gramsText.toDoubleOrNull()
+                    val grams = parseDoubleLoose(gramsText)
                     if (p == null || f == null || grams == null || grams <= 0.0) return@MetriqButton
-                    val factor = grams / 100.0
-                    onSave(
-                        FoodDraft(
-                            name = f.name,
-                            brand = f.brand,
-                            calories = f.calories * factor,
-                            protein = f.protein * factor,
-                            fat = f.fat * factor,
-                            carbs = f.carbs * factor,
-                            servingLabel = f.servingLabel ?: "1 serving",
-                            servingGrams = grams,
-                        ),
-                    )
-                    onBack()
+                    // Keep raw per-100 g macros: LogRepository scales by grams/100 on read.
+                    onSave(f.toFoodDraft(grams, servingOne))
+                    // onSave navigates to DASHBOARD; calling onBack here would land on SEARCH.
                 },
             )
         }

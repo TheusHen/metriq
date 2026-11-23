@@ -105,7 +105,7 @@ fun HomeScreen(
                 ) {
                     StatusRow(state.dateLabel)
                     ScreenHeader(
-                        title = "Hoje",
+                        title = stringResource(R.string.today),
                         subtitle = findingFor(state),
                     )
 
@@ -154,12 +154,12 @@ private fun StatusRow(dateLabel: String) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Image(
             painter = painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = "Metriq",
+            contentDescription = stringResource(R.string.app_name),
             modifier = Modifier.size(28.dp),
         )
         Spacer(Modifier.width(Spacing.sm))
         Text(
-            text = "METRIQ",
+            text = stringResource(R.string.app_name).uppercase(),
             style = MaterialTheme.typography.label,
             color = MetriqColors.ink2,
             maxLines = 1,
@@ -168,7 +168,7 @@ private fun StatusRow(dateLabel: String) {
         Spacer(Modifier.weight(1f))
         Text(
             text = "$dateLabel · " +
-                LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("pt-PT"))),
+                LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())),
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
             maxLines = 1,
@@ -178,14 +178,15 @@ private fun StatusRow(dateLabel: String) {
 }
 
 /** The line under the title is a finding from today's numbers, not a repeated date. */
+@Composable
 private fun findingFor(state: DashboardState): String {
     val logged = formatCount(state.kcalConsumed)
-    if (state.kcalTarget <= 0) return "$logged kcal registadas · meta não definida"
+    if (state.kcalTarget <= 0) return stringResource(R.string.home_no_target, logged)
     val remaining = state.kcalTarget - state.kcalConsumed
     return if (remaining >= 0) {
-        "$logged kcal registadas · ${formatCount(remaining)} kcal disponíveis"
+        stringResource(R.string.home_logged_remaining, logged, formatCount(remaining))
     } else {
-        "$logged kcal registadas · ${formatCount(-remaining)} kcal acima da meta"
+        stringResource(R.string.home_logged_over, logged, formatCount(-remaining))
     }
 }
 
@@ -194,8 +195,8 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
     val recalculation = state.goalRecalculation
     Column(Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "Orçamento energético",
-            action = if (recalculation == null) "Editar meta" else null,
+            title = stringResource(R.string.home_budget),
+            action = if (recalculation == null) stringResource(R.string.home_edit_goal) else null,
             onAction = onEditGoal,
         )
         Spacer(Modifier.height(Spacing.sm))
@@ -212,8 +213,11 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "Meta ajustada: ${formatCount(recalculation.appliedKcal)} kcal " +
-                            "(sugerido ${formatCount(recalculation.suggestedKcal)})",
+                        text = stringResource(
+                            R.string.home_adjusted,
+                            formatCount(recalculation.appliedKcal),
+                            formatCount(recalculation.suggestedKcal),
+                        ),
                         style = MaterialTheme.typography.bodyStrong,
                         color = MetriqColors.ink,
                         maxLines = 2,
@@ -236,7 +240,7 @@ private fun BudgetSection(state: DashboardState, onEditGoal: () -> Unit) {
                 }
                 Spacer(Modifier.width(Spacing.md))
                 Text(
-                    text = "Editar meta",
+                    text = stringResource(R.string.home_edit_goal),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -254,7 +258,7 @@ private fun AdaptationSection(state: DashboardState) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Adaptação de macros",
+                text = stringResource(R.string.home_adaptation),
                 style = MaterialTheme.typography.h2,
                 color = MetriqColors.ink,
                 maxLines = 1,
@@ -283,12 +287,12 @@ private fun AdaptationSection(state: DashboardState) {
 @Composable
 private fun TrainingSection(state: DashboardState) {
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title = "Treino")
+        SectionHeader(title = stringResource(R.string.training))
         Spacer(Modifier.height(Spacing.sm))
         val signal = state.trainingSignal
         val muscles = signal.muscles.sorted().joinToString(", ")
         Text(
-            text = muscles.ifEmpty { "Sem grupos musculares registrados" },
+            text = muscles.ifEmpty { stringResource(R.string.home_no_muscles) },
             style = MaterialTheme.typography.body,
             color = MetriqColors.ink2,
             maxLines = 2,
@@ -308,7 +312,7 @@ private fun TrainingSection(state: DashboardState) {
 @Composable
 private fun WeekSection(state: DashboardState) {
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title = "Esta semana")
+        SectionHeader(title = stringResource(R.string.home_this_week))
         Spacer(Modifier.height(Spacing.sm))
         WeekStrip(state.week, Modifier.fillMaxWidth())
     }
@@ -322,8 +326,8 @@ private fun FoodLogSection(
 ) {
     Column(Modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "Registo alimentar",
-            action = if (state.logItems.isEmpty()) "Adicionar" else "Ver tudo",
+            title = stringResource(R.string.home_food_log),
+            action = if (state.logItems.isEmpty()) stringResource(R.string.add) else stringResource(R.string.home_view_all),
             onAction = onAddFood,
         )
         Spacer(Modifier.height(Spacing.sm))
@@ -364,7 +368,7 @@ private fun FoodLogSection(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
-                            contentDescription = "Remover",
+                            contentDescription = stringResource(R.string.remove),
                             tint = MetriqColors.ink3,
                             modifier = Modifier.size(16.dp),
                         )
@@ -382,19 +386,19 @@ private fun FoodLogSection(
 private fun TrendSection(state: DashboardState) {
     val rate = state.trendChangePerWeek
     val rateText = when {
-        rate == null -> "A recolher dados"
-        abs(rate) < 0.02 -> "Estável"
-        rate < 0 -> "A descer ${format2(abs(rate))} kg por semana"
-        else -> "A subir ${format2(rate)} kg por semana"
+        rate == null -> stringResource(R.string.home_collecting)
+        abs(rate) < 0.02 -> stringResource(R.string.home_stable)
+        rate < 0 -> stringResource(R.string.home_trend_down, format2(abs(rate)))
+        else -> stringResource(R.string.home_trend_up, format2(rate))
     }
     val rateColor = when {
         rate == null || abs(rate) < 0.02 -> MetriqColors.ink3
-        state.goalLabel.equals("Loss", ignoreCase = true) && rate < 0 -> MetriqColors.success
-        state.goalLabel.equals("Gain", ignoreCase = true) && rate > 0 -> MetriqColors.success
+        state.goalLabel.equals("cut", ignoreCase = true) && rate < 0 -> MetriqColors.success
+        state.goalLabel.equals("bulk", ignoreCase = true) && rate > 0 -> MetriqColors.success
         else -> MetriqColors.danger
     }
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title = "Tendência de peso")
+        SectionHeader(title = stringResource(R.string.home_trend))
         Spacer(Modifier.height(Spacing.sm))
         Panel {
             Row(verticalAlignment = Alignment.Bottom) {
@@ -433,12 +437,12 @@ private fun TrendSection(state: DashboardState) {
 @Composable
 private fun ExpenditureSection(state: DashboardState) {
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title = "Gasto")
+        SectionHeader(title = stringResource(R.string.metric_expenditure))
         Spacer(Modifier.height(Spacing.sm))
         Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Gasto estimado",
+                    text = stringResource(R.string.home_expenditure),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -459,7 +463,7 @@ private fun ExpenditureSection(state: DashboardState) {
                 )
             }
             Text(
-                text = "${confidenceLabel(state.expenditureConfidence)} confiança",
+                text = "${confidenceLabel(state.expenditureConfidence)} ${stringResource(R.string.confidence_suffix)}",
                 style = MaterialTheme.typography.caption,
                 color = MetriqColors.ink3,
                 maxLines = 1,
@@ -469,7 +473,7 @@ private fun ExpenditureSection(state: DashboardState) {
             Spacer(Modifier.height(Spacing.md))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Objetivo",
+                    text = stringResource(R.string.profile_goal),
                     style = MaterialTheme.typography.body,
                     color = MetriqColors.ink2,
                     maxLines = 1,
@@ -489,23 +493,23 @@ private fun ExpenditureSection(state: DashboardState) {
 @Composable
 private fun HealthSection(state: DashboardState) {
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title = "Saúde")
+        SectionHeader(title = stringResource(R.string.home_health))
         Spacer(Modifier.height(Spacing.sm))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             HealthStat(
-                label = "Passos",
+                label = stringResource(R.string.steps),
                 value = state.stepsToday?.let { formatCount(it.toInt()) } ?: "—",
                 modifier = Modifier.weight(1f),
             )
             VerticalDivider(thickness = 1.dp, color = MetriqColors.border, modifier = Modifier.height(44.dp))
             HealthStat(
-                label = "kcal ativos",
+                label = stringResource(R.string.home_active_kcal),
                 value = state.healthCalories?.let { formatCount(it.toInt()) } ?: "—",
                 modifier = Modifier.weight(1f),
             )
             VerticalDivider(thickness = 1.dp, color = MetriqColors.border, modifier = Modifier.height(44.dp))
             HealthStat(
-                label = "Sessões",
+                label = stringResource(R.string.home_sessions),
                 value = state.healthExerciseSessions?.toString() ?: "—",
                 modifier = Modifier.weight(1f),
             )
@@ -534,12 +538,12 @@ private fun HealthStat(label: String, value: String, modifier: Modifier = Modifi
 @Composable
 private fun CheckinSection(state: DashboardState, onAccept: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        SectionHeader(title = "Check-in semanal")
+        SectionHeader(title = stringResource(R.string.home_checkin))
         Spacer(Modifier.height(Spacing.sm))
         Panel {
             Text(
                 text = if (state.checkinAccepted) stringResource(R.string.checkin_complete)
-                else "Com base no teu gasto atualizado, a tua meta é de ${formatCount(state.kcalTarget)} kcal por dia.",
+                else stringResource(R.string.home_target_text, formatCount(state.kcalTarget)),
                 style = MaterialTheme.typography.body,
                 color = MetriqColors.ink,
                 maxLines = 4,
@@ -552,24 +556,27 @@ private fun CheckinSection(state: DashboardState, onAccept: () -> Unit) {
     }
 }
 
+@Composable
 private fun intensityLabel(intensity: TrainingIntensity): String = when (intensity) {
-    TrainingIntensity.REST -> "Repouso"
-    TrainingIntensity.LIGHT -> "Leve"
-    TrainingIntensity.MODERATE -> "Moderado"
-    TrainingIntensity.HARD -> "Intenso"
+    TrainingIntensity.REST -> stringResource(R.string.intensity_rest)
+    TrainingIntensity.LIGHT -> stringResource(R.string.intensity_light)
+    TrainingIntensity.MODERATE -> stringResource(R.string.intensity_moderate)
+    TrainingIntensity.HARD -> stringResource(R.string.intensity_hard)
 }
 
+@Composable
 private fun confidenceLabel(value: String): String = when (value) {
-    "high" -> "Alta"
-    "medium" -> "Média"
-    "low" -> "Baixa"
+    "high" -> stringResource(R.string.confidence_high)
+    "medium" -> stringResource(R.string.confidence_medium)
+    "low" -> stringResource(R.string.confidence_low)
     else -> value.replaceFirstChar { it.uppercase(Locale.ENGLISH) }
 }
 
+@Composable
 private fun goalLabel(value: String): String = when (value) {
-    "cut" -> "Perder"
-    "maintain" -> "Manter"
-    "bulk" -> "Ganhar"
+    "cut" -> stringResource(R.string.goal_cut)
+    "maintain" -> stringResource(R.string.goal_maintain)
+    "bulk" -> stringResource(R.string.goal_bulk)
     else -> value.replaceFirstChar { it.uppercase(Locale.ENGLISH) }
 }
 

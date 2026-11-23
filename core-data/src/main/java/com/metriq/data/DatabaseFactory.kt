@@ -18,7 +18,7 @@ class MetriqStore(
     val logs = LogRepository(db, notifier)
     val settings = SettingsRepository(db)
     val profile = ProfileRepository(db, notifier)
-    val checkin = CheckinRepository(db)
+    val checkin = CheckinRepository(db, driver)
     val body = BodyRepository(db, notifier)
     val photo = PhotoRepository(
         db,
@@ -30,7 +30,7 @@ class MetriqStore(
     val water = WaterRepository(db, notifier)
     val dayProperty = DayPropertyRepository(db, notifier)
     val nutrientTarget = NutrientTargetRepository(db, notifier)
-    val recipe = RecipeRepository(db, notifier)
+    val recipe = RecipeRepository(db, notifier, driver)
     val program = ProgramRepository(db)
 }
 

@@ -2,6 +2,7 @@ package com.metriq.app.hevy
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
@@ -39,5 +40,34 @@ class HevyApiParserTest {
         assertEquals(60.5, set.weightKg!!, 0.0)
         assertEquals(10, set.reps)
         assertEquals(30L, set.durationSeconds)
+    }
+
+    @Test
+    fun `parseWorkoutsResult treats HTML body as a failure, not an empty page`() {
+        val result = parseWorkoutsResult("<html><body>Sign in</body></html>")
+
+        assertTrue(result is HevyResult.Failure)
+    }
+
+    @Test
+    fun `parseWorkoutsResult treats truncated JSON as a failure, not an empty page`() {
+        val result = parseWorkoutsResult("{\"workouts\":[")
+
+        assertTrue(result is HevyResult.Failure)
+    }
+
+    @Test
+    fun `parseWorkoutsPage reads the declared page count`() {
+        val page = parseWorkoutsPage("{\"page_count\":4,\"workouts\":[]}")
+
+        assertEquals(4, page.pageCount)
+        assertEquals(0, page.workouts.size)
+    }
+
+    @Test
+    fun `parseWorkoutsPage leaves an absent page count unknown`() {
+        val page = parseWorkoutsPage("{\"workouts\":[]}")
+
+        assertNull(page.pageCount)
     }
 }
