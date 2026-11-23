@@ -1,118 +1,118 @@
 <div align="center">
 
-<img src="docs/preview/metriq-banner.png" alt="Metriq — nutrição local-first" width="100%" />
+<img src="docs/preview/metriq-banner.png" alt="Metriq — the nutrition tracker you own" width="100%" />
 
 [![Build + crash log](https://github.com/TheusHen/metriq/actions/workflows/android-crash-log.yml/badge.svg)](https://github.com/TheusHen/metriq/actions/workflows/android-crash-log.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF.svg?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Android](https://img.shields.io/badge/Android-API%2028%2B-3DDC84.svg?logo=android&logoColor=white)](https://developer.android.com)
-[![Offline-first](https://img.shields.io/badge/100%25-local-first-lime.svg)](#privacidade-de-verdade)
+[![Offline-first](https://img.shields.io/badge/100%25-local-first-lime.svg)](#privacy-by-design)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/TheusHen/metriq/pulls)
 
-**Seus números. Suas metas. Seu aparelho.**
+**Your numbers. Your goals. Your device.**
 
 </div>
 
 ---
 
-## A ideia
+## The idea
 
-A maioria dos apps de nutrição pede uma conta, envia seus dados para a nuvem e calcula metas com uma fórmula genérica que ninguém vê. O **Metriq** faz o contrário: tudo acontece no seu celular. Sem login, sem backend, sem telemetria — e com a matemática aberta para auditoria.
+Most nutrition apps ask for an account, send your data to a server, and calculate your targets with a generic formula nobody can inspect. **Metriq does the opposite**: everything happens on your phone. No login, no backend, no telemetry — and the math is open for audit.
 
-Você diz **o que quer alcançar e até quando**. O Metriq descobre o resto: seu gasto real a partir das calorias que você come e da sua tendência de peso, converte o prazo em calorias diárias, monta os macros e avisa quando o ritmo pedido é agressivo demais. Se você se pesa uma vez por semana em vez de todo dia, o cálculo continua certo.
+You say **what you want to achieve and by when**. Metriq figures out the rest: your real expenditure from the calories you eat and your weight trend, turns your deadline into daily calories, builds your macros, and warns you when the requested pace is too aggressive. Weigh yourself once a week instead of every day? The calculation stays correct.
 
-> Feito para quem quer precisão sem entregar privacidade.
+> Built for people who want precision without giving up privacy.
 
 <div align="center">
 
-| Hoje | Registrar alimento | Analytics |
+| Today | Add food | Analytics |
 |:---:|:---:|:---:|
-| <img src="docs/preview/final-ui/01-today.png" alt="Tela inicial" width="230" /> | <img src="docs/preview/final-ui/02-add-food.png" alt="Busca de alimentos" width="230" /> | <img src="docs/preview/final-ui/05-analytics.png" alt="Analytics" width="230" /> |
+| <img src="docs/preview/final-ui/01-today.png" alt="Today screen" width="230" /> | <img src="docs/preview/final-ui/02-add-food.png" alt="Food search" width="230" /> | <img src="docs/preview/final-ui/05-analytics.png" alt="Analytics screen" width="230" /> |
 
-| Onboarding inteligente | Código de barras | Integrações |
+| Smart onboarding | Barcode scanner | Integrations |
 |:---:|:---:|:---:|
-| <img src="docs/preview/final-ui/00-onboarding.png" alt="Wizard inicial" width="230" /> | <img src="docs/preview/final-ui/03-barcode.png" alt="Leitura de código de barras" width="230" /> | <img src="docs/preview/final-ui/04-hevy-settings.png" alt="Configurações do Hevy" width="230" /> |
+| <img src="docs/preview/final-ui/00-onboarding.png" alt="Onboarding wizard" width="230" /> | <img src="docs/preview/final-ui/03-barcode.png" alt="Barcode scanning" width="230" /> | <img src="docs/preview/final-ui/04-hevy-settings.png" alt="Hevy settings" width="230" /> |
 
 </div>
 
-## Por que o Metriq é diferente
+## Why Metriq is different
 
-- **Gasto de verdade, não uma fórmula engessada.** O Metriq usa a identidade do balanço energético (calorias entrando − energia armazenada = calorias saindo), com 7716 kcal/kg. A variação de peso é distribuída entre as pesagens reais — intervalos de 1, 3, 7 ou 14 dias dão o mesmo resultado correto.
-- **BMR com fórmulas publicadas.** Mifflin-St Jeor para peso/altura/idade/sexo e Katch-McArdle quando você informa gordura corporal. Sem descontinuidade artificial no aniversário de 60 anos.
-- **Wizard que entende prazos.** Escolha peso-alvo e "até quando": ele mostra ao vivo as calorias necessárias, o ritmo em kg/semana, a data prevista e um aviso se você passou do referencial seguro (0,5 kg/semana para adultos).
-- **A meta acompanha os dados.** Se chegam novos pesos do Health Connect, o alvo é recalculado a partir do gasto atual — a meta não fica travada no número digitado no primeiro dia.
-- **Saúde conectada sem duplicar calorias.** Peso, passos, calorias ativas e sessões do Health Connect alimentam BMR, tendência e sinal de treino. Calorias ativas nunca são somadas ao gasto, porque a diferença ingestão–peso já contém sua atividade.
-- **Macros que fecham a conta.** Proteína, gordura e carboidrato somam as calorias da meta — inclusive em cortes agressivos de 1200 kcal, onde outros apps estouram o alvo em 12%.
+- **Real expenditure, not a hard-coded formula.** Metriq uses the energy-balance identity (calories in − stored energy change = calories out) at 7716 kcal/kg. Weight change is spread across the real weigh-in dates — gaps of 1, 3, 7 or 14 days all return the same correct answer.
+- **BMR from published equations.** Mifflin-St Jeor for weight/height/age/sex and Katch-McArdle when you provide body fat. No artificial discontinuity at your 60th birthday.
+- **A wizard that understands deadlines.** Pick a target weight and "by when": it shows live daily calories, the pace in kg/week, the projected date, and a warning if you pass the safe reference (0.5 kg/week for adults).
+- **Goals follow the data.** When new weights arrive from Health Connect, the target is recomputed from current expenditure — it doesn't stay pinned to the number you typed on day one.
+- **Health data connected without double counting.** Weight, steps, active calories and exercise sessions from Health Connect feed BMR, trend and the training signal. Active calories are **never added** to expenditure, because the intake-minus-weight difference already contains your activity.
+- **Macros that add up.** Protein, fat and carbs sum to your calorie target — even in an aggressive 1200 kcal cut, where other apps overshoot by 12%.
 
-## O que já funciona
+## What works today
 
-- Tendência de peso → gasto → orçamento semanal → macros, tudo a partir de dados locais.
-- Busca de alimentos offline, código de barras, OCR de rótulos e rotulagem de fotos no aparelho.
-- Registro por hora, alimentos customizados, receitas simples, quick add e log por voz.
-- Perfil, check-in semanal, exportação CSV e tela **Data** com 10 métricas, filtros e scrubbing.
-- Micronutrientes com DRI (incluindo valores femininos), medidas corporais, fotos de progresso, ciclo, hábitos com streak, passos e água.
-- Health Connect (leitura) e Hevy (leitura), com backfill e sincronização via WorkManager.
-- Três widgets Glance, tema claro/escuro, tipografia Geist + Space Grotesk, reduced motion e i18n em EN/PT-BR/ES.
+- Weight trend → expenditure → weekly budget → macros, all from local data.
+- Offline food search, barcode, label OCR and on-device photo labeling.
+- Hourly food log, custom foods, simple recipes, quick add and voice logging.
+- Profile, weekly check-in, CSV export and a **Data** screen with 10 metrics, filters and scrubbing.
+- Micronutrients with DRI (including female values), body measurements, progress photos, cycle tracking, habits with streaks, steps and water.
+- Health Connect (read) and Hevy (read), with backfill and WorkManager sync.
+- Three Glance widgets, light/dark theme, Geist + Space Grotesk typography, reduced motion and EN/PT-BR/ES translations.
 
-## Privacidade de verdade
+## Privacy by design
 
 | | |
 |---|---|
-| Conta obrigatória | ❌ |
-| Backend próprio | ❌ |
-| Telemetria | ❌ |
-| Dados de saúde no app | ✅ locais, criptografados quando aplicável |
-| Chave do Hevy | ✅ `EncryptedSharedPreferences` + Keystore |
-| Backup de dados | ✅ CSV exportado pelo próprio usuário |
-| Licença | AGPL-3.0 |
+| Account required | ❌ |
+| Custom backend | ❌ |
+| Telemetry | ❌ |
+| Health data | ✅ on-device, encrypted where applicable |
+| Hevy API key | ✅ `EncryptedSharedPreferences` + Keystore |
+| Backup | ✅ CSV exported by you |
+| License | AGPL-3.0 |
 
-O Metriq declara permissão de internet apenas para as integrações opt-in (Hevy, busca online e download de modelos). O núcleo funciona 100% offline.
+The app declares INTERNET only for opt-in integrations (Hevy, online food search, model downloads). The core works fully offline.
 
-## Começando
+## Getting started
 
-Requisitos: **JDK 21**, Android SDK platform 36 + build-tools 36.0.0.
+Requirements: **JDK 21**, Android SDK platform 36 + build-tools 36.0.0.
 
 ```powershell
 .\gradlew.bat test assembleDebug
 python -m pytest metriq-foodpacks/tests -q
 ```
 
-O APK debug fica em `app/build/outputs/apk/debug/app-debug.apk`.
+Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
-### Arquitetura
+### Architecture
 
-| Módulo | Conteúdo |
+| Module | Contents |
 |---|---|
-| `core-domain` | BMR, tendência, gasto, metas, macros, DRI, parser de rótulos — Kotlin puro na JVM |
-| `core-data` | SQLDelight, FTS5, repositories, notificador de mudanças |
+| `core-domain` | BMR, trend, expenditure, goals, macros, DRI, label parser — pure Kotlin on the JVM |
+| `core-data` | SQLDelight, FTS5, repositories, change notifier |
 | `app` | Compose, CameraX/ML Kit, Health Connect, Glance, WorkManager |
 
-A CI roda testes JVM e do pipeline de food packs, captura telas em emulador e **falha** se aparecer um sinal real de crash/ANR no logcat.
+CI runs JVM and food-pack pipeline tests, captures screens on an emulator, and **fails** on real crash/ANR signals in logcat.
 
-## Estado do projeto
+## Project status
 
-- **Versão:** 0.1.0 — em desenvolvimento ativo.
-- **Já validado:** 373 execuções de testes JVM (0 falhas) + 24 testes do pipeline Python; probes numéricos independentes conferem BMR, gasto com pesagens esparsas e soma de macros.
-- **Ainda não feito:** download de food packs pela UI, análise de fotos na nuvem (só on-device), escrita de dados no Health Connect e execução em dispositivo físico (a CI usa emulador).
+- **Version:** 0.1.0 — under active development.
+- **Validated:** 373 JVM test executions (0 failures) + 24 Python pipeline tests; independent numeric probes confirm BMR, expenditure with sparse weigh-ins, and macro energy sums.
+- **Not done yet:** food-pack downloader UI, cloud photo analysis (on-device only), Health Connect writes, and a physical-device run (CI uses an emulator).
 
-## Contribuindo
+## Contributing
 
-Issues e PRs são bem-vindos — especialmente em acessibilidade, i18n, pipeline de alimentos e testes de UI. A matemática fica em `core-domain`, com testes JUnit para cada fórmula; mexa lá e rode `.\gradlew.bat :core-domain:test`.
+Issues and PRs are welcome — especially accessibility, i18n, the food pipeline and UI tests. The math lives in `core-domain` with a JUnit test per formula; change it there and run `.\gradlew.bat :core-domain:test`.
 
-## Créditos e licença
+## Credits and license
 
-- Dados de alimentos: **USDA FoodData Central** (CC0) e **Open Food Facts** (ODbL — atribuição necessária).
-- Fontes: **Geist** e **Space Grotesk** (SIL OFL).
-- Código: **AGPL-3.0** — veja [LICENSE](LICENSE).
+- Food data: **USDA FoodData Central** (CC0) and **Open Food Facts** (ODbL — attribution required).
+- Fonts: **Geist** and **Space Grotesk** (SIL OFL).
+- Code: **AGPL-3.0** — see [LICENSE](LICENSE).
 
-Clean-room: nenhum código, asset, fonte ou marca de outros apps de nutrição foi usado.
+Clean-room: no code, assets, fonts or trademarks from other nutrition apps were used.
 
 ---
 
 <div align="center">
 
-Feito com dados locais e matemática verificada.
+Built with local data and verified math.
 
-[⬆ Voltar ao topo](#a-ideia)
+[⬆ Back to top](#the-idea)
 
 </div>
