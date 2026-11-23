@@ -111,12 +111,14 @@ jobs:
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true --es start_screen integrations || true
             sleep 12
             adb exec-out screencap -p > screen-integrations.png
-            adb shell wm size 360x800 || true
+            adb shell wm size 1080x2400 || true
+            adb shell wm density 480 || true
             adb shell am force-stop com.metriq.app || true
             adb shell am start -n com.metriq.app/.MainActivity --ez skip_onboarding true || true
             sleep 12
             adb exec-out screencap -p > screen-narrow-home.png
-            adb shell wm size 1080x2400 || true
+            adb shell wm density reset || true
+            adb shell wm size reset || true
             adb shell am start -n com.metriq.app/.MainActivity || true
             sleep 12
             echo "=== LOGCAT (threadtime) ==="
