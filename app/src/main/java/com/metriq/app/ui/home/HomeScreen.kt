@@ -164,6 +164,7 @@ private fun StatusRow(dateLabel: String) {
             color = MetriqColors.ink2,
             maxLines = 1,
         )
+        Spacer(Modifier.width(Spacing.sm))
         Spacer(Modifier.weight(1f))
         Text(
             text = "$dateLabel · " +
@@ -171,6 +172,7 @@ private fun StatusRow(dateLabel: String) {
             style = MaterialTheme.typography.caption,
             color = MetriqColors.ink3,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
